@@ -1,75 +1,72 @@
-# OSX
-#
+# OS
 .DS_Store
+Thumbs.db
 
-# Xcode
-#
-build/
-*.pbxuser
-!default.pbxuser
-*.mode1v3
-!default.mode1v3
-*.mode2v3
-!default.mode2v3
-*.perspectivev3
-!default.perspectivev3
-xcuserdata
-*.xccheckout
-*.moved-aside
-DerivedData
-*.hmap
-*.ipa
-*.xcuserstate
-**/.xcode.env.local
-
-# Android/IntelliJ
-#
-build/
-.idea
-.gradle
-local.properties
-*.iml
-*.hprof
-.cxx/
-*.keystore
-!debug.keystore
-.kotlin/
-
-# node.js
-#
+# Dependencies
 node_modules/
-npm-debug.log
-yarn-error.log
+npm-debug.log*
+yarn-error.log*
+package-lock.json
 
-# fastlane
-#
-# It is recommended to not store the screenshots in the git repo. Instead, use fastlane to re-generate the
-# screenshots whenever they are needed.
-# For more information about the recommended setup visit:
-# https://docs.fastlane.tools/best-practices/source-control/
+# Environment variables
+.env
+.env.local
+.env.*.local
+!.env.example
 
-**/fastlane/report.xml
-**/fastlane/Preview.html
-**/fastlane/screenshots
-**/fastlane/test_output
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
 
-# Bundle artifact
+# Native build outputs
+android/build/
+android/app/build/
+android/.gradle/
+ios/build/
+ios/Pods/
+ios/DerivedData/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
 *.jsbundle
 
 # Ruby / CocoaPods
-**/Pods/
 /vendor/bundle/
 
-# Temporary files created by Metro to check the health of the file watcher
+# TypeScript
+*.tsbuildinfo
+
+# Build outputs
+build/
+out/
+
+# Prisma generated client
+packages/backend/src/generated/
+packages/backend/prisma/migrations/
+
+# NestJS
+packages/backend/dist/
+
+# Testing
+coverage/
+
+# Metro
 .metro-health-check*
+node_modules/.cache/
 
-# testing
-/coverage
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
 
-# Yarn
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
+# Logs
+logs/
+*.log
+
+# Android local config
+apps/mobile/android/local.properties
