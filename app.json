@@ -1,4 +1,7 @@
 {
   "name": "Grit",
-  "displayName": "Grit"
+  "displayName": "Grit",
+  "android": {
+    "package": "com.karvaxis.grit"
+  }
 }

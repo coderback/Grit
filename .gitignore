@@ -70,3 +70,4 @@ logs/
 
 # Android local config
 apps/mobile/android/local.properties
+/.agents/
