@@ -13,6 +13,7 @@ const TAB_ICONS: Record<string, [IoniconsName, IoniconsName]> = {
   activity: ['barbell-outline', 'barbell'],
   habits: ['checkmark-circle-outline', 'checkmark-circle'],
   social: ['people-outline', 'people'],
+  profile: ['person-circle-outline', 'person-circle'],
 };
 
 const TAB_LABELS: Record<string, string> = {
@@ -21,6 +22,7 @@ const TAB_LABELS: Record<string, string> = {
   activity: 'Activity',
   habits: 'Habits',
   social: 'Social',
+  profile: 'Profile',
 };
 
 function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
@@ -114,6 +116,7 @@ export default function TabLayout() {
       <Tabs.Screen name="activity" />
       <Tabs.Screen name="habits" />
       <Tabs.Screen name="social" />
+      <Tabs.Screen name="profile" />
     </Tabs>
   );
 }
