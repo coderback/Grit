@@ -7,55 +7,65 @@ import { Colors } from '@/constants/colors';
 export default function WelcomeScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark }}>
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingVertical: 16, justifyContent: 'center', gap: 32 }}>
-        <View style={{ gap: 12 }}>
-          <Text
-            style={{
-              color: Colors.orange,
-              fontFamily: 'DMSans-Bold',
-              fontSize: 56,
-              letterSpacing: -2,
-            }}
-          >
+      <View style={{ flex: 1, paddingHorizontal: 28, justifyContent: 'space-between', paddingTop: 60, paddingBottom: 40 }}>
+
+        {/* Top content */}
+        <View style={{ gap: 24 }}>
+          <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 40, letterSpacing: -1.5 }}>
             GRIT
           </Text>
-          <Text
-            style={{
-              color: Colors.text,
-              fontFamily: 'DMSans-Bold',
-              fontSize: 30,
-              letterSpacing: -0.5,
-              lineHeight: 36,
-            }}
-          >
-            Track your nutrition.{'\n'}Hit your goals.
-          </Text>
-          <Text
-            style={{
-              color: Colors.muted,
-              fontFamily: 'DMSans-Regular',
-              fontSize: 16,
-              lineHeight: 24,
-            }}
-          >
-            Set a daily calorie target and start logging your food today.
-          </Text>
+
+          <View style={{ gap: 12 }}>
+            <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 34, letterSpacing: -0.8, lineHeight: 40 }}>
+              Build your custom{'\n'}fitness & nutrition{'\n'}plan in 60 seconds.
+            </Text>
+            <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 16, lineHeight: 24 }}>
+              Personalised to your body, goals, and lifestyle.
+            </Text>
+          </View>
+
+          {/* Feature pills */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+            {['Calorie tracking', 'Macro splits', 'Progress timeline', 'AI coaching'].map((label) => (
+              <View
+                key={label}
+                style={{
+                  backgroundColor: Colors.surface2,
+                  borderRadius: 999,
+                  paddingHorizontal: 14,
+                  paddingVertical: 7,
+                  borderWidth: 1,
+                  borderColor: Colors.border,
+                }}
+              >
+                <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 13 }}>
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
 
-        <Pressable
-          onPress={() => router.push('/onboarding/setup')}
-          style={({ pressed }) => ({
-            backgroundColor: Colors.orange,
-            borderRadius: 999,
-            paddingVertical: 16,
-            alignItems: 'center',
-            opacity: pressed ? 0.85 : 1,
-          })}
-        >
-          <Text style={{ color: '#fff', fontFamily: 'DMSans-Bold', fontSize: 17 }}>
-            Get started →
+        {/* CTA */}
+        <View style={{ gap: 12 }}>
+          <Pressable
+            onPress={() => router.push('/onboarding/basics')}
+            style={({ pressed }) => ({
+              backgroundColor: Colors.orange,
+              borderRadius: 999,
+              paddingVertical: 18,
+              alignItems: 'center',
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Text style={{ color: '#fff', fontFamily: 'DMSans-Bold', fontSize: 17 }}>
+              Get started →
+            </Text>
+          </Pressable>
+          <Text style={{ color: Colors.border, fontFamily: 'DMSans-Regular', fontSize: 12, textAlign: 'center' }}>
+            No account required to start
           </Text>
-        </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );

@@ -71,8 +71,8 @@ export default function RootLayout() {
           <Stack.Screen name="profile/[id]" />
           <Stack.Screen name="challenge/[id]" />
         </Stack>
-        {!session && <Redirect href="/(auth)/login" />}
-        {session && !onboardingComplete && <Redirect href="/onboarding" />}
+        {!onboardingComplete && <Redirect href="/onboarding" />}
+        {onboardingComplete && !session && <Redirect href="/(auth)/login" />}
       </GestureHandlerRootView>
     </QueryClientProvider>
   );
