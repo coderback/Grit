@@ -22,7 +22,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const { session, isLoading, setSession, onboardingComplete, loadOnboardingState } = useAuthStore();
+  const { session, isLoading, onboardingLoading, setSession, onboardingComplete, loadOnboardingState } = useAuthStore();
   usePushNotifications();
 
   const [fontsLoaded] = useFonts({
@@ -33,28 +33,37 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    let mounted = true;
+
     loadOnboardingState();
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
+    // Safety net: never block past 5s even if Supabase retries on bad network
+    const fallback = setTimeout(() => { if (mounted) setSession(null); }, 5000);
+
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => { if (mounted) { clearTimeout(fallback); setSession(session); } })
+      .catch(() => { if (mounted) { clearTimeout(fallback); setSession(null); } });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+      if (mounted) setSession(session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      clearTimeout(fallback);
+      subscription.unsubscribe();
+    };
   }, [setSession, loadOnboardingState]);
 
   useEffect(() => {
-    if (!isLoading && fontsLoaded) {
+    if (!isLoading && !onboardingLoading && fontsLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [isLoading, fontsLoaded]);
+  }, [isLoading, onboardingLoading, fontsLoaded]);
 
-  if (isLoading || !fontsLoaded) {
+  if (isLoading || onboardingLoading || !fontsLoaded) {
     return null;
   }
 

@@ -8,6 +8,7 @@ interface AuthState {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
+  onboardingLoading: boolean;
   onboardingComplete: boolean;
   setSession: (session: Session | null) => void;
   setLoading: (loading: boolean) => void;
@@ -20,6 +21,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   session: null,
   user: null,
   isLoading: true,
+  onboardingLoading: true,
   onboardingComplete: false,
   setSession: (session) =>
     set({ session, user: session?.user ?? null, isLoading: false }),
@@ -31,6 +33,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   loadOnboardingState: async () => {
     const val = await SecureStore.getItemAsync(ONBOARDING_KEY);
-    set({ onboardingComplete: val === 'true' });
+    set({ onboardingComplete: val === 'true', onboardingLoading: false });
   },
 }));

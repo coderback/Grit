@@ -1,8 +1,7 @@
-import React, { useMemo } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import React, { useMemo, useRef, useEffect } from 'react';
+import { View, Text, Pressable, ScrollView, Animated } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useOnboardingStore } from '../../stores/onboardingStore';
 import { calcBMR, calcTDEE, calcAdjustedCalories, calcMacros, calcTimeline, ageFromDOB } from '../../lib/tdee';
@@ -39,12 +38,39 @@ export default function RevealScreen() {
     return { tdee, calories, macros, weeks, goal: primaryGoal };
   }, [store]);
 
+  const RESULTS = plan ? [
+    { label: 'Daily Calories', value: String(plan.calories), unit: 'kcal', color: Colors.orange },
+    { label: 'Protein', value: String(plan.macros.proteinG), unit: 'g', color: Colors.blue },
+    { label: 'Carbs', value: String(plan.macros.carbsG), unit: 'g', color: Colors.orange },
+    { label: 'Fat', value: String(plan.macros.fatG), unit: 'g', color: Colors.teal },
+    ...(plan.weeks ? [{ label: 'Est. Timeline', value: `~${plan.weeks}`, unit: 'weeks', color: Colors.teal }] : []),
+  ] : [];
+
+  const opacityAnims = useRef(RESULTS.map(() => new Animated.Value(0))).current;
+  const translateAnims = useRef(RESULTS.map(() => new Animated.Value(12))).current;
+
+  useEffect(() => {
+    const animations = RESULTS.map((_, i) =>
+      Animated.parallel([
+        Animated.timing(opacityAnims[i], {
+          toValue: 1, duration: 400, delay: i * 80, useNativeDriver: true,
+        }),
+        Animated.timing(translateAnims[i], {
+          toValue: 0, duration: 400, delay: i * 80, useNativeDriver: true,
+        }),
+      ])
+    );
+    Animated.parallel(animations).start();
+  }, []);
+
   if (!plan) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 15 }}>Missing information — please go back.</Text>
+        <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 15 }}>
+          Missing information — please go back.
+        </Text>
         <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
-          <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Medium', fontSize: 15 }}>← Back</Text>
+          <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 15 }}>← Back</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -52,92 +78,73 @@ export default function RevealScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
-      <ScrollView contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        <ProgressBar step={9} total={9} />
-
-        <View style={{ gap: 6 }}>
-          <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-            Your personalised plan
-          </Text>
-          <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 30, letterSpacing: -0.5 }}>
-            Here's what{'\n'}we calculated 🎯
-          </Text>
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingBottom: 40, alignItems: 'center' }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ width: '100%', marginBottom: 32 }}>
+          <ProgressBar step={9} total={9} />
         </View>
 
-        {/* Daily calories — hero */}
-        <View style={{
-          backgroundColor: `${Colors.orange}18`,
-          borderRadius: 24,
-          borderWidth: 1,
-          borderColor: `${Colors.orange}44`,
-          padding: 28,
-          alignItems: 'center',
-          gap: 8,
-        }}>
-          <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-            Daily Calorie Target
-          </Text>
-          <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 60, letterSpacing: -2 }}>
-            {plan.calories}
-          </Text>
-          <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 15 }}>
-            kcal per day
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.teal }} />
-            <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13 }}>
-              TDEE: {plan.tdee} kcal
-            </Text>
+        {/* Logo pulse ring */}
+        <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+          {/* Outer glow rings */}
+          <View style={{ position: 'absolute', width: 130, height: 130, borderRadius: 65, borderWidth: 1, borderColor: 'rgba(255,92,43,0.05)' }} />
+          <View style={{ position: 'absolute', width: 110, height: 110, borderRadius: 55, borderWidth: 1, borderColor: 'rgba(255,92,43,0.1)' }} />
+          {/* Main ring */}
+          <View style={{
+            width: 90, height: 90, borderRadius: 45,
+            backgroundColor: 'rgba(255,92,43,0.1)',
+            borderWidth: 2, borderColor: 'rgba(255,92,43,0.3)',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Text style={{ fontSize: 36 }}>💪</Text>
           </View>
         </View>
 
-        {/* Macros */}
-        <View style={{ gap: 10 }}>
-          <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-            Macro Split
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            {[
-              { label: 'Protein', value: plan.macros.proteinG, color: Colors.blue, pct: '30%' },
-              { label: 'Carbs', value: plan.macros.carbsG, color: Colors.teal, pct: '40%' },
-              { label: 'Fat', value: plan.macros.fatG, color: Colors.orange, pct: '30%' },
-            ].map((m) => (
-              <View key={m.label} style={{ flex: 1, backgroundColor: Colors.surface, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 14, alignItems: 'center', gap: 4 }}>
-                <Text style={{ color: m.color, fontFamily: 'DMSans-Bold', fontSize: 22 }}>{m.value}g</Text>
-                <Text style={{ color: Colors.text, fontFamily: 'DMSans-Medium', fontSize: 13 }}>{m.label}</Text>
-                <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 11 }}>{m.pct}</Text>
+        <Text style={{ fontSize: 30, fontFamily: 'DMSans-Bold', color: Colors.text, letterSpacing: -0.5, textAlign: 'center', marginBottom: 8 }}>
+          Your plan is ready.
+        </Text>
+        <Text style={{ fontSize: 14, color: Colors.muted, fontFamily: 'DMSans-Regular', textAlign: 'center', lineHeight: 22, maxWidth: 280, marginBottom: 32 }}>
+          Based on your stats, we've calculated personalised targets to fuel your goals.
+        </Text>
+
+        {/* Staggered result rows */}
+        <View style={{ width: '100%', gap: 10, marginBottom: 32 }}>
+          {RESULTS.map((item, i) => (
+            <Animated.View
+              key={item.label}
+              style={{
+                opacity: opacityAnims[i],
+                transform: [{ translateY: translateAnims[i] }],
+                backgroundColor: Colors.surface,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: Colors.border,
+                padding: 16,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 14, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>{item.label}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                <Text style={{ fontSize: 20, fontFamily: 'JetBrainsMono-Regular', color: item.color }}>{item.value}</Text>
+                <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>{item.unit}</Text>
               </View>
-            ))}
-          </View>
+            </Animated.View>
+          ))}
         </View>
 
-        {/* Timeline */}
-        {plan.weeks && (
-          <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: `${Colors.teal}22`, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="calendar-outline" size={22} color={Colors.teal} />
-            </View>
-            <View style={{ gap: 2 }}>
-              <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 16 }}>
-                ~{plan.weeks} weeks to reach your goal
-              </Text>
-              <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13 }}>
-                {GOAL_LABELS[plan.goal] ?? plan.goal} · staying consistent
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* CTA */}
         <Pressable
           onPress={() => router.push('/onboarding/signup')}
           style={({ pressed }) => ({
+            width: '100%',
             backgroundColor: Colors.orange,
             borderRadius: 999,
             paddingVertical: 18,
             alignItems: 'center',
             opacity: pressed ? 0.85 : 1,
-            marginTop: 4,
           })}
         >
           <Text style={{ color: '#fff', fontFamily: 'DMSans-Bold', fontSize: 17 }}>
@@ -145,7 +152,7 @@ export default function RevealScreen() {
           </Text>
         </Pressable>
 
-        <Pressable onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
+        <Pressable onPress={() => router.back()} style={{ alignItems: 'center', paddingTop: 16, paddingBottom: 8 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>← Back</Text>
         </Pressable>
       </ScrollView>

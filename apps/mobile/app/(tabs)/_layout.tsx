@@ -10,7 +10,7 @@ type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 const TAB_ICONS: Record<string, [IoniconsName, IoniconsName]> = {
   index: ['home-outline', 'home'],
   food: ['nutrition-outline', 'nutrition'],
-  activity: ['barbell-outline', 'barbell'],
+  activity: ['pulse-outline', 'pulse'],
   habits: ['checkmark-circle-outline', 'checkmark-circle'],
   social: ['people-outline', 'people'],
   profile: ['person-circle-outline', 'person-circle'],
@@ -19,7 +19,7 @@ const TAB_ICONS: Record<string, [IoniconsName, IoniconsName]> = {
 const TAB_LABELS: Record<string, string> = {
   index: 'Home',
   food: 'Food',
-  activity: 'Activity',
+  activity: 'Stats',
   habits: 'Habits',
   social: 'Social',
   profile: 'Profile',

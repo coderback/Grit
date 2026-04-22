@@ -49,11 +49,13 @@ grit/
 
 ### Run
 
+All commands below run from the **repo root** unless noted.
+
 ```bash
 # Install
 npm install
 
-# Start Expo dev server
+# Start Expo dev server — run from repo root
 npm run mobile
 
 # iOS simulator
@@ -106,15 +108,20 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 
 ### Run
 
+All commands below run from the **repo root** unless noted.
+
 ```bash
 # Install
 npm install
 
-# Run migrations
-cd packages/backend && npx prisma migrate dev
+# Run migrations (from repo root)
+cd packages/backend && npx prisma migrate dev && cd ../..
 
-# Start in watch mode
+# Start in watch mode — run from repo root
 npm run backend
+
+# Or run directly from the backend package
+cd packages/backend && npm run start:dev
 ```
 
 ### Environment

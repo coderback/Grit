@@ -27,7 +27,8 @@ export function useAINudge() {
       const { data } = await api.get('/ai/nudge');
       return data;
     },
-    staleTime: 1000 * 60 * 60 * 6, // 6 hours
+    staleTime: 1000 * 60 * 60 * 6,
+    retry: false,
   });
 }
 
