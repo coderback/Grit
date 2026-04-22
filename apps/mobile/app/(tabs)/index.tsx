@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View, Text, ScrollView, Pressable, RefreshControl,
 } from 'react-native';
@@ -6,12 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Svg, {
-  Circle, Defs, LinearGradient, Stop, Line, G,
+  Circle, Defs, LinearGradient, Stop, Line, Rect, Path,
 } from 'react-native-svg';
 import { NudgeCard } from '@/components/coach/NudgeCard';
 import { useFoodLogsForDate } from '@/hooks/useFoodLog';
 import { useWeeklySummary } from '@/hooks/useActivityLog';
-import { useHabits, useTodayCompletions } from '@/hooks/useHabits';
+import { useHabits, useTodayCompletions, useMaxHabitStreak } from '@/hooks/useHabits';
 import { api } from '@/lib/api';
 import { Colors } from '@/constants/colors';
 
@@ -148,6 +148,7 @@ export default function HomeScreen() {
   const { data: weeklySummary } = useWeeklySummary();
   const { data: habits } = useHabits();
   const { data: todayDone } = useTodayCompletions(habits ?? []);
+  const { data: maxStreak = 0 } = useMaxHabitStreak(habits ?? []);
 
   const eaten = foodLogs?.totals.calories ?? 0;
   const proteinG = foodLogs?.totals.proteinG ?? 0;
@@ -173,7 +174,29 @@ export default function HomeScreen() {
     { label: 'Fat', val: Math.round(fatG), goal: fatGoal, color: Colors.teal },
   ];
 
-  const recentLogs = (foodLogs?.logs ?? []).slice(0, 3);
+  const MEAL_ORDER = ['breakfast', 'lunch', 'snack', 'dinner'];
+  const mealGroups = useMemo(() => {
+    const logs = foodLogs?.logs ?? [];
+    const map = new Map<string, { names: string[]; kcal: number }>();
+    for (const log of logs) {
+      const key = log.mealType.toLowerCase();
+      if (!map.has(key)) map.set(key, { names: [], kcal: 0 });
+      const g = map.get(key)!;
+      g.names.push(log.name);
+      g.kcal += log.calories;
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => {
+        const ai = MEAL_ORDER.indexOf(a), bi = MEAL_ORDER.indexOf(b);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      })
+      .slice(0, 3)
+      .map(([type, data]) => ({
+        meal: type.charAt(0).toUpperCase() + type.slice(1),
+        detail: data.names.join(', '),
+        kcal: Math.round(data.kcal),
+      }));
+  }, [foodLogs]);
 
   function refresh() {
     qc.invalidateQueries({ queryKey: ['me'] });
@@ -201,19 +224,18 @@ export default function HomeScreen() {
               {me?.displayName ?? '…'} 👊
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-            <View style={{
-              width: 40, height: 40, borderRadius: 12,
-              backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+          <Pressable
+            onPress={() => router.push('/(tabs)/profile')}
+            style={({ pressed }) => ({
+              width: 40, height: 40, borderRadius: 20,
+              backgroundColor: `${Colors.orange}20`,
+              borderWidth: 1.5, borderColor: `${Colors.orange}40`,
               alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                <Line x1="3" y1="12" x2="21" y2="12" stroke={Colors.text} strokeWidth="1.8" strokeLinecap="round" />
-                <Line x1="3" y1="6" x2="21" y2="6" stroke={Colors.text} strokeWidth="1.8" strokeLinecap="round" />
-                <Line x1="3" y1="18" x2="21" y2="18" stroke={Colors.text} strokeWidth="1.8" strokeLinecap="round" />
-              </Svg>
-            </View>
-          </View>
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Text style={{ fontSize: 18 }}>👤</Text>
+          </Pressable>
         </View>
 
         {/* AI Nudge */}
@@ -289,9 +311,16 @@ export default function HomeScreen() {
             <Text style={{ fontSize: 32, fontFamily: 'JetBrainsMono-Regular', color: Colors.text, lineHeight: 38, marginBottom: 6 }}>
               {activeMinutes}
             </Text>
-            <View style={{ height: 5, backgroundColor: Colors.surface2, borderRadius: 999, overflow: 'hidden' }}>
-              <View style={{ height: '100%', width: `${activePct * 100}%`, backgroundColor: Colors.orange, borderRadius: 999 }} />
-            </View>
+            <Svg width="100%" height={5} viewBox="0 0 100 5" preserveAspectRatio="none">
+              <Defs>
+                <LinearGradient id="actGrad" x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0%" stopColor={Colors.orange} />
+                  <Stop offset="100%" stopColor="#FF8C5A" />
+                </LinearGradient>
+              </Defs>
+              <Rect x={0} y={0} width={100} height={5} fill={Colors.surface2} rx={2.5} />
+              <Rect x={0} y={0} width={activePct * 100} height={5} fill="url(#actGrad)" rx={2.5} />
+            </Svg>
             <Text style={{ fontSize: 11, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 4 }}>Goal: 60 min</Text>
           </Pressable>
 
@@ -319,68 +348,64 @@ export default function HomeScreen() {
               ))}
             </View>
             <Text style={{ fontSize: 11, color: Colors.teal, fontFamily: 'DMSans-Regular', marginTop: 4 }}>
-              {doneCount === habitCount && habitCount > 0 ? 'All done! 🔥' : 'Keep going'}
+              {maxStreak > 0 ? `${maxStreak} day streak 🔥` : 'Start your streak!'}
             </Text>
           </Pressable>
         </View>
 
         {/* Meals preview */}
-        {(recentLogs.length > 0 || true) && (
-          <View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <Text style={{ fontSize: 12, fontFamily: 'DMSans-Medium', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                Today's meals
-              </Text>
-              <Pressable onPress={() => router.push('/(tabs)/food')}>
-                <Text style={{ fontSize: 13, color: Colors.orange, fontFamily: 'DMSans-Medium' }}>See all →</Text>
-              </Pressable>
-            </View>
-            <View style={{ gap: 8 }}>
-              {recentLogs.map((item) => (
-                <Pressable
-                  key={item.id}
-                  onPress={() => router.push('/(tabs)/food')}
-                  style={({ pressed }) => ({
-                    backgroundColor: pressed ? Colors.surface2 : Colors.surface,
-                    borderRadius: 14, borderWidth: 1, borderColor: Colors.border,
-                    padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12,
-                  })}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontFamily: 'DMSans-Bold', color: Colors.text }}>{item.name}</Text>
-                    {item.brand && (
-                      <Text style={{ fontSize: 12, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 2 }}>{item.brand}</Text>
-                    )}
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontSize: 16, fontFamily: 'JetBrainsMono-Regular', color: Colors.text }}>{Math.round(item.calories)}</Text>
-                    <Text style={{ fontSize: 10, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>kcal</Text>
-                  </View>
-                  <Svg width={8} height={14} viewBox="0 0 8 14">
-                    <Line x1="1" y1="1" x2="7" y2="7" stroke={Colors.muted} strokeWidth="1.8" strokeLinecap="round" />
-                    <Line x1="7" y1="7" x2="1" y2="13" stroke={Colors.muted} strokeWidth="1.8" strokeLinecap="round" />
-                  </Svg>
-                </Pressable>
-              ))}
-              {/* Log dinner prompt */}
+        <View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <Text style={{ fontSize: 12, fontFamily: 'DMSans-Medium', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+              Today's meals
+            </Text>
+            <Pressable onPress={() => router.push('/(tabs)/food')}>
+              <Text style={{ fontSize: 13, color: Colors.orange, fontFamily: 'DMSans-Medium' }}>See all →</Text>
+            </Pressable>
+          </View>
+          <View style={{ gap: 8 }}>
+            {mealGroups.map((m) => (
               <Pressable
+                key={m.meal}
                 onPress={() => router.push('/(tabs)/food')}
                 style={({ pressed }) => ({
-                  backgroundColor: 'transparent', borderRadius: 14,
-                  borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed',
-                  padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                  gap: 8, opacity: pressed ? 0.7 : 1,
+                  backgroundColor: pressed ? Colors.surface2 : Colors.surface,
+                  borderRadius: 14, borderWidth: 1, borderColor: Colors.border,
+                  paddingHorizontal: 16, paddingVertical: 12,
+                  flexDirection: 'row', alignItems: 'center', gap: 12,
                 })}
               >
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Line x1="12" y1="5" x2="12" y2="19" stroke={Colors.orange} strokeWidth="2" strokeLinecap="round" />
-                  <Line x1="5" y1="12" x2="19" y2="12" stroke={Colors.orange} strokeWidth="2" strokeLinecap="round" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontFamily: 'DMSans-Bold', color: Colors.text }}>{m.meal}</Text>
+                  <Text style={{ fontSize: 12, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 2 }} numberOfLines={1}>{m.detail}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ fontSize: 16, fontFamily: 'JetBrainsMono-Regular', color: Colors.text }}>{m.kcal}</Text>
+                  <Text style={{ fontSize: 10, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>kcal</Text>
+                </View>
+                <Svg width={8} height={14} viewBox="0 0 8 14">
+                  <Path d="M1 1l6 6-6 6" stroke={Colors.muted} strokeWidth="1.8" strokeLinecap="round" fill="none" />
                 </Svg>
-                <Text style={{ fontSize: 14, color: Colors.orange, fontFamily: 'DMSans-Medium' }}>Log a meal</Text>
               </Pressable>
-            </View>
+            ))}
+            <Pressable
+              onPress={() => router.push('/(tabs)/food')}
+              style={({ pressed }) => ({
+                backgroundColor: 'transparent', borderRadius: 14,
+                borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed',
+                paddingHorizontal: 16, paddingVertical: 12,
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                gap: 8, opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                <Line x1="12" y1="5" x2="12" y2="19" stroke={Colors.orange} strokeWidth="2" strokeLinecap="round" />
+                <Line x1="5" y1="12" x2="19" y2="12" stroke={Colors.orange} strokeWidth="2" strokeLinecap="round" />
+              </Svg>
+              <Text style={{ fontSize: 14, color: Colors.orange, fontFamily: 'DMSans-Medium' }}>Log dinner</Text>
+            </Pressable>
           </View>
-        )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { router } from 'expo-router';
+import { router, Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 
@@ -62,9 +62,18 @@ export default function WelcomeScreen() {
               Get started →
             </Text>
           </Pressable>
-          <Text style={{ color: Colors.border, fontFamily: 'DMSans-Regular', fontSize: 12, textAlign: 'center' }}>
-            No account required to start
-          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+            <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>
+              Already have an account?
+            </Text>
+            <Link href="/(auth)/login" asChild>
+              <Pressable>
+                <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 14 }}>
+                  Sign in
+                </Text>
+              </Pressable>
+            </Link>
+          </View>
         </View>
       </View>
     </SafeAreaView>

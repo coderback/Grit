@@ -11,6 +11,7 @@ import {
 import { Link, router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { api } from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Colors } from '@/constants/colors';
@@ -19,6 +20,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const { setOnboardingComplete } = useAuthStore();
 
   async function handleEmailLogin() {
     if (!email || !password) {
@@ -29,6 +31,7 @@ export default function LoginScreen() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      await setOnboardingComplete();
       // Sync user record with backend (creates if first login)
       await api.post('/auth/sync');
       router.replace('/(tabs)/');
@@ -137,7 +140,7 @@ export default function LoginScreen() {
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular' }}>
               New here?
             </Text>
-            <Link href="/(auth)/signup" asChild>
+            <Link href="/onboarding" asChild>
               <Pressable>
                 <Text
                   style={{

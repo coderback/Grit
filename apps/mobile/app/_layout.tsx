@@ -22,7 +22,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const { session, isLoading, onboardingLoading, setSession, onboardingComplete, loadOnboardingState } = useAuthStore();
+  const { session, isLoading, onboardingLoading, setSession, onboardingComplete, loadOnboardingState, setOnboardingComplete } = useAuthStore();
   usePushNotifications();
 
   const [fontsLoaded] = useFonts({
@@ -63,6 +63,14 @@ export default function RootLayout() {
     }
   }, [isLoading, onboardingLoading, fontsLoaded]);
 
+  // If a session exists but the per-device flag is missing (new device / cleared storage),
+  // the user already completed onboarding when they signed up — restore the flag silently.
+  useEffect(() => {
+    if (!isLoading && !onboardingLoading && session && !onboardingComplete) {
+      setOnboardingComplete();
+    }
+  }, [isLoading, onboardingLoading, session, onboardingComplete, setOnboardingComplete]);
+
   if (isLoading || onboardingLoading || !fontsLoaded) {
     return null;
   }
@@ -80,7 +88,7 @@ export default function RootLayout() {
           <Stack.Screen name="profile/[id]" />
           <Stack.Screen name="challenge/[id]" />
         </Stack>
-        {!onboardingComplete && <Redirect href="/onboarding" />}
+        {!onboardingComplete && !session && <Redirect href="/onboarding" />}
         {onboardingComplete && !session && <Redirect href="/(auth)/login" />}
       </GestureHandlerRootView>
     </QueryClientProvider>

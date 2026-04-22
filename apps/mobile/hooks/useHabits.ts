@@ -80,6 +80,19 @@ export function useLogHabit() {
   });
 }
 
+export function useMaxHabitStreak(habits: Habit[]) {
+  return useQuery<number>({
+    queryKey: ['habits-max-streak', habits.map((h) => h.id).join(',')],
+    queryFn: async () => {
+      const results = await Promise.all(
+        habits.map((h) => api.get<HabitStreak>(`/habits/${h.id}/streak`).then((r) => r.data.streakCount)),
+      );
+      return results.length > 0 ? Math.max(...results) : 0;
+    },
+    enabled: habits.length > 0,
+  });
+}
+
 /** Returns the set of habit IDs completed today */
 export function useTodayCompletions(habits: Habit[]) {
   return useQuery<Set<string>>({
