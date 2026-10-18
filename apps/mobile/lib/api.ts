@@ -31,12 +31,20 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// On 401 — session is invalid, sign the user out (triggers onAuthStateChange)
+// On 401 — session is invalid, sign the user out (triggers onAuthStateChange).
+// Only when the rejected request used the current token, so a stale request
+// answered after a fresh login doesn't sign the new session out.
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      await supabase.auth.signOut();
+      const sent = error.config?.headers?.Authorization;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (sent && session && sent === `Bearer ${session.access_token}`) {
+        await supabase.auth.signOut();
+      }
     }
     return Promise.reject(error);
   },
