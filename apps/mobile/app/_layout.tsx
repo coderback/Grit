@@ -90,6 +90,7 @@ export default function RootLayout() {
           <Stack.Screen name="coach" />
           <Stack.Screen name="profile/[id]" />
           <Stack.Screen name="challenge/[id]" />
+          <Stack.Screen name="challenges/join/[code]" />
         </Stack>
         {!onboardingComplete && !session && <Redirect href="/onboarding" />}
         {onboardingComplete && !session && <Redirect href="/(auth)/login" />}

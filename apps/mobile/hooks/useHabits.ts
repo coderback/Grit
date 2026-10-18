@@ -75,43 +75,37 @@ export function useLogHabit() {
       api.post(`/habits/${habitId}/log`).then((r) => r.data),
     onSuccess: (_data, habitId) => {
       qc.invalidateQueries({ queryKey: ['habit-streak', habitId] });
-      // Also invalidate the today-completed set and best streak on Home
-      qc.invalidateQueries({ queryKey: ['habits-today'] });
-      qc.invalidateQueries({ queryKey: ['habits-max-streak'] });
+      qc.invalidateQueries({ queryKey: ['habit-summary'] });
     },
   });
 }
 
-export function useMaxHabitStreak(habits: Habit[]) {
-  return useQuery<number>({
-    queryKey: ['habits-max-streak', habits.map((h) => h.id).join(',')],
-    queryFn: async () => {
-      const results = await Promise.all(
-        habits.map((h) => api.get<HabitStreak>(`/habits/${h.id}/streak`).then((r) => r.data.streakCount)),
-      );
-      return results.length > 0 ? Math.max(...results) : 0;
-    },
-    enabled: habits.length > 0,
-  });
+export interface HabitSummary {
+  /** IDs of habits completed today */
+  todayDone: Set<string>;
+  /** Longest current streak across all habits */
+  maxStreak: number;
+  /** Last 30 days, oldest first, with how many habits were completed */
+  days: { date: string; completed: number }[];
 }
 
-/** Returns the set of habit IDs completed today */
-export function useTodayCompletions(habits: Habit[]) {
-  return useQuery<Set<string>>({
-    queryKey: ['habits-today', habits.map((h) => h.id).join(',')],
+/** One pass over every habit's streak, shared by Home, Habits, Profile and Stats. */
+export function useHabitSummary(habits: Habit[]) {
+  return useQuery<HabitSummary>({
+    queryKey: ['habit-summary', habits.map((h) => h.id).join(',')],
     queryFn: async () => {
-      const today = localDateStr();
-      const results = await Promise.all(
-        habits.map((h) =>
-          api
-            .get<HabitStreak>(`/habits/${h.id}/streak`)
-            .then((r) => ({
-              id: h.id,
-              doneToday: r.data.grid.at(-1)?.completed ?? false,
-            })),
-        ),
+      const streaks = await Promise.all(
+        habits.map((h) => api.get<HabitStreak>(`/habits/${h.id}/streak`).then((r) => r.data)),
       );
-      return new Set(results.filter((r) => r.doneToday).map((r) => r.id));
+      const todayDone = new Set(
+        streaks.filter((s) => s.grid.at(-1)?.completed).map((s) => s.habit.id),
+      );
+      const maxStreak = streaks.reduce((m, s) => Math.max(m, s.streakCount), 0);
+      const days = (streaks[0]?.grid ?? []).map((d, i) => ({
+        date: d.date,
+        completed: streaks.filter((s) => s.grid[i]?.completed).length,
+      }));
+      return { todayDone, maxStreak, days };
     },
     enabled: habits.length > 0,
   });

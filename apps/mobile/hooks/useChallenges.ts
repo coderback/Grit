@@ -1,7 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
 import { api } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
 
 export interface ChallengeParticipant {
   id: string;
@@ -33,43 +31,21 @@ export function useChallenges() {
 }
 
 export function useChallenge(id: string) {
-  const qc = useQueryClient();
-
-  const query = useQuery<Challenge>({
+  return useQuery<Challenge>({
     queryKey: ['challenge', id],
     queryFn: () => api.get(`/challenges/${id}`).then((r) => r.data),
     enabled: !!id,
+    // Keeps the leaderboard current while the screen is open. Supabase
+    // Realtime can't be used: the tables are behind row level security and
+    // only the API reads them.
+    refetchInterval: 15_000,
   });
-
-  // Supabase Realtime — revalidate when any participant row changes
-  useEffect(() => {
-    if (!id) return;
-    const channel = supabase
-      .channel(`challenge:${id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'challenge_participants',
-          filter: `challenge_id=eq.${id}`,
-        },
-        () => {
-          qc.invalidateQueries({ queryKey: ['challenge', id] });
-        },
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [id, qc]);
-
-  return query;
 }
 
 export function useCreateChallenge() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title: string; goalValue: number; durationDays: number }) =>
+    mutationFn: (data: { title: string; goalValue: number; durationDays: number }): Promise<Challenge> =>
       api.post('/challenges', data).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['challenges'] }),
   });
@@ -78,8 +54,8 @@ export function useCreateChallenge() {
 export function useJoinChallenge() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (inviteCode: string) =>
-      api.post(`/challenges/join/${inviteCode}`).then((r) => r.data),
+    mutationFn: (inviteCode: string): Promise<{ challengeId: string }> =>
+      api.post(`/challenges/join/${encodeURIComponent(inviteCode)}`).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['challenges'] }),
   });
 }

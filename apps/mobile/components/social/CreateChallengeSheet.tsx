@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, Alert } from 'react-native';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { router } from 'expo-router';
 import { useCreateChallenge } from '@/hooks/useChallenges';
 import { Button } from '@/components/ui/Button';
 import { Colors } from '@/constants/colors';
@@ -26,8 +27,10 @@ export function CreateChallengeSheet({ onClose }: CreateChallengeSheetProps) {
       return;
     }
     try {
-      await createChallenge({ title: title.trim(), goalValue, durationDays: duration });
+      const challenge = await createChallenge({ title: title.trim(), goalValue, durationDays: duration });
       onClose();
+      // The detail screen has the invite button
+      router.push(`/challenge/${challenge.id}`);
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.message ?? 'Could not create challenge.');
     }

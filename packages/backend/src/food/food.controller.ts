@@ -57,6 +57,14 @@ export class FoodController {
     return this.food.getFoodLogsForDate(user.supabaseId, date, offset);
   }
 
+  @Get('food-logs/week')
+  getWeekly(
+    @CurrentUser() user: { supabaseId: string },
+    @UtcOffset() offset: number,
+  ) {
+    return this.food.getWeeklySummary(user.supabaseId, offset);
+  }
+
   @Delete('food-logs/:id')
   delete(
     @CurrentUser() user: { supabaseId: string },

@@ -5,7 +5,13 @@ import {
 } from '@nestjs/common';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
-import { dayRange } from '../common/day';
+import {
+  addDays,
+  dayRange,
+  localDateOf,
+  localToday,
+  weekStart,
+} from '../common/day';
 import type { CreateFoodLogDto } from './food.dto';
 import type { NormalizedFood, OFFProduct } from './food.types';
 
@@ -141,6 +147,40 @@ export class FoodService {
     );
 
     return { logs, totals };
+  }
+
+  /** Calories and macros per day for the user's current local week (Mon–Sun). */
+  async getWeeklySummary(supabaseId: string, offset: number) {
+    const userId = await this.resolveUserId(supabaseId);
+    const monday = weekStart(localToday(offset));
+    const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+
+    const logs = await this.prisma.foodLog.findMany({
+      where: {
+        userId,
+        loggedAt: {
+          gte: dayRange(monday, offset).start,
+          lt: dayRange(days[6], offset).end,
+        },
+      },
+      select: { loggedAt: true, calories: true, proteinG: true, carbsG: true, fatG: true },
+    });
+
+    return {
+      weekStart: monday,
+      weekEnd: days[6],
+      days: days.map((date) => {
+        const dayLogs = logs.filter((l) => localDateOf(l.loggedAt, offset) === date);
+        return {
+          date,
+          entries: dayLogs.length,
+          calories: dayLogs.reduce((s, l) => s + l.calories, 0),
+          proteinG: dayLogs.reduce((s, l) => s + l.proteinG, 0),
+          carbsG: dayLogs.reduce((s, l) => s + l.carbsG, 0),
+          fatG: dayLogs.reduce((s, l) => s + l.fatG, 0),
+        };
+      }),
+    };
   }
 
   async deleteFoodLog(supabaseId: string, id: string) {
