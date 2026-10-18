@@ -3,22 +3,34 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 
 const DAILY_LIMIT = 10;
-const MODEL = 'claude-sonnet-4-20250514';
+const DEFAULT_DEPLOYMENT = 'gpt-6-luna';
+
+// Accepts the resource endpoint as shown in the Foundry portal and points it at
+// Azure's OpenAI-compatible v1 API, which the standard OpenAI client can call directly.
+function toV1BaseUrl(endpoint: string): string {
+  const base = endpoint.replace(/\/+$/, '');
+  return base.endsWith('/openai/v1') ? `${base}/` : `${base}/openai/v1/`;
+}
 
 @Injectable()
 export class AIService {
-  private anthropic: Anthropic;
+  private openai: OpenAI;
+  private model: string;
 
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
   ) {
-    this.anthropic = new Anthropic({
-      apiKey: config.getOrThrow<string>('ANTHROPIC_API_KEY'),
+    this.openai = new OpenAI({
+      apiKey: config.getOrThrow<string>('AZURE_OPENAI_API_KEY'),
+      baseURL: toV1BaseUrl(config.getOrThrow<string>('AZURE_OPENAI_ENDPOINT')),
     });
+    // On Azure the model field is the deployment name, not the catalog model ID
+    this.model =
+      config.get<string>('AZURE_OPENAI_DEPLOYMENT') ?? DEFAULT_DEPLOYMENT;
   }
 
   private async resolveUser(supabaseId: string) {
@@ -129,27 +141,30 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
 
     let fullResponse = '';
 
-    const stream = await this.anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 1024,
-      system: [
-        {
-          type: 'text' as const,
-          text: systemPrompt,
-          // @ts-ignore — prompt caching field
-          cache_control: { type: 'ephemeral' },
-        },
-      ],
-      messages,
+    const stream = await this.openai.responses.create({
+      model: this.model,
+      instructions: systemPrompt,
+      input: messages,
+      // Reasoning tokens count toward this cap, so leave headroom beyond the visible reply
+      max_output_tokens: 4096,
+      reasoning: { effort: 'low' },
+      store: false,
       stream: true,
     });
 
     for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        fullResponse += event.delta.text;
-        yield { type: 'delta', text: event.delta.text };
-      } else if (event.type === 'message_stop') {
+      if (event.type === 'response.output_text.delta') {
+        fullResponse += event.delta;
+        yield { type: 'delta', text: event.delta };
+      } else if (
+        event.type === 'response.completed' ||
+        event.type === 'response.incomplete'
+      ) {
         yield { type: 'done' };
+      } else if (event.type === 'response.failed') {
+        throw new Error(event.response.error?.message ?? 'AI response failed');
+      } else if (event.type === 'error') {
+        throw new Error(event.message);
       }
     }
 
@@ -192,29 +207,20 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
     const context = await this.buildContext(user.id);
     const systemPrompt = this.getSystemPrompt(context);
 
-    const response = await this.anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 120,
-      system: [
-        {
-          type: 'text' as const,
-          text: systemPrompt,
-          // @ts-ignore — prompt caching field
-          cache_control: { type: 'ephemeral' },
-        },
-      ],
-      messages: [
-        {
-          role: 'user',
-          content: 'Give me a short motivational nudge based on my data right now. 1–2 sentences max, no questions.',
-        },
-      ],
+    const response = await this.openai.responses.create({
+      model: this.model,
+      instructions: systemPrompt,
+      input:
+        'Give me a short motivational nudge based on my data right now. 1–2 sentences max, no questions.',
+      // Reasoning tokens count toward this cap, so a small value can leave no visible text
+      max_output_tokens: 2048,
+      reasoning: { effort: 'low' },
+      store: false,
     });
 
     const nudgeText =
-      response.content[0].type === 'text'
-        ? response.content[0].text
-        : 'Keep showing up — consistency is the whole game.';
+      response.output_text.trim() ||
+      'Keep showing up — consistency is the whole game.';
 
     await this.prisma.aIMessage.create({
       data: { userId: user.id, role: 'assistant', content: `[NUDGE] ${nudgeText}` },

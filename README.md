@@ -44,7 +44,7 @@ grit/
 | `/(tabs)/activity` | Activity log — workouts + weekly chart |
 | `/(tabs)/social` | Challenges feed + leaderboard |
 | `/(tabs)/profile` | User profile + settings |
-| `/coach` | AI coach chat (Claude-powered) |
+| `/coach` | AI coach chat (GPT-6 Luna via Azure AI Foundry) |
 | `/barcode-scanner` | Camera barcode scanner (full-screen modal) |
 
 **Auth flow:** New users complete all 11 onboarding screens before any account is created. The personalised plan is revealed first, then sign-up. Returning users land directly at login.
@@ -88,7 +88,7 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 
 ## Backend
 
-**Stack:** NestJS 11 · Prisma 5 · PostgreSQL (Supabase) · Supabase Auth (JWT verification) · Upstash Redis · Anthropic SDK (Claude)
+**Stack:** NestJS 11 · Prisma 5 · PostgreSQL (Supabase) · Supabase Auth (JWT verification) · Upstash Redis · OpenAI SDK (GPT-6 Luna on Azure AI Foundry)
 
 **Modules**
 
@@ -101,7 +101,7 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 | `habits` | `GET/POST /habits`, `POST /habits/:id/complete` |
 | `challenges` | `GET/POST /challenges`, join by invite code |
 | `social` | Feed, follow/unfollow, kudos |
-| `ai` | `POST /ai/chat` — Claude-powered coach |
+| `ai` | `POST /ai/message` (streamed), `GET /ai/messages`, `GET /ai/nudge` — AI coach |
 | `notifications` | Push token registration, trigger sends |
 
 **Data models:** User · FoodLog · ActivityLog · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · Follow
@@ -130,7 +130,7 @@ cd packages/backend && npm run start:dev
 cp packages/backend/.env.example packages/backend/.env
 ```
 
-See [`packages/backend/.env.example`](./packages/backend/.env.example). The app refuses to boot without `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET` and `ANTHROPIC_API_KEY`. `SUPABASE_SERVICE_KEY` and the Upstash vars are not read by the code yet.
+See [`packages/backend/.env.example`](./packages/backend/.env.example). The app refuses to boot without `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`, `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY`. `SUPABASE_SERVICE_KEY` and the Upstash vars are not read by the code yet.
 
 ---
 
