@@ -24,8 +24,10 @@ grit/
 
 | Route | Description |
 |---|---|
-| `/onboarding` | 10-step personalisation flow (no auth required) |
-| `/onboarding/basics` | Gender, date of birth, height, weight |
+| `/onboarding` | 11-step personalisation flow (no auth required) |
+| `/onboarding/basics` | Gender |
+| `/onboarding/age` | Age (scroll picker) |
+| `/onboarding/body` | Height + weight |
 | `/onboarding/activity` | Activity level selection |
 | `/onboarding/goal` | Primary goal + desired weight |
 | `/onboarding/pace` | Pace selection with live calorie preview |
@@ -45,7 +47,7 @@ grit/
 | `/coach` | AI coach chat (Claude-powered) |
 | `/barcode-scanner` | Camera barcode scanner (full-screen modal) |
 
-**Auth flow:** New users complete all 10 onboarding screens before any account is created. The personalised plan is revealed first, then sign-up. Returning users land directly at login.
+**Auth flow:** New users complete all 11 onboarding screens before any account is created. The personalised plan is revealed first, then sign-up. Returning users land directly at login.
 
 ### Run
 
@@ -67,13 +69,11 @@ cd apps/mobile && npx expo start --android
 
 ### Environment
 
-Create `apps/mobile/.env`:
-
-```env
-EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-EXPO_PUBLIC_API_URL=http://localhost:3000
+```bash
+cp apps/mobile/.env.example apps/mobile/.env
 ```
+
+See [`apps/mobile/.env.example`](./apps/mobile/.env.example) for each variable. `EXPO_PUBLIC_API_URL` must point at a backend reachable from the device (not `localhost` on Android or a physical phone).
 
 ### Build APK (for device testing)
 
@@ -126,18 +126,70 @@ cd packages/backend && npm run start:dev
 
 ### Environment
 
-Create `packages/backend/.env`:
-
-```env
-DATABASE_URL=postgresql://...
-DIRECT_URL=postgresql://...
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-SUPABASE_JWT_SECRET=your_jwt_secret
-ANTHROPIC_API_KEY=your_anthropic_key
-UPSTASH_REDIS_REST_URL=your_upstash_url
-UPSTASH_REDIS_REST_TOKEN=your_upstash_token
+```bash
+cp packages/backend/.env.example packages/backend/.env
 ```
+
+See [`packages/backend/.env.example`](./packages/backend/.env.example). The app refuses to boot without `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET` and `ANTHROPIC_API_KEY`. `SUPABASE_SERVICE_KEY` and the Upstash vars are not read by the code yet.
+
+---
+
+## Cloud Setup
+
+Steps for a fresh Linux cloud instance (CI runner, remote dev box, or coding agent) cloning this repo. Secrets are never committed, so they must be provided as environment variables or `.env` files.
+
+### 1. Install
+
+```bash
+git clone https://github.com/coderback/Grit.git && cd Grit
+node -v   # must be >= 22.11
+npm install
+```
+
+`package-lock.json` is gitignored, so dependency versions resolve fresh on each install.
+
+### 2. Configure environment
+
+Either export the variables in the instance's environment / secrets manager, or create the files from the examples:
+
+```bash
+cp packages/backend/.env.example packages/backend/.env
+cp apps/mobile/.env.example apps/mobile/.env
+# then fill in real values
+```
+
+Both apps use the **same Supabase project**. Set the mobile app's `EXPO_PUBLIC_API_URL` to the backend's public URL.
+
+### 3. Backend: generate client, migrate, build, run
+
+```bash
+cd packages/backend
+npx prisma generate          # Prisma client is not committed
+npx prisma migrate deploy    # apply committed migrations (never `migrate dev` against a shared DB)
+npm run build
+npm run start:prod           # listens on $PORT (default 3000)
+```
+
+`migrate deploy` uses `DIRECT_URL` (port 5432); the running app uses the pooled `DATABASE_URL` (port 6543).
+
+For a dev loop instead, run `npm run start:dev` after the generate/migrate steps.
+
+### 4. Verify
+
+```bash
+npm run typecheck            # from repo root — mobile type-check
+cd packages/backend && npm run lint && npm test
+```
+
+`npm run test:e2e` boots the full app, so it needs a reachable database and all required env vars.
+
+### 5. Mobile (optional)
+
+A cloud instance can't run a simulator. Use it for type-checking and linting, or run `npx expo start --tunnel` from `apps/mobile` to connect a physical device via Expo Go, or build with `eas build` (requires `EXPO_TOKEN`).
+
+### Deploying the backend (Railway)
+
+[`packages/backend/railway.toml`](./packages/backend/railway.toml) builds with Nixpacks (`npm run build`) and starts `node dist/main`. Set the root directory to `packages/backend`, add the env vars above in Railway, and run `npx prisma migrate deploy` before or as part of each release.
 
 ---
 
