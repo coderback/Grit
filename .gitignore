@@ -46,7 +46,6 @@ out/
 
 # Prisma generated client
 packages/backend/src/generated/
-packages/backend/prisma/migrations/
 
 # NestJS
 packages/backend/dist/
