@@ -29,8 +29,9 @@ export class AIController {
       for await (const chunk of this.ai.streamMessage(user.supabaseId, body.message, offset)) {
         res.write(`data: ${JSON.stringify(chunk)}\n\n`);
       }
-    } catch (err: any) {
-      res.write(`data: ${JSON.stringify({ type: 'error', error: err.message ?? 'Unknown error' })}\n\n`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.write(`data: ${JSON.stringify({ type: 'error', error: message })}\n\n`);
     }
 
     res.end();

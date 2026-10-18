@@ -127,14 +127,14 @@ export class SocialService {
     const items: FeedItem[] = [
       ...foodLogs.map((l) => ({
         id: l.id,
-        type: 'food_log' as FeedItemType,
+        type: 'food_log' as const,
         loggedAt: l.loggedAt,
         user: l.user,
         data: { name: l.name, calories: l.calories, mealType: l.mealType, brand: l.brand },
       })),
       ...activityLogs.map((l) => ({
         id: l.id,
-        type: 'activity_log' as FeedItemType,
+        type: 'activity_log' as const,
         loggedAt: l.loggedAt,
         user: l.user,
         data: {
@@ -148,7 +148,7 @@ export class SocialService {
       })),
       ...habitLogs.map((l) => ({
         id: l.id,
-        type: 'habit_log' as FeedItemType,
+        type: 'habit_log' as const,
         loggedAt: l.loggedAt,
         user: l.user,
         data: { habitName: l.habit.name, habitEmoji: l.habit.emoji },

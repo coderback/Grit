@@ -14,6 +14,7 @@ export class NotificationsController {
     @CurrentUser() user: { supabaseId: string },
     @Body() body: RegisterPushTokenDto,
   ) {
-    return this.notifications.registerToken(user.supabaseId, body.token, body.platform);
+    // platform is validated but not stored; Expo push tokens work for both
+    return this.notifications.registerToken(user.supabaseId, body.token);
   }
 }
