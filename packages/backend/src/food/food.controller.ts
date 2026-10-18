@@ -66,10 +66,7 @@ export class FoodController {
   }
 
   @Delete('food-logs/:id')
-  delete(
-    @CurrentUser() user: { supabaseId: string },
-    @Param('id') id: string,
-  ) {
+  delete(@CurrentUser() user: { supabaseId: string }, @Param('id') id: string) {
     return this.food.deleteFoodLog(user.supabaseId, id);
   }
 }

@@ -31,10 +31,7 @@ export class HabitsService {
     });
   }
 
-  async createHabit(
-    supabaseId: string,
-    dto: CreateHabitDto,
-  ) {
+  async createHabit(supabaseId: string, dto: CreateHabitDto) {
     const { id: userId } = await this.resolveUser(supabaseId);
 
     const activeCount = await this.prisma.habit.count({
@@ -65,13 +62,11 @@ export class HabitsService {
     });
   }
 
-  async updateHabit(
-    supabaseId: string,
-    habitId: string,
-    dto: UpdateHabitDto,
-  ) {
+  async updateHabit(supabaseId: string, habitId: string, dto: UpdateHabitDto) {
     const { id: userId } = await this.resolveUser(supabaseId);
-    const habit = await this.prisma.habit.findUnique({ where: { id: habitId } });
+    const habit = await this.prisma.habit.findUnique({
+      where: { id: habitId },
+    });
     if (!habit || habit.userId !== userId) {
       throw new NotFoundException('Habit not found');
     }
@@ -83,7 +78,9 @@ export class HabitsService {
 
   async deleteHabit(supabaseId: string, habitId: string) {
     const { id: userId } = await this.resolveUser(supabaseId);
-    const habit = await this.prisma.habit.findUnique({ where: { id: habitId } });
+    const habit = await this.prisma.habit.findUnique({
+      where: { id: habitId },
+    });
     if (!habit || habit.userId !== userId) {
       throw new NotFoundException('Habit not found');
     }
@@ -97,7 +94,9 @@ export class HabitsService {
 
   async logHabit(supabaseId: string, habitId: string, offset: number) {
     const { id: userId } = await this.resolveUser(supabaseId);
-    const habit = await this.prisma.habit.findUnique({ where: { id: habitId } });
+    const habit = await this.prisma.habit.findUnique({
+      where: { id: habitId },
+    });
     if (!habit || habit.userId !== userId) {
       throw new NotFoundException('Habit not found');
     }
@@ -118,7 +117,9 @@ export class HabitsService {
 
   async getStreak(supabaseId: string, habitId: string, offset: number) {
     const { id: userId } = await this.resolveUser(supabaseId);
-    const habit = await this.prisma.habit.findUnique({ where: { id: habitId } });
+    const habit = await this.prisma.habit.findUnique({
+      where: { id: habitId },
+    });
     if (!habit || habit.userId !== userId) {
       throw new NotFoundException('Habit not found');
     }

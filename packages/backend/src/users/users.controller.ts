@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Put,
-  Body,
-  Param,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Put, Body, Param, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { UsersService } from './users.service';

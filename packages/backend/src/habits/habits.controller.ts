@@ -47,10 +47,7 @@ export class HabitsController {
   }
 
   @Delete(':id')
-  remove(
-    @CurrentUser() user: { supabaseId: string },
-    @Param('id') id: string,
-  ) {
+  remove(@CurrentUser() user: { supabaseId: string }, @Param('id') id: string) {
     return this.habits.deleteHabit(user.supabaseId, id);
   }
 

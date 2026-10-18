@@ -1,5 +1,11 @@
 import {
-  Controller, Get, Post, Put, Param, Body, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Param,
+  Body,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
@@ -27,10 +33,7 @@ export class ChallengesController {
   }
 
   @Get(':id')
-  getOne(
-    @CurrentUser() user: { supabaseId: string },
-    @Param('id') id: string,
-  ) {
+  getOne(@CurrentUser() user: { supabaseId: string }, @Param('id') id: string) {
     return this.challenges.getChallenge(user.supabaseId, id);
   }
 

@@ -1,5 +1,8 @@
 import {
-  Injectable, NotFoundException, HttpException, HttpStatus,
+  Injectable,
+  NotFoundException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -51,19 +54,22 @@ export class AIService {
     const today = dayRange(todayDate, offset).start;
     const weekAgo = dayRange(addDays(todayDate, -7), offset).start;
 
-    const [user, todayFood, weekActivity, habits, habitLogs] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: userId } }),
-      this.prisma.foodLog.findMany({ where: { userId, loggedAt: { gte: today } } }),
-      this.prisma.activityLog.findMany({
-        where: { userId, loggedAt: { gte: weekAgo } },
-        orderBy: { loggedAt: 'desc' },
-        take: 10,
-      }),
-      this.prisma.habit.findMany({ where: { userId, isActive: true } }),
-      this.prisma.habitLog.findMany({
-        where: { userId, loggedAt: dateMarker(todayDate) },
-      }),
-    ]);
+    const [user, todayFood, weekActivity, habits, habitLogs] =
+      await Promise.all([
+        this.prisma.user.findUnique({ where: { id: userId } }),
+        this.prisma.foodLog.findMany({
+          where: { userId, loggedAt: { gte: today } },
+        }),
+        this.prisma.activityLog.findMany({
+          where: { userId, loggedAt: { gte: weekAgo } },
+          orderBy: { loggedAt: 'desc' },
+          take: 10,
+        }),
+        this.prisma.habit.findMany({ where: { userId, isActive: true } }),
+        this.prisma.habitLog.findMany({
+          where: { userId, loggedAt: dateMarker(todayDate) },
+        }),
+      ]);
 
     const todayCalories = todayFood.reduce((s, f) => s + f.calories, 0);
     const todayProtein = todayFood.reduce((s, f) => s + f.proteinG, 0);
@@ -72,13 +78,25 @@ export class AIService {
 
     const completedHabitIds = new Set(habitLogs.map((l) => l.habitId));
 
-    const habitLines = habits.length > 0
-      ? habits.map((h) => `- ${h.emoji} ${h.name}: ${completedHabitIds.has(h.id) ? 'done' : 'pending'}`).join('\n')
-      : '- No habits set up';
+    const habitLines =
+      habits.length > 0
+        ? habits
+            .map(
+              (h) =>
+                `- ${h.emoji} ${h.name}: ${completedHabitIds.has(h.id) ? 'done' : 'pending'}`,
+            )
+            .join('\n')
+        : '- No habits set up';
 
-    const activityLines = weekActivity.length > 0
-      ? weekActivity.map((a) => `- ${localDateOf(a.loggedAt, offset)}: ${a.activityType}, ${a.durationMin} min`).join('\n')
-      : '- No activity logged this week';
+    const activityLines =
+      weekActivity.length > 0
+        ? weekActivity
+            .map(
+              (a) =>
+                `- ${localDateOf(a.loggedAt, offset)}: ${a.activityType}, ${a.durationMin} min`,
+            )
+            .join('\n')
+        : '- No activity logged this week';
 
     return `User profile:
 - Name: ${user?.displayName}
@@ -107,14 +125,20 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
   }
 
   private async checkRateLimit(userId: string, offset: number): Promise<void> {
-    const { start: today, end: tomorrow } = dayRange(localToday(offset), offset);
+    const { start: today, end: tomorrow } = dayRange(
+      localToday(offset),
+      offset,
+    );
 
     const count = await this.prisma.aIMessage.count({
       where: { userId, role: 'user', createdAt: { gte: today, lt: tomorrow } },
     });
 
     if (count >= DAILY_LIMIT) {
-      throw new HttpException('Daily message limit reached (10/day)', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'Daily message limit reached (10/day)',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
   }
 
@@ -228,7 +252,11 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
       'Keep showing up — consistency is the whole game.';
 
     await this.prisma.aIMessage.create({
-      data: { userId: user.id, role: 'assistant', content: `[NUDGE] ${nudgeText}` },
+      data: {
+        userId: user.id,
+        role: 'assistant',
+        content: `[NUDGE] ${nudgeText}`,
+      },
     });
 
     return nudgeText;

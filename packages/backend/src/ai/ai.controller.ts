@@ -1,6 +1,4 @@
-import {
-  Controller, Post, Get, Body, Res, UseGuards,
-} from '@nestjs/common';
+import { Controller, Post, Get, Body, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
@@ -26,12 +24,18 @@ export class AIController {
     res.flushHeaders();
 
     try {
-      for await (const chunk of this.ai.streamMessage(user.supabaseId, body.message, offset)) {
+      for await (const chunk of this.ai.streamMessage(
+        user.supabaseId,
+        body.message,
+        offset,
+      )) {
         res.write(`data: ${JSON.stringify(chunk)}\n\n`);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      res.write(`data: ${JSON.stringify({ type: 'error', error: message })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({ type: 'error', error: message })}\n\n`,
+      );
     }
 
     res.end();

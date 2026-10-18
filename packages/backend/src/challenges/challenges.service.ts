@@ -1,5 +1,7 @@
 import {
-  Injectable, NotFoundException, BadRequestException,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { dayRange, localToday } from '../common/day';
@@ -74,12 +76,16 @@ export class ChallengesService {
         },
       },
     });
-    if (!challenge || !challenge.participants.some((p) => p.userId === user.id)) {
+    if (
+      !challenge ||
+      !challenge.participants.some((p) => p.userId === user.id)
+    ) {
       throw new NotFoundException('Challenge not found');
     }
 
     const totalProgress = challenge.participants.reduce(
-      (s, p) => s + p.currentValue, 0,
+      (s, p) => s + p.currentValue,
+      0,
     );
 
     return { ...challenge, totalProgress };
@@ -92,7 +98,8 @@ export class ChallengesService {
       include: { _count: { select: { participants: true } } },
     });
     if (!challenge) throw new NotFoundException('Challenge not found');
-    if (challenge.isComplete) throw new BadRequestException('Challenge is already complete');
+    if (challenge.isComplete)
+      throw new BadRequestException('Challenge is already complete');
     if (challenge.endDate <= new Date()) {
       throw new BadRequestException('Challenge has ended');
     }
@@ -103,7 +110,9 @@ export class ChallengesService {
     }
 
     return this.prisma.challengeParticipant.upsert({
-      where: { challengeId_userId: { challengeId: challenge.id, userId: user.id } },
+      where: {
+        challengeId_userId: { challengeId: challenge.id, userId: user.id },
+      },
       update: {},
       create: { challengeId: challenge.id, userId: user.id },
     });
@@ -114,7 +123,8 @@ export class ChallengesService {
     const participant = await this.prisma.challengeParticipant.findUnique({
       where: { challengeId_userId: { challengeId, userId: user.id } },
     });
-    if (!participant) throw new NotFoundException('Not a participant of this challenge');
+    if (!participant)
+      throw new NotFoundException('Not a participant of this challenge');
 
     const current = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
@@ -135,7 +145,10 @@ export class ChallengesService {
       include: { participants: { select: { currentValue: true } } },
     });
     if (challenge) {
-      const total = challenge.participants.reduce((s, p) => s + p.currentValue, 0);
+      const total = challenge.participants.reduce(
+        (s, p) => s + p.currentValue,
+        0,
+      );
       if (!challenge.isComplete && total >= challenge.goalValue) {
         await this.prisma.challenge.update({
           where: { id: challengeId },

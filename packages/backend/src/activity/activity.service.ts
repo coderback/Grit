@@ -89,7 +89,10 @@ export class ActivityService {
       return {
         date,
         activeMinutes: dayLogs.reduce((s, l) => s + l.durationMin, 0),
-        caloriesBurned: dayLogs.reduce((s, l) => s + (l.caloriesBurned ?? 0), 0),
+        caloriesBurned: dayLogs.reduce(
+          (s, l) => s + (l.caloriesBurned ?? 0),
+          0,
+        ),
         steps: dayLogs.reduce((s, l) => s + (l.steps ?? 0), 0),
       };
     });
@@ -110,10 +113,14 @@ export class ActivityService {
   async giveKudos(actorSupabaseId: string, logId: string) {
     const actor = await this.resolveUser(actorSupabaseId);
 
-    const log = await this.prisma.activityLog.findUnique({ where: { id: logId } });
+    const log = await this.prisma.activityLog.findUnique({
+      where: { id: logId },
+    });
     if (!log) throw new NotFoundException('Activity log not found');
     if (log.userId === actor.id) {
-      throw new BadRequestException("You can't give kudos to your own activity");
+      throw new BadRequestException(
+        "You can't give kudos to your own activity",
+      );
     }
 
     try {

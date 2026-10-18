@@ -163,14 +163,22 @@ export class FoodService {
           lt: dayRange(days[6], offset).end,
         },
       },
-      select: { loggedAt: true, calories: true, proteinG: true, carbsG: true, fatG: true },
+      select: {
+        loggedAt: true,
+        calories: true,
+        proteinG: true,
+        carbsG: true,
+        fatG: true,
+      },
     });
 
     return {
       weekStart: monday,
       weekEnd: days[6],
       days: days.map((date) => {
-        const dayLogs = logs.filter((l) => localDateOf(l.loggedAt, offset) === date);
+        const dayLogs = logs.filter(
+          (l) => localDateOf(l.loggedAt, offset) === date,
+        );
         return {
           date,
           entries: dayLogs.length,

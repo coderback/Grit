@@ -52,10 +52,7 @@ export class ActivityController {
   }
 
   @Post(':id/kudos')
-  kudos(
-    @CurrentUser() user: { supabaseId: string },
-    @Param('id') id: string,
-  ) {
+  kudos(@CurrentUser() user: { supabaseId: string }, @Param('id') id: string) {
     return this.activity.giveKudos(user.supabaseId, id);
   }
 }
