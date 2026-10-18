@@ -68,7 +68,7 @@ export default function NutritionScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
       <ScrollView contentContainerStyle={{ padding: 24, gap: 28, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        <ProgressBar step={6} total={9} />
+        <ProgressBar step={8} total={11} />
 
         <View style={{ gap: 6 }}>
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>

@@ -83,7 +83,7 @@ export default function RevealScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ width: '100%', marginBottom: 32 }}>
-          <ProgressBar step={9} total={9} />
+          <ProgressBar step={11} total={11} />
         </View>
 
         {/* Logo pulse ring */}

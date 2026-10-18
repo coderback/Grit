@@ -27,7 +27,7 @@ export default function FrictionScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
       <ScrollView contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        <ProgressBar step={5} total={9} />
+        <ProgressBar step={7} total={11} />
 
         <View style={{ gap: 6 }}>
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>

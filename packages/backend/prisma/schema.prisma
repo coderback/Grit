@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  supabaseId  String   @unique
+  username    String   @unique
+  displayName String
+  avatarUrl   String?
+  calorieGoal   Int      @default(2000)
+  weightKg      Float?
+  primaryGoal   String   @default("just_track")
+  heightCm      Float?
+  activityLevel String?
+  gender        String?
+  dateOfBirth   DateTime?
+  pushToken     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  foodLogs     FoodLog[]
+  activityLogs ActivityLog[]
+  habitLogs    HabitLog[]
+  habits       Habit[]
+  following    Follow[]              @relation("following")
+  followers    Follow[]              @relation("followers")
+  challenges   ChallengeParticipant[]
+  aiMessages   AIMessage[]
+
+  @@map("users")
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+model FoodLog {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  brand       String?
+  barcode     String?
+  mealType    String
+  calories    Float
+  proteinG    Float    @default(0)
+  carbsG      Float    @default(0)
+  fatG        Float    @default(0)
+  servingQty  Float    @default(1)
+  servingUnit String   @default("serving")
+  loggedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, loggedAt])
+  @@map("food_logs")
+}
+
+model ActivityLog {
+  id             String   @id @default(cuid())
+  userId         String
+  activityType   String
+  durationMin    Int
+  caloriesBurned Float?
+  steps          Int?
+  source         String   @default("manual")
+  loggedAt       DateTime @default(now())
+  kudosCount     Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, loggedAt])
+  @@map("activity_logs")
+}
+
+model Habit {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  emoji     String   @default("✅")
+  isPreset  Boolean  @default(false)
+  presetKey String?
+  createdAt DateTime @default(now())
+  isActive  Boolean  @default(true)
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs HabitLog[]
+
+  @@map("habits")
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  userId    String
+  completed Boolean  @default(true)
+  loggedAt  DateTime @default(now())
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, userId, loggedAt])
+  @@index([userId, loggedAt])
+  @@map("habit_logs")
+}
+
+model Challenge {
+  id           String   @id @default(cuid())
+  title        String
+  type         String   @default("group_steps")
+  goalValue    Int
+  durationDays Int
+  startDate    DateTime
+  endDate      DateTime
+  creatorId    String
+  inviteCode   String   @unique @default(cuid())
+  isComplete   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  participants ChallengeParticipant[]
+
+  @@map("challenges")
+}
+
+model ChallengeParticipant {
+  id            String   @id @default(cuid())
+  challengeId   String
+  userId        String
+  currentValue  Int      @default(0)
+  joinedAt      DateTime @default(now())
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId])
+  @@map("challenge_participants")
+}
+
+model AIMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("ai_messages")
+}

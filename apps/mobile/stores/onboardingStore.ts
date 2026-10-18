@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 interface OnboardingState {
   // Step 1 — basics
-  gender: 'male' | 'female' | null;
+  gender: 'male' | 'female' | 'other' | null;
   dateOfBirth: string | null; // ISO date string YYYY-MM-DD
   heightCm: number | null;
   weightKg: number | null;

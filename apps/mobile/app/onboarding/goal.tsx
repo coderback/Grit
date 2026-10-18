@@ -44,7 +44,7 @@ export default function GoalScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
       <ScrollView contentContainerStyle={{ padding: 20, gap: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        <ProgressBar step={3} total={9} />
+        <ProgressBar step={5} total={11} />
 
         {/* Header nav */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -54,7 +54,7 @@ export default function GoalScreen() {
           >
             <Text style={{ color: Colors.text, fontSize: 18 }}>‹</Text>
           </Pressable>
-          <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>4 of 9</Text>
+          <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>6 of 11</Text>
           <View style={{ width: 40 }} />
         </View>
 

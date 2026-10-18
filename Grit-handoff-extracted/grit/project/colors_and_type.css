@@ -1,0 +1,246 @@
+/* ============================================================
+   GRIT Design System — CSS Custom Properties
+   Fonts: DM Sans (Google), JetBrains Mono (Google),
+          Clash Display (fontshare.com)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=clash-display@600&display=swap');
+
+/* ── Base tokens ─────────────────────────────────────────── */
+:root {
+  /* Color — Brand */
+  --color-orange:    #FF5C2B;
+  --color-orange-10: rgba(255, 92, 43, 0.10);
+  --color-orange-18: rgba(255, 92, 43, 0.18);
+  --color-orange-30: rgba(255, 92, 43, 0.30);
+
+  /* Color — Teal / Success */
+  --color-teal:      #00C8A0;
+  --color-teal-18:   rgba(0, 200, 160, 0.18);
+
+  /* Color — Blue / Info */
+  --color-blue:      #4B9FFF;
+  --color-blue-18:   rgba(75, 159, 255, 0.18);
+
+  /* Color — Error */
+  --color-error:     #FF453A;
+  --color-error-18:  rgba(255, 69, 58, 0.18);
+  --color-error-30:  rgba(255, 69, 58, 0.30);
+
+  /* Color — Backgrounds */
+  --color-dark:      #0F0F0F;
+  --color-surface:   #1A1A1C;
+  --color-surface2:  #242428;
+  --color-surface3:  #2E2E33;
+  --color-border:    #2B2B30;
+
+  /* Color — Text */
+  --color-text:      #F5F0EB;
+  --color-muted:     #9A9498;
+
+  /* ── Semantic aliases ──────────────────────────────────── */
+  --bg-page:         var(--color-dark);
+  --bg-card:         var(--color-surface);
+  --bg-input:        var(--color-surface2);
+  --bg-pressed:      var(--color-surface3);
+  --border-default:  var(--color-border);
+  --border-active:   var(--color-orange);
+  --fg-primary:      var(--color-text);
+  --fg-secondary:    var(--color-muted);
+  --accent-primary:  var(--color-orange);
+  --accent-success:  var(--color-teal);
+  --accent-info:     var(--color-blue);
+  --accent-danger:   var(--color-error);
+
+  /* ── Typography ────────────────────────────────────────── */
+  --font-display:    'Clash Display', 'DM Sans', sans-serif;
+  --font-body:       'DM Sans', sans-serif;
+  --font-mono:       'JetBrains Mono', monospace;
+
+  --fw-regular:      400;
+  --fw-medium:       500;
+  --fw-bold:         700;
+  --fw-semibold:     600;
+
+  /* ── Type scale ────────────────────────────────────────── */
+  --text-hero:       52px;   /* Calorie hero number */
+  --text-display:    42px;   /* Large metric / card hero */
+  --text-h1:         30px;   /* Screen title / greeting */
+  --text-h2:         28px;   /* Onboarding headings */
+  --text-h3:         24px;   /* Section title */
+  --text-h4:         18px;   /* Card heading */
+  --text-h5:         16px;   /* Sub-heading / button */
+  --text-body-lg:    15px;   /* Body large */
+  --text-body:       14px;   /* Body default */
+  --text-caption:    13px;   /* Caption / secondary */
+  --text-label:      12px;   /* ALL CAPS section labels */
+  --text-micro:      11px;   /* Tiny labels under charts */
+
+  /* ── Letter spacing ────────────────────────────────────── */
+  --ls-tight:        -1px;
+  --ls-snug:         -0.5px;
+  --ls-normal:       0;
+  --ls-label:        0.8px;
+  --ls-label-wide:   1px;
+
+  /* ── Corner radii ──────────────────────────────────────── */
+  --radius-pill:     999px;
+  --radius-card:     20px;
+  --radius-card-sm:  16px;
+  --radius-input:    14px;
+  --radius-badge:    8px;
+  --radius-icon:     12px;
+
+  /* ── Spacing scale ─────────────────────────────────────── */
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-7:   28px;
+  --space-8:   32px;
+  --space-10:  40px;
+
+  /* ── Elevation ─────────────────────────────────────────── */
+  --shadow-nav:   0 6px 24px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.25);
+  --shadow-sheet: 0 -4px 32px rgba(0,0,0,0.5);
+  --shadow-card:  none; /* Cards use border, not shadow */
+}
+
+/* ── Semantic typography classes ──────────────────────────── */
+.grit-hero {
+  font-family: var(--font-mono);
+  font-size: var(--text-hero);
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--ls-tight);
+  color: var(--fg-primary);
+}
+
+.grit-display {
+  font-family: var(--font-body);
+  font-size: var(--text-display);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-tight);
+  color: var(--fg-primary);
+}
+
+.grit-h1 {
+  font-family: var(--font-body);
+  font-size: var(--text-h1);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-snug);
+  color: var(--fg-primary);
+}
+
+.grit-h2 {
+  font-family: var(--font-body);
+  font-size: var(--text-h2);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-snug);
+  color: var(--fg-primary);
+}
+
+.grit-h3 {
+  font-family: var(--font-body);
+  font-size: var(--text-h3);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-normal);
+  color: var(--fg-primary);
+}
+
+.grit-h4 {
+  font-family: var(--font-body);
+  font-size: var(--text-h4);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-normal);
+  color: var(--fg-primary);
+}
+
+.grit-body-lg {
+  font-family: var(--font-body);
+  font-size: var(--text-body-lg);
+  font-weight: var(--fw-regular);
+  color: var(--fg-primary);
+}
+
+.grit-body {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  font-weight: var(--fw-regular);
+  color: var(--fg-primary);
+}
+
+.grit-label {
+  font-family: var(--font-body);
+  font-size: var(--text-label);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--fg-secondary);
+}
+
+.grit-caption {
+  font-family: var(--font-body);
+  font-size: var(--text-caption);
+  font-weight: var(--fw-regular);
+  color: var(--fg-secondary);
+}
+
+.grit-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  font-weight: var(--fw-regular);
+  color: var(--fg-primary);
+}
+
+/* ── Card base ────────────────────────────────────────────── */
+.grit-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border-default);
+  padding: var(--space-5);
+}
+
+.grit-card--active {
+  background: var(--color-orange-18);
+  border-color: var(--color-orange);
+}
+
+.grit-card--success {
+  border-color: var(--color-teal);
+}
+
+/* ── Button base ─────────────────────────────────────────── */
+.grit-btn {
+  height: 52px;
+  border-radius: var(--radius-pill);
+  padding: 0 20px;
+  font-family: var(--font-body);
+  font-size: var(--text-h5);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.12s ease;
+}
+
+.grit-btn:active { opacity: 0.85; }
+.grit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.grit-btn--primary {
+  background: var(--color-orange);
+  color: #fff;
+}
+
+.grit-btn--secondary {
+  background: transparent;
+  border: 1.5px solid var(--color-orange);
+  color: var(--color-orange);
+}
+
+.grit-btn--ghost {
+  background: transparent;
+  color: var(--fg-secondary);
+}

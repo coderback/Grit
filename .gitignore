@@ -71,3 +71,11 @@ logs/
 # Android local config
 apps/mobile/android/local.properties
 /.agents/
+
+# Local design scratch / duplicates (extracted handoff in Grit-handoff-extracted/ is the source of truth)
+Grit-handoff.zip
+/GRIT DESIGN/
+/img.png
+
+# Local agent skill tooling
+skills-lock.json
