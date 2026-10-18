@@ -9,7 +9,11 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
+import { UtcOffset } from '../common/utc-offset.decorator';
+import { DateQueryDto } from '../common/dto';
+import { localToday } from '../common/day';
 import { ActivityService } from './activity.service';
+import { CreateActivityLogDto } from './activity.dto';
 
 @Controller('activity-logs')
 @UseGuards(AuthGuard)
@@ -24,15 +28,7 @@ export class ActivityController {
   @Post()
   create(
     @CurrentUser() user: { supabaseId: string },
-    @Body()
-    body: {
-      activityType: string;
-      durationMin: number;
-      caloriesBurned?: number;
-      steps?: number;
-      source?: string;
-      loggedAt?: string;
-    },
+    @Body() body: CreateActivityLogDto,
   ) {
     return this.activity.logActivity(user.supabaseId, body);
   }
@@ -40,15 +36,19 @@ export class ActivityController {
   @Get()
   getByDate(
     @CurrentUser() user: { supabaseId: string },
-    @Query('date') date: string,
+    @Query() query: DateQueryDto,
+    @UtcOffset() offset: number,
   ) {
-    const d = date ?? new Date().toISOString().split('T')[0];
-    return this.activity.getActivityLogsForDate(user.supabaseId, d);
+    const date = query.date ?? localToday(offset);
+    return this.activity.getActivityLogsForDate(user.supabaseId, date, offset);
   }
 
   @Get('week')
-  getWeekly(@CurrentUser() user: { supabaseId: string }) {
-    return this.activity.getWeeklySummary(user.supabaseId);
+  getWeekly(
+    @CurrentUser() user: { supabaseId: string },
+    @UtcOffset() offset: number,
+  ) {
+    return this.activity.getWeeklySummary(user.supabaseId, offset);
   }
 
   @Post(':id/kudos')

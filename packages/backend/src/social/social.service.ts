@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { dayRange, localToday, weekStart } from '../common/day';
 
 export type FeedItemType = 'food_log' | 'activity_log' | 'habit_log';
 
@@ -82,7 +83,9 @@ export class SocialService {
 
     if (followedIds.length === 0) return [];
 
-    const since = cursor ? new Date(cursor) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    // Last 7 days, newest first; a cursor pages back to items older than it
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const loggedAt = cursor ? { gte: since, lt: new Date(cursor) } : { gte: since };
 
     const userSelect = {
       id: true, displayName: true, avatarUrl: true, username: true,
@@ -91,21 +94,25 @@ export class SocialService {
     // Fetch from all three log tables in parallel
     const [foodLogs, activityLogs, habitLogs] = await Promise.all([
       this.prisma.foodLog.findMany({
-        where: { userId: { in: followedIds }, loggedAt: { gte: since } },
+        where: { userId: { in: followedIds }, loggedAt },
         include: { user: { select: userSelect } },
         orderBy: { loggedAt: 'desc' },
         take: limit,
       }),
       this.prisma.activityLog.findMany({
-        where: { userId: { in: followedIds }, loggedAt: { gte: since } },
-        include: { user: { select: userSelect } },
+        where: { userId: { in: followedIds }, loggedAt },
+        include: {
+          user: { select: userSelect },
+          // Whether the viewer has already given kudos
+          kudos: { where: { userId: user.id }, select: { id: true } },
+        },
         orderBy: { loggedAt: 'desc' },
         take: limit,
       }),
       this.prisma.habitLog.findMany({
         where: {
           userId: { in: followedIds },
-          loggedAt: { gte: since },
+          loggedAt,
           completed: true,
         },
         include: {
@@ -136,6 +143,7 @@ export class SocialService {
           caloriesBurned: l.caloriesBurned,
           steps: l.steps,
           kudosCount: l.kudosCount,
+          kudosGiven: l.kudos.length > 0,
         },
       })),
       ...habitLogs.map((l) => ({
@@ -152,7 +160,7 @@ export class SocialService {
 
   // ── Weekly leaderboard ────────────────────────────────────────────────────
 
-  async getWeeklyLeaderboard(supabaseId: string) {
+  async getWeeklyLeaderboard(supabaseId: string, offset: number) {
     const user = await this.resolveUser(supabaseId);
 
     const follows = await this.prisma.follow.findMany({
@@ -162,9 +170,7 @@ export class SocialService {
     // Include self in leaderboard
     const ids = [user.id, ...follows.map((f) => f.followingId)];
 
-    const monday = new Date();
-    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-    monday.setHours(0, 0, 0, 0);
+    const monday = dayRange(weekStart(localToday(offset)), offset).start;
 
     const logs = await this.prisma.activityLog.groupBy({
       by: ['userId'],

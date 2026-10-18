@@ -3,6 +3,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  addDays,
+  dateMarker,
+  dayRange,
+  localDateOf,
+  localToday,
+} from '../common/day';
 import OpenAI from 'openai';
 
 const DAILY_LIMIT = 10;
@@ -39,11 +46,10 @@ export class AIService {
     return user;
   }
 
-  private async buildContext(userId: string): Promise<string> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const weekAgo = new Date(today);
-    weekAgo.setDate(today.getDate() - 7);
+  private async buildContext(userId: string, offset: number): Promise<string> {
+    const todayDate = localToday(offset);
+    const today = dayRange(todayDate, offset).start;
+    const weekAgo = dayRange(addDays(todayDate, -7), offset).start;
 
     const [user, todayFood, weekActivity, habits, habitLogs] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: userId } }),
@@ -54,7 +60,9 @@ export class AIService {
         take: 10,
       }),
       this.prisma.habit.findMany({ where: { userId, isActive: true } }),
-      this.prisma.habitLog.findMany({ where: { userId, loggedAt: { gte: today } } }),
+      this.prisma.habitLog.findMany({
+        where: { userId, loggedAt: dateMarker(todayDate) },
+      }),
     ]);
 
     const todayCalories = todayFood.reduce((s, f) => s + f.calories, 0);
@@ -69,7 +77,7 @@ export class AIService {
       : '- No habits set up';
 
     const activityLines = weekActivity.length > 0
-      ? weekActivity.map((a) => `- ${a.loggedAt.toISOString().split('T')[0]}: ${a.activityType}, ${a.durationMin} min`).join('\n')
+      ? weekActivity.map((a) => `- ${localDateOf(a.loggedAt, offset)}: ${a.activityType}, ${a.durationMin} min`).join('\n')
       : '- No activity logged this week';
 
     return `User profile:
@@ -98,11 +106,8 @@ ${context}
 Keep responses to 2–4 sentences unless detail is needed. Reference specific numbers from their data when relevant. Never shame food choices or missed habits — always frame positively. Suggest one concrete next action when appropriate.`;
   }
 
-  private async checkRateLimit(userId: string): Promise<void> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+  private async checkRateLimit(userId: string, offset: number): Promise<void> {
+    const { start: today, end: tomorrow } = dayRange(localToday(offset), offset);
 
     const count = await this.prisma.aIMessage.count({
       where: { userId, role: 'user', createdAt: { gte: today, lt: tomorrow } },
@@ -116,9 +121,10 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
   async *streamMessage(
     supabaseId: string,
     userMessage: string,
+    offset: number,
   ): AsyncGenerator<{ type: string; text?: string }> {
     const user = await this.resolveUser(supabaseId);
-    await this.checkRateLimit(user.id);
+    await this.checkRateLimit(user.id, offset);
 
     await this.prisma.aIMessage.create({
       data: { userId: user.id, role: 'user', content: userMessage },
@@ -131,7 +137,7 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
     });
     history.reverse();
 
-    const context = await this.buildContext(user.id);
+    const context = await this.buildContext(user.id, offset);
     const systemPrompt = this.getSystemPrompt(context);
 
     const messages = history.map((m) => ({
@@ -185,11 +191,10 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
     });
   }
 
-  async getNudge(supabaseId: string): Promise<string> {
+  async getNudge(supabaseId: string, offset: number): Promise<string> {
     const user = await this.resolveUser(supabaseId);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = dayRange(localToday(offset), offset).start;
 
     const existing = await this.prisma.aIMessage.findFirst({
       where: {
@@ -204,7 +209,7 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
       return existing.content.replace('[NUDGE] ', '');
     }
 
-    const context = await this.buildContext(user.id);
+    const context = await this.buildContext(user.id, offset);
     const systemPrompt = this.getSystemPrompt(context);
 
     const response = await this.openai.responses.create({

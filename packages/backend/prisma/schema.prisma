@@ -9,30 +9,31 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  supabaseId  String   @unique
-  username    String   @unique
-  displayName String
-  avatarUrl   String?
-  calorieGoal   Int      @default(2000)
+  id            String    @id @default(cuid())
+  supabaseId    String    @unique
+  username      String    @unique
+  displayName   String
+  avatarUrl     String?
+  calorieGoal   Int       @default(2000)
   weightKg      Float?
-  primaryGoal   String   @default("just_track")
+  primaryGoal   String    @default("just_track")
   heightCm      Float?
   activityLevel String?
   gender        String?
   dateOfBirth   DateTime?
   pushToken     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   foodLogs     FoodLog[]
   activityLogs ActivityLog[]
   habitLogs    HabitLog[]
   habits       Habit[]
-  following    Follow[]              @relation("following")
-  followers    Follow[]              @relation("followers")
+  following    Follow[]               @relation("following")
+  followers    Follow[]               @relation("followers")
   challenges   ChallengeParticipant[]
   aiMessages   AIMessage[]
+  kudosGiven   Kudos[]
 
   @@map("users")
 }
@@ -82,10 +83,25 @@ model ActivityLog {
   loggedAt       DateTime @default(now())
   kudosCount     Int      @default(0)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kudos Kudos[]
 
   @@index([userId, loggedAt])
   @@map("activity_logs")
+}
+
+// One kudos per user per activity log; kudosCount on the log is the tally
+model Kudos {
+  id            String   @id @default(cuid())
+  activityLogId String
+  userId        String
+  createdAt     DateTime @default(now())
+
+  activityLog ActivityLog @relation(fields: [activityLogId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([activityLogId, userId])
+  @@map("kudos")
 }
 
 model Habit {
@@ -98,7 +114,7 @@ model Habit {
   createdAt DateTime @default(now())
   isActive  Boolean  @default(true)
 
-  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   logs HabitLog[]
 
   @@map("habits")
@@ -138,11 +154,11 @@ model Challenge {
 }
 
 model ChallengeParticipant {
-  id            String   @id @default(cuid())
-  challengeId   String
-  userId        String
-  currentValue  Int      @default(0)
-  joinedAt      DateTime @default(now())
+  id           String   @id @default(cuid())
+  challengeId  String
+  userId       String
+  currentValue Int      @default(0)
+  joinedAt     DateTime @default(now())
 
   challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)

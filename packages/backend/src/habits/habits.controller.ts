@@ -10,7 +10,9 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
+import { UtcOffset } from '../common/utc-offset.decorator';
 import { HabitsService } from './habits.service';
+import { CreateHabitDto, UpdateHabitDto } from './habits.dto';
 
 @Controller('habits')
 @UseGuards(AuthGuard)
@@ -30,7 +32,7 @@ export class HabitsController {
   @Post()
   create(
     @CurrentUser() user: { supabaseId: string },
-    @Body() body: { name?: string; emoji?: string; presetKey?: string },
+    @Body() body: CreateHabitDto,
   ) {
     return this.habits.createHabit(user.supabaseId, body);
   }
@@ -39,7 +41,7 @@ export class HabitsController {
   update(
     @CurrentUser() user: { supabaseId: string },
     @Param('id') id: string,
-    @Body() body: { name?: string; emoji?: string },
+    @Body() body: UpdateHabitDto,
   ) {
     return this.habits.updateHabit(user.supabaseId, id, body);
   }
@@ -56,15 +58,17 @@ export class HabitsController {
   log(
     @CurrentUser() user: { supabaseId: string },
     @Param('id') id: string,
+    @UtcOffset() offset: number,
   ) {
-    return this.habits.logHabit(user.supabaseId, id);
+    return this.habits.logHabit(user.supabaseId, id, offset);
   }
 
   @Get(':id/streak')
   streak(
     @CurrentUser() user: { supabaseId: string },
     @Param('id') id: string,
+    @UtcOffset() offset: number,
   ) {
-    return this.habits.getStreak(user.supabaseId, id);
+    return this.habits.getStreak(user.supabaseId, id, offset);
   }
 }

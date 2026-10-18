@@ -1,7 +1,14 @@
 import {
-  Injectable, NotFoundException, BadRequestException, ConflictException,
+  Injectable, NotFoundException, BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { dayRange, localToday } from '../common/day';
+import type { CreateChallengeDto } from './challenges.dto';
+
+const MAX_PARTICIPANTS = 8;
+const participantUser = {
+  select: { id: true, displayName: true, avatarUrl: true, username: true },
+};
 
 @Injectable()
 export class ChallengesService {
@@ -15,20 +22,18 @@ export class ChallengesService {
 
   async createChallenge(
     supabaseId: string,
-    dto: { title: string; goalValue: number; durationDays: number },
+    dto: CreateChallengeDto,
+    offset: number,
   ) {
     const user = await this.resolveUser(supabaseId);
 
-    if (![3, 7, 14, 30].includes(dto.durationDays)) {
-      throw new BadRequestException('Duration must be 3, 7, 14, or 30 days');
-    }
+    // Runs from the start of the creator's local today for durationDays days
+    const startDate = dayRange(localToday(offset), offset).start;
+    const endDate = new Date(
+      startDate.getTime() + dto.durationDays * 86_400_000,
+    );
 
-    const startDate = new Date();
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + dto.durationDays);
-
-    const challenge = await this.prisma.challenge.create({
+    return this.prisma.challenge.create({
       data: {
         title: dto.title,
         type: 'group_steps',
@@ -37,15 +42,10 @@ export class ChallengesService {
         startDate,
         endDate,
         creatorId: user.id,
+        // Creator auto-joins
+        participants: { create: { userId: user.id } },
       },
     });
-
-    // Creator auto-joins
-    await this.prisma.challengeParticipant.create({
-      data: { challengeId: challenge.id, userId: user.id },
-    });
-
-    return challenge;
   }
 
   async getUserChallenges(supabaseId: string) {
@@ -54,9 +54,7 @@ export class ChallengesService {
       where: { participants: { some: { userId: user.id } } },
       include: {
         participants: {
-          include: {
-            user: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-          },
+          include: { user: participantUser },
           orderBy: { currentValue: 'desc' },
         },
       },
@@ -64,19 +62,21 @@ export class ChallengesService {
     });
   }
 
-  async getChallenge(challengeId: string) {
+  /** Only participants can see a challenge (and its invite code). */
+  async getChallenge(supabaseId: string, challengeId: string) {
+    const user = await this.resolveUser(supabaseId);
     const challenge = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
       include: {
         participants: {
-          include: {
-            user: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-          },
+          include: { user: participantUser },
           orderBy: { currentValue: 'desc' },
         },
       },
     });
-    if (!challenge) throw new NotFoundException('Challenge not found');
+    if (!challenge || !challenge.participants.some((p) => p.userId === user.id)) {
+      throw new NotFoundException('Challenge not found');
+    }
 
     const totalProgress = challenge.participants.reduce(
       (s, p) => s + p.currentValue, 0,
@@ -93,8 +93,13 @@ export class ChallengesService {
     });
     if (!challenge) throw new NotFoundException('Challenge not found');
     if (challenge.isComplete) throw new BadRequestException('Challenge is already complete');
-    if (challenge._count.participants >= 8) {
-      throw new BadRequestException('Challenge is full (max 8 participants)');
+    if (challenge.endDate <= new Date()) {
+      throw new BadRequestException('Challenge has ended');
+    }
+    if (challenge._count.participants >= MAX_PARTICIPANTS) {
+      throw new BadRequestException(
+        `Challenge is full (max ${MAX_PARTICIPANTS} participants)`,
+      );
     }
 
     return this.prisma.challengeParticipant.upsert({
@@ -110,6 +115,14 @@ export class ChallengesService {
       where: { challengeId_userId: { challengeId, userId: user.id } },
     });
     if (!participant) throw new NotFoundException('Not a participant of this challenge');
+
+    const current = await this.prisma.challenge.findUnique({
+      where: { id: challengeId },
+      select: { endDate: true },
+    });
+    if (current && current.endDate <= new Date()) {
+      throw new BadRequestException('Challenge has ended');
+    }
 
     const updated = await this.prisma.challengeParticipant.update({
       where: { challengeId_userId: { challengeId, userId: user.id } },

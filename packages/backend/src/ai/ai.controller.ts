@@ -5,6 +5,8 @@ import type { Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { AIService } from './ai.service';
+import { SendMessageDto } from './ai.dto';
+import { UtcOffset } from '../common/utc-offset.decorator';
 
 @Controller('ai')
 @UseGuards(AuthGuard)
@@ -14,7 +16,8 @@ export class AIController {
   @Post('message')
   async streamMessage(
     @CurrentUser() user: { supabaseId: string },
-    @Body() body: { message: string },
+    @Body() body: SendMessageDto,
+    @UtcOffset() offset: number,
     @Res() res: Response,
   ) {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -23,7 +26,7 @@ export class AIController {
     res.flushHeaders();
 
     try {
-      for await (const chunk of this.ai.streamMessage(user.supabaseId, body.message)) {
+      for await (const chunk of this.ai.streamMessage(user.supabaseId, body.message, offset)) {
         res.write(`data: ${JSON.stringify(chunk)}\n\n`);
       }
     } catch (err: any) {
@@ -39,8 +42,11 @@ export class AIController {
   }
 
   @Get('nudge')
-  async getNudge(@CurrentUser() user: { supabaseId: string }) {
-    const nudge = await this.ai.getNudge(user.supabaseId);
+  async getNudge(
+    @CurrentUser() user: { supabaseId: string },
+    @UtcOffset() offset: number,
+  ) {
+    const nudge = await this.ai.getNudge(user.supabaseId, offset);
     return { nudge };
   }
 }

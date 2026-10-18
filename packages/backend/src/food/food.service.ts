@@ -1,9 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
+import { dayRange } from '../common/day';
+import type { CreateFoodLogDto } from './food.dto';
 import type { NormalizedFood, OFFProduct } from './food.types';
 
-const OFF_BASE = 'https://world.openfoodfacts.org';
+// Open Food Facts asks every client to identify itself and can be slow, so
+// requests carry a User-Agent and a timeout.
+const off = axios.create({
+  baseURL: 'https://world.openfoodfacts.org',
+  timeout: 10_000,
+  headers: { 'User-Agent': 'GRIT/1.0 (support@gritapp.io)' },
+});
 
 @Injectable()
 export class FoodService {
@@ -29,30 +41,45 @@ export class FoodService {
   }
 
   async searchFoods(query: string): Promise<NormalizedFood[]> {
-    const { data } = await axios.get<{ products?: OFFProduct[] }>(
-      `${OFF_BASE}/cgi/search.pl`,
-      {
-        params: {
-          search_terms: query,
-          search_simple: 1,
-          action: 'process',
-          json: 1,
-          page_size: 20,
-          fields:
-            'id,code,product_name,brands,nutriments,serving_quantity,serving_quantity_unit,image_small_url',
+    const terms = query.trim();
+    if (terms.length < 2) return [];
+
+    try {
+      const { data } = await off.get<{ products?: OFFProduct[] }>(
+        '/cgi/search.pl',
+        {
+          params: {
+            search_terms: terms,
+            search_simple: 1,
+            action: 'process',
+            json: 1,
+            page_size: 20,
+            fields:
+              'id,code,product_name,brands,nutriments,serving_quantity,serving_quantity_unit,image_small_url',
+          },
         },
-      },
-    );
-    return (data.products ?? [])
-      .filter((p) => p.product_name)
-      .map((p) => this.normalize(p));
+      );
+      return (data.products ?? [])
+        .filter((p) => p.product_name)
+        .map((p) => this.normalize(p));
+    } catch {
+      throw new BadGatewayException('Food database is unavailable');
+    }
   }
 
   async lookupBarcode(barcode: string): Promise<NormalizedFood> {
-    const { data } = await axios.get<{
-      status: number;
-      product?: OFFProduct;
-    }>(`${OFF_BASE}/api/v0/product/${barcode}.json`);
+    let data: { status: number; product?: OFFProduct };
+    try {
+      ({ data } = await off.get<{ status: number; product?: OFFProduct }>(
+        `/api/v0/product/${barcode}.json`,
+      ));
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        data = { status: 0 };
+      } else {
+        throw new BadGatewayException('Food database is unavailable');
+      }
+    }
 
     if (data.status !== 1 || !data.product) {
       throw new NotFoundException(`No product found for barcode ${barcode}`);
@@ -74,22 +101,7 @@ export class FoodService {
 
   // ── Food log CRUD ─────────────────────────────────────────────────────────
 
-  async logFood(
-    supabaseId: string,
-    dto: {
-      name: string;
-      brand?: string;
-      barcode?: string;
-      mealType: string;
-      calories: number;
-      proteinG?: number;
-      carbsG?: number;
-      fatG?: number;
-      servingQty?: number;
-      servingUnit?: string;
-      loggedAt?: string;
-    },
-  ) {
+  async logFood(supabaseId: string, dto: CreateFoodLogDto) {
     const userId = await this.resolveUserId(supabaseId);
     return this.prisma.foodLog.create({
       data: {
@@ -109,15 +121,12 @@ export class FoodService {
     });
   }
 
-  async getFoodLogsForDate(supabaseId: string, date: string) {
+  async getFoodLogsForDate(supabaseId: string, date: string, offset: number) {
     const userId = await this.resolveUserId(supabaseId);
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(date);
-    end.setHours(23, 59, 59, 999);
+    const { start, end } = dayRange(date, offset);
 
     const logs = await this.prisma.foodLog.findMany({
-      where: { userId, loggedAt: { gte: start, lte: end } },
+      where: { userId, loggedAt: { gte: start, lt: end } },
       orderBy: { loggedAt: 'asc' },
     });
 
