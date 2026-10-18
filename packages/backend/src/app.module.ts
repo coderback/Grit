@@ -10,6 +10,8 @@ import { SocialModule } from './social/social.module';
 import { ChallengesModule } from './challenges/challenges.module';
 import { AIModule } from './ai/ai.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -25,5 +27,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     AIModule,
     NotificationsModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
