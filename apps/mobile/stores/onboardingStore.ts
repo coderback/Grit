@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { storage } from '@/lib/storage';
 
 interface OnboardingState {
   // Step 1 — basics
@@ -55,8 +57,15 @@ const defaults = {
   notifOffTrackOnly: false,
 } as const;
 
-export const useOnboardingStore = create<OnboardingState>((set) => ({
-  ...defaults,
-  set: (partial) => set(partial),
-  reset: () => set(defaults),
-}));
+// Persisted so answers survive an app restart before they reach the backend,
+// e.g. while the user confirms their email after signing up
+export const useOnboardingStore = create<OnboardingState>()(
+  persist(
+    (set) => ({
+      ...defaults,
+      set: (partial) => set(partial),
+      reset: () => set(defaults),
+    }),
+    { name: 'grit_onboarding', storage: createJSONStorage(() => storage) },
+  ),
+);

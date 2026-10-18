@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { localDateStr } from '@/lib/date';
 
 export interface Habit {
   id: string;
@@ -74,8 +75,9 @@ export function useLogHabit() {
       api.post(`/habits/${habitId}/log`).then((r) => r.data),
     onSuccess: (_data, habitId) => {
       qc.invalidateQueries({ queryKey: ['habit-streak', habitId] });
-      // Also invalidate the today-completed set used in the tab
+      // Also invalidate the today-completed set and best streak on Home
       qc.invalidateQueries({ queryKey: ['habits-today'] });
+      qc.invalidateQueries({ queryKey: ['habits-max-streak'] });
     },
   });
 }
@@ -98,7 +100,7 @@ export function useTodayCompletions(habits: Habit[]) {
   return useQuery<Set<string>>({
     queryKey: ['habits-today', habits.map((h) => h.id).join(',')],
     queryFn: async () => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = localDateStr();
       const results = await Promise.all(
         habits.map((h) =>
           api

@@ -79,8 +79,7 @@ export function useLogFood() {
       servingUnit?: string;
     }) => api.post('/food-logs', data).then((r) => r.data),
     onSuccess: () => {
-      const today = new Date().toISOString().split('T')[0];
-      qc.invalidateQueries({ queryKey: ['food-logs', today] });
+      qc.invalidateQueries({ queryKey: ['food-logs'] });
     },
   });
 }
@@ -90,8 +89,7 @@ export function useDeleteFoodLog() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/food-logs/${id}`).then((r) => r.data),
     onSuccess: () => {
-      const today = new Date().toISOString().split('T')[0];
-      qc.invalidateQueries({ queryKey: ['food-logs', today] });
+      qc.invalidateQueries({ queryKey: ['food-logs'] });
     },
   });
 }

@@ -23,7 +23,8 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const { session, isLoading, onboardingLoading, setSession, onboardingComplete, loadOnboardingState, setOnboardingComplete } = useAuthStore();
-  usePushNotifications();
+  // Register for push only once signed in; the backend rejects anonymous calls
+  usePushNotifications(!!session);
 
   const [fontsLoaded] = useFonts({
     'DMSans-Regular': DMSans_400Regular,
@@ -46,7 +47,9 @@ export default function RootLayout() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // Drop the previous user's cached data on sign-out (including after a 401)
+      if (event === 'SIGNED_OUT') queryClient.clear();
       if (mounted) setSession(session);
     });
 

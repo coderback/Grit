@@ -13,12 +13,13 @@ import { Colors } from '@/constants/colors';
 interface KudosButtonProps {
   logId: string;
   initialCount: number;
+  initialGiven: boolean;
 }
 
-export function KudosButton({ logId, initialCount }: KudosButtonProps) {
+export function KudosButton({ logId, initialCount, initialGiven }: KudosButtonProps) {
   const { mutate: giveKudos } = useGiveKudos();
   const [count, setCount] = useState(initialCount);
-  const [given, setGiven] = useState(false);
+  const [given, setGiven] = useState(initialGiven);
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -34,7 +35,12 @@ export function KudosButton({ logId, initialCount }: KudosButtonProps) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setCount((c) => c + 1);
     setGiven(true);
-    giveKudos(logId);
+    giveKudos(logId, {
+      onError: () => {
+        setCount((c) => c - 1);
+        setGiven(false);
+      },
+    });
   }
 
   return (

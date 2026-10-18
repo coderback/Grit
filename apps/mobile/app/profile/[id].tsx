@@ -6,11 +6,14 @@ import * as Haptics from 'expo-haptics';
 import {
   usePublicProfile, useFollow, useUnfollow, useFollowing,
 } from '@/hooks/useSocialFeed';
-import { useAuthStore } from '@/stores/authStore';
+import { useMe } from '@/hooks/useMe';
 import { Colors } from '@/constants/colors';
 
 const GOAL_LABELS: Record<string, string> = {
   lose_weight: 'Lose weight',
+  build_muscle: 'Build muscle',
+  maintain: 'Maintain',
+  recomp: 'Recomp',
   build_strength: 'Build strength',
   build_habits: 'Build habits',
   just_track: 'Just tracking',
@@ -18,13 +21,13 @@ const GOAL_LABELS: Record<string, string> = {
 
 export default function ProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const currentUser = useAuthStore((s) => s.user);
+  const { data: me } = useMe();
   const { data: profile, isLoading } = usePublicProfile(id);
   const { data: following } = useFollowing();
   const { mutate: follow, isPending: followPending } = useFollow();
   const { mutate: unfollow, isPending: unfollowPending } = useUnfollow();
 
-  const isMe = currentUser?.id === id;
+  const isMe = me?.id === id;
   const isFollowing = (following ?? []).some(
     (f: { following: { id: string } }) => f.following.id === id,
   );

@@ -1,13 +1,24 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
+// React Native's global fetch can't stream response bodies; Expo's can
+import { fetch } from 'expo/fetch';
+import { api, authHeaders } from '@/lib/api';
 
 export interface AIMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   createdAt: string;
+}
+
+/** Pull the `message` out of a Nest JSON error body, if that's what we got. */
+function errorMessage(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as { message?: string | string[] };
+    return Array.isArray(parsed.message) ? parsed.message.join(', ') : parsed.message ?? body;
+  } catch {
+    return body;
+  }
 }
 
 export function useAIMessages() {
@@ -45,8 +56,8 @@ export function useStreamMessage() {
     ) => {
       setIsStreaming(true);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const headers = await authHeaders();
+      if (!headers.Authorization) {
         onError('Not authenticated');
         setIsStreaming(false);
         return;
@@ -57,24 +68,19 @@ export function useStreamMessage() {
       try {
         const response = await fetch(`${baseUrl}/ai/message`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
+          headers: { ...headers, 'Content-Type': 'application/json' },
           body: JSON.stringify({ message }),
         });
 
         if (!response.ok) {
           const errText = await response.text();
-          onError(errText || `HTTP ${response.status}`);
-          setIsStreaming(false);
+          onError(errorMessage(errText) || `HTTP ${response.status}`);
           return;
         }
 
         const reader = response.body?.getReader();
         if (!reader) {
           onError('Stream not available');
-          setIsStreaming(false);
           return;
         }
 
@@ -109,11 +115,11 @@ export function useStreamMessage() {
           }
         }
 
-        // Refresh message history after stream completes
-        qc.invalidateQueries({ queryKey: ['ai-messages'] });
       } catch (err: any) {
         onError(err.message ?? 'Network error');
       } finally {
+        // The server saves both sides of the exchange, even on partial failures
+        qc.invalidateQueries({ queryKey: ['ai-messages'] });
         setIsStreaming(false);
       }
     },

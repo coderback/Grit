@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import Svg, {
   Circle, Defs, LinearGradient, Stop, Line, Rect, Path,
 } from 'react-native-svg';
@@ -12,23 +12,10 @@ import { NudgeCard } from '@/components/coach/NudgeCard';
 import { useFoodLogsForDate } from '@/hooks/useFoodLog';
 import { useWeeklySummary } from '@/hooks/useActivityLog';
 import { useHabits, useTodayCompletions, useMaxHabitStreak } from '@/hooks/useHabits';
-import { api } from '@/lib/api';
 import { Colors } from '@/constants/colors';
+import { localDateStr } from '@/lib/date';
+import { useMe } from '@/hooks/useMe';
 
-interface BackendUser {
-  id: string;
-  displayName: string;
-  calorieGoal: number;
-  primaryGoal: string;
-}
-
-function useMe() {
-  return useQuery<BackendUser>({
-    queryKey: ['me'],
-    queryFn: () => api.get('/users/me').then((r) => r.data),
-    staleTime: 1000 * 60 * 5,
-  });
-}
 
 function greeting() {
   const h = new Date().getHours();
@@ -38,7 +25,7 @@ function greeting() {
 }
 
 function todayStr() {
-  return new Date().toISOString().split('T')[0];
+  return localDateStr();
 }
 
 // ── CalorieRing ──────────────────────────────────────────────────────────────

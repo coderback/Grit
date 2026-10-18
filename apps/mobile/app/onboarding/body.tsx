@@ -9,6 +9,16 @@ import { useOnboardingStore } from '../../stores/onboardingStore';
 const SCREEN_W = Dimensions.get('window').width;
 const PX_PER = 10;
 
+const CM_PER_IN = 2.54;
+const LB_PER_KG = 2.20462;
+
+// The rulers work in whichever unit is shown; the store always holds cm and kg
+const HEIGHT_RANGE = { cm: { min: 140, max: 220, major: 5 }, ft: { min: 55, max: 87, major: 12 } };
+const WEIGHT_RANGE = { kg: { min: 30, max: 200, major: 5 }, lbs: { min: 66, max: 440, major: 10 } };
+
+const roundTo1 = (n: number) => Math.round(n * 10) / 10;
+const feetInches = (inches: number) => `${Math.floor(inches / 12)}'${inches % 12}"`;
+
 function ProgressBar({ step, total }: { step: number; total: number }) {
   return (
     <View style={{ height: 3, backgroundColor: Colors.surface2, borderRadius: 2 }}>
@@ -38,7 +48,15 @@ function UnitToggle({ options, value, onChange }: { options: string[]; value: st
   );
 }
 
-function HorizRuler({ value, onChange, min, max, unit }: { value: number; onChange: (v: number) => void; min: number; max: number; unit: string }) {
+function HorizRuler({ value, onChange, min, max, unit, majorEvery = 5, format = String }: {
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  unit: string;
+  majorEvery?: number;
+  format?: (v: number) => string;
+}) {
   const startRef = useRef<{ x: number; val: number } | null>(null);
   const RULER_W = SCREEN_W - 40;
   const CTR = RULER_W / 2;
@@ -49,7 +67,7 @@ function HorizRuler({ value, onChange, min, max, unit }: { value: number; onChan
     const v = value + i;
     if (v < min || v > max) continue;
     const x = CTR + i * PX_PER;
-    ticks.push({ v, x, isCur: v === value, isMajor: v % 5 === 0 });
+    ticks.push({ v, x, isCur: v === value, isMajor: v % majorEvery === 0 });
   }
 
   const panResponder = PanResponder.create({
@@ -78,9 +96,9 @@ function HorizRuler({ value, onChange, min, max, unit }: { value: number; onChan
     >
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', paddingTop: 22, paddingBottom: 16, gap: 6 }}>
         <Text style={{ fontSize: 52, fontFamily: 'JetBrainsMono-Regular', color: Colors.text, letterSpacing: -2, lineHeight: 56 }}>
-          {value}
+          {format(value)}
         </Text>
-        <Text style={{ fontSize: 18, color: Colors.muted, fontFamily: 'DMSans-Regular', paddingBottom: 6 }}>{unit}</Text>
+        {!!unit && <Text style={{ fontSize: 18, color: Colors.muted, fontFamily: 'DMSans-Regular', paddingBottom: 6 }}>{unit}</Text>}
       </View>
 
       <View style={{ height: 58, position: 'relative' }}>
@@ -114,7 +132,7 @@ function HorizRuler({ value, onChange, min, max, unit }: { value: number; onChan
                   fontFamily="DMSans-Regular"
                   fontWeight={isCur ? '700' : '400'}
                 >
-                  {v}
+                  {format(v)}
                 </SvgText>
               )}
             </React.Fragment>
@@ -130,11 +148,17 @@ export default function BodyScreen() {
 
   const [height, setHeight] = useState(heightCm ?? 175);
   const [weight, setWeight] = useState(weightKg ?? 78);
-  const [heightUnit, setHeightUnit] = useState('cm');
-  const [weightUnit, setWeightUnit] = useState('kg');
+  const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
+  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
+
+  const hRange = HEIGHT_RANGE[heightUnit];
+  const wRange = WEIGHT_RANGE[weightUnit];
+  const clamp = (v: number, r: { min: number; max: number }) => Math.max(r.min, Math.min(r.max, v));
+  const heightShown = clamp(Math.round(heightUnit === 'cm' ? height : height / CM_PER_IN), hRange);
+  const weightShown = clamp(Math.round(weightUnit === 'kg' ? weight : weight * LB_PER_KG), wRange);
 
   function handleContinue() {
-    set({ heightCm: height, weightKg: weight });
+    set({ heightCm: roundTo1(height), weightKg: roundTo1(weight) });
     router.push('/onboarding/activity');
   }
 
@@ -164,18 +188,33 @@ export default function BodyScreen() {
         <View style={{ gap: 10 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Height</Text>
-            <UnitToggle options={['cm', 'ft']} value={heightUnit} onChange={setHeightUnit} />
+            <UnitToggle options={['cm', 'ft']} value={heightUnit} onChange={(u) => setHeightUnit(u as 'cm' | 'ft')} />
           </View>
-          <HorizRuler value={height} onChange={setHeight} min={140} max={220} unit={heightUnit} />
+          <HorizRuler
+            value={heightShown}
+            onChange={(v) => setHeight(heightUnit === 'cm' ? v : v * CM_PER_IN)}
+            min={hRange.min}
+            max={hRange.max}
+            majorEvery={hRange.major}
+            unit={heightUnit === 'cm' ? 'cm' : ''}
+            format={heightUnit === 'cm' ? String : feetInches}
+          />
           <Text style={{ fontSize: 11, color: `${Colors.muted}70`, textAlign: 'center', fontFamily: 'DMSans-Regular' }}>← drag to adjust →</Text>
         </View>
 
         <View style={{ gap: 10 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Weight</Text>
-            <UnitToggle options={['kg', 'lbs']} value={weightUnit} onChange={setWeightUnit} />
+            <UnitToggle options={['kg', 'lbs']} value={weightUnit} onChange={(u) => setWeightUnit(u as 'kg' | 'lbs')} />
           </View>
-          <HorizRuler value={weight} onChange={setWeight} min={30} max={200} unit={weightUnit} />
+          <HorizRuler
+            value={weightShown}
+            onChange={(v) => setWeight(weightUnit === 'kg' ? v : v / LB_PER_KG)}
+            min={wRange.min}
+            max={wRange.max}
+            majorEvery={wRange.major}
+            unit={weightUnit}
+          />
           <Text style={{ fontSize: 11, color: `${Colors.muted}70`, textAlign: 'center', fontFamily: 'DMSans-Regular' }}>← drag to adjust →</Text>
         </View>
 

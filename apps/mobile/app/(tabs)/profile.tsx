@@ -11,28 +11,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { Colors } from '../../constants/colors';
 import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
+import { useMe, type Me } from '../../hooks/useMe';
 
-interface BackendUser {
-  id: string;
-  displayName: string;
-  calorieGoal: number;
-  weightKg: number | null;
-  primaryGoal: string | null;
-}
-
-function useMe() {
-  return useQuery<BackendUser>({
-    queryKey: ['me'],
-    queryFn: () => api.get('/users/me').then((r) => r.data),
-    staleTime: 1000 * 60 * 5,
-  });
-}
+type BackendUser = Me;
 
 function labelCase(s: string | null | undefined) {
   if (!s) return '—';

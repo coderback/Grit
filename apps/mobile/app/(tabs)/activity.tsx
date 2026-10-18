@@ -7,6 +7,7 @@ import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop, G } from 'react-na
 import { useActivityLogsForDate, useWeeklySummary } from '@/hooks/useActivityLog';
 import { LogActivitySheet } from '@/components/activity/LogActivitySheet';
 import { Colors } from '@/constants/colors';
+import { localDateStr } from '@/lib/date';
 
 const MOCK_CAL_DATA = [
   { label: 'Mon', v: 1820 }, { label: 'Tue', v: 2180 }, { label: 'Wed', v: 1950 },
@@ -89,7 +90,7 @@ const METRICS = [
 const PERIODS = ['7D', '30D', '3M'];
 
 export default function ActivityScreen() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
   const { data: weekly } = useWeeklySummary();
   const [showSheet, setShowSheet] = useState(false);
   const [metric, setMetric] = useState('calories');

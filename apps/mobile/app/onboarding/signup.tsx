@@ -1,30 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { View, Text, Pressable, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import { useOnboardingStore } from '../../stores/onboardingStore';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { api } from '../../lib/api';
-import { calcBMR, calcTDEE, calcAdjustedCalories, ageFromDOB } from '../../lib/tdee';
+import { syncOnboardingProfile } from '../../lib/onboardingProfile';
 
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const store = useOnboardingStore();
   const { setOnboardingComplete } = useAuthStore();
-
-  const calorieGoal = useMemo(() => {
-    const { gender, dateOfBirth, heightCm, weightKg, activityLevel, primaryGoal, pace } = store;
-    if (!gender || !dateOfBirth || !heightCm || !weightKg || !activityLevel || !primaryGoal || !pace) return 2000;
-    const age = ageFromDOB(dateOfBirth);
-    const bmr = calcBMR(gender, weightKg, heightCm, age);
-    const tdee = calcTDEE(bmr, activityLevel);
-    return calcAdjustedCalories(tdee, primaryGoal, pace);
-  }, [store]);
 
   async function handleSignup() {
     if (!email.trim() || !password.trim()) {
@@ -38,28 +26,29 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({ email: email.trim(), password });
+      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
       if (error) throw error;
+      await setOnboardingComplete();
 
-      // Wait briefly for auth state to propagate, then sync onboarding data
-      await new Promise((r) => setTimeout(r, 800));
-
-      try {
-        await api.put('/users/me', {
-          gender: store.gender,
-          dateOfBirth: store.dateOfBirth,
-          heightCm: store.heightCm,
-          weightKg: store.weightKg,
-          activityLevel: store.activityLevel,
-          primaryGoal: store.primaryGoal,
-          calorieGoal,
-        });
-      } catch {
-        // Non-blocking — profile can be updated later
+      // With email confirmation on there's no session yet. The onboarding
+      // answers stay saved on the device and are synced at first login.
+      if (!data.session) {
+        Alert.alert(
+          'Confirm your email',
+          `We sent a confirmation link to ${email.trim()}. Open it, then log in to see your plan.`,
+        );
+        router.replace('/(auth)/login');
+        return;
       }
 
-      store.reset();
-      await setOnboardingComplete();
+      try {
+        await syncOnboardingProfile();
+      } catch {
+        Alert.alert(
+          "Couldn't save your plan",
+          "Your account is ready, but your plan didn't save. We'll retry next time you log in.",
+        );
+      }
       router.replace('/(tabs)/');
     } catch (err: any) {
       Alert.alert('Sign up failed', err?.message ?? 'Something went wrong. Please try again.');
