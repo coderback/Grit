@@ -26,12 +26,15 @@ export default function RootLayout() {
   // Register for push only once signed in; the backend rejects anonymous calls
   usePushNotifications(!!session);
 
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     'DMSans-Regular': DMSans_400Regular,
     'DMSans-Medium': DMSans_500Medium,
     'DMSans-Bold': DMSans_700Bold,
     'JetBrainsMono-Regular': JetBrainsMono_400Regular,
   });
+  // If the fonts fail to load, carry on with the system font rather than
+  // leaving the app stuck on the splash screen
+  const fontsReady = fontsLoaded || !!fontError;
 
   useEffect(() => {
     let mounted = true;
@@ -61,10 +64,10 @@ export default function RootLayout() {
   }, [setSession, loadOnboardingState]);
 
   useEffect(() => {
-    if (!isLoading && !onboardingLoading && fontsLoaded) {
+    if (!isLoading && !onboardingLoading && fontsReady) {
       SplashScreen.hideAsync();
     }
-  }, [isLoading, onboardingLoading, fontsLoaded]);
+  }, [isLoading, onboardingLoading, fontsReady]);
 
   // If a session exists but the per-device flag is missing (new device / cleared storage),
   // the user already completed onboarding when they signed up — restore the flag silently.
@@ -74,7 +77,7 @@ export default function RootLayout() {
     }
   }, [isLoading, onboardingLoading, session, onboardingComplete, setOnboardingComplete]);
 
-  if (isLoading || onboardingLoading || !fontsLoaded) {
+  if (isLoading || onboardingLoading || !fontsReady) {
     return null;
   }
 

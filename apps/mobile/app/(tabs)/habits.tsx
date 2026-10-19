@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable, Alert, Animated,
+  View, Text, ScrollView, Pressable, Alert, Animated, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -15,6 +15,7 @@ import {
 } from '@/hooks/useHabits';
 import { HabitCheckIn } from '@/components/habits/HabitCheckIn';
 import { CreateHabitSheet } from '@/components/habits/CreateHabitSheet';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Colors } from '@/constants/colors';
 
 function HabitCard({ habit, totalHabits, completedCount }: { habit: Habit; totalHabits: number; completedCount: number }) {
@@ -102,6 +103,7 @@ function HabitCard({ habit, totalHabits, completedCount }: { habit: Habit; total
 export default function HabitsScreen() {
   const { data: habits, isLoading } = useHabits();
   const [showCreate, setShowCreate] = useState(false);
+  const { refreshing, onRefresh } = usePullToRefresh([['habits'], ['habit-streak'], ['habit-summary']]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -119,7 +121,7 @@ export default function HabitsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark }} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 120 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.orange} />}>
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6 }}>
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>Habits</Text>

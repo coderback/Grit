@@ -4,7 +4,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
 import Svg, {
   Circle, Defs, LinearGradient, Stop, Line, Rect, Path,
 } from 'react-native-svg';
@@ -15,6 +14,7 @@ import { useHabits, useHabitSummary } from '@/hooks/useHabits';
 import { Colors } from '@/constants/colors';
 import { localDateStr } from '@/lib/date';
 import { useMe } from '@/hooks/useMe';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 
 function greeting() {
@@ -127,7 +127,6 @@ function MacroBar({ value, goal, color }: { value: number; goal: number; color: 
 }
 
 export default function HomeScreen() {
-  const qc = useQueryClient();
   const today = todayStr();
 
   const { data: me } = useMe();
@@ -187,21 +186,21 @@ export default function HomeScreen() {
       }));
   }, [foodLogs]);
 
-  function refresh() {
-    qc.invalidateQueries({ queryKey: ['me'] });
-    qc.invalidateQueries({ queryKey: ['food-logs', today] });
-    qc.invalidateQueries({ queryKey: ['activity-week'] });
-    qc.invalidateQueries({ queryKey: ['habits'] });
-    qc.invalidateQueries({ queryKey: ['habit-summary'] });
-    qc.invalidateQueries({ queryKey: ['ai-nudge'] });
-  }
+  const { refreshing, onRefresh } = usePullToRefresh([
+    ['me'],
+    ['food-logs', today],
+    ['activity-week'],
+    ['habits'],
+    ['habit-summary'],
+    ['ai-nudge'],
+  ]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark }} edges={['top']}>
       <ScrollView
         contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 110 }}
         refreshControl={
-          <RefreshControl refreshing={false} onRefresh={refresh} tintColor={Colors.orange} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.orange} />
         }
       >
         {/* Greeting */}
