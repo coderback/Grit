@@ -29,6 +29,7 @@ function toV1BaseUrl(endpoint: string): string {
 export class AIService {
   private openai: OpenAI;
   private model: string;
+  private nudgesInFlight = new Map<string, Promise<string>>();
 
   constructor(
     private prisma: PrismaService,
@@ -124,22 +125,40 @@ ${context}
 Keep responses to 2–4 sentences unless detail is needed. Reference specific numbers from their data when relevant. Never shame food choices or missed habits — always frame positively. Suggest one concrete next action when appropriate.`;
   }
 
-  private async checkRateLimit(userId: string, offset: number): Promise<void> {
+  /**
+   * Saves the user's message if they are under today's limit. The count and
+   * insert run under a per-user lock, so parallel requests can't all slip
+   * past the limit.
+   */
+  private async saveUserMessage(
+    userId: string,
+    content: string,
+    offset: number,
+  ): Promise<void> {
     const { start: today, end: tomorrow } = dayRange(
       localToday(offset),
       offset,
     );
 
-    const count = await this.prisma.aIMessage.count({
-      where: { userId, role: 'user', createdAt: { gte: today, lt: tomorrow } },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`ai:${userId}`}))`;
 
-    if (count >= DAILY_LIMIT) {
-      throw new HttpException(
-        'Daily message limit reached (10/day)',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
+      const count = await tx.aIMessage.count({
+        where: {
+          userId,
+          role: 'user',
+          createdAt: { gte: today, lt: tomorrow },
+        },
+      });
+      if (count >= DAILY_LIMIT) {
+        throw new HttpException(
+          'Daily message limit reached (10/day)',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
+      await tx.aIMessage.create({ data: { userId, role: 'user', content } });
+    });
   }
 
   async *streamMessage(
@@ -148,11 +167,7 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
     offset: number,
   ): AsyncGenerator<{ type: string; text?: string }> {
     const user = await this.resolveUser(supabaseId);
-    await this.checkRateLimit(user.id, offset);
-
-    await this.prisma.aIMessage.create({
-      data: { userId: user.id, role: 'user', content: userMessage },
-    });
+    await this.saveUserMessage(user.id, userMessage, offset);
 
     const history = await this.prisma.aIMessage.findMany({
       where: { userId: user.id, content: { not: { startsWith: '[NUDGE]' } } },
@@ -207,22 +222,39 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
 
   async getMessages(supabaseId: string) {
     const user = await this.resolveUser(supabaseId);
-    return this.prisma.aIMessage.findMany({
+    // The latest 50, returned oldest first for display
+    const messages = await this.prisma.aIMessage.findMany({
       where: { userId: user.id, content: { not: { startsWith: '[NUDGE]' } } },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
       take: 50,
       select: { id: true, role: true, content: true, createdAt: true },
     });
+    return messages.reverse();
   }
 
   async getNudge(supabaseId: string, offset: number): Promise<string> {
     const user = await this.resolveUser(supabaseId);
 
+    // Several screens ask for the nudge at once on launch; generate it once
+    const pending = this.nudgesInFlight.get(user.id);
+    if (pending) return pending;
+
+    const nudge = this.findOrCreateNudge(user.id, offset).finally(() =>
+      this.nudgesInFlight.delete(user.id),
+    );
+    this.nudgesInFlight.set(user.id, nudge);
+    return nudge;
+  }
+
+  private async findOrCreateNudge(
+    userId: string,
+    offset: number,
+  ): Promise<string> {
     const today = dayRange(localToday(offset), offset).start;
 
     const existing = await this.prisma.aIMessage.findFirst({
       where: {
-        userId: user.id,
+        userId,
         role: 'assistant',
         content: { startsWith: '[NUDGE]' },
         createdAt: { gte: today },
@@ -233,7 +265,7 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
       return existing.content.replace('[NUDGE] ', '');
     }
 
-    const context = await this.buildContext(user.id, offset);
+    const context = await this.buildContext(userId, offset);
     const systemPrompt = this.getSystemPrompt(context);
 
     const response = await this.openai.responses.create({
@@ -253,7 +285,7 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
 
     await this.prisma.aIMessage.create({
       data: {
-        userId: user.id,
+        userId,
         role: 'assistant',
         content: `[NUDGE] ${nudgeText}`,
       },

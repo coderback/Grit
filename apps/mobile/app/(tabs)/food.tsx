@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, RefreshControl } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
@@ -10,6 +10,7 @@ import {
 } from '@/hooks/useFoodLog';
 import { FoodSearchBar } from '@/components/food/FoodSearchBar';
 import { LogFoodSheet } from '@/components/food/LogFoodSheet';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Colors } from '@/constants/colors';
 import { localDateStr } from '@/lib/date';
 import { useMe } from '@/hooks/useMe';
@@ -89,6 +90,7 @@ export default function FoodScreen() {
   const { data, isLoading } = useFoodLogsForDate(today);
   const { mutate: deleteLog } = useDeleteFoodLog();
   const { data: me } = useMe();
+  const { refreshing, onRefresh } = usePullToRefresh([['food-logs', today], ['me']]);
   const [selectedFood, setSelectedFood] = useState<NormalizedFood | null>(null);
   const [selectedMeal, setSelectedMeal] = useState<(typeof MEAL_ORDER)[number] | undefined>();
 
@@ -122,17 +124,20 @@ export default function FoodScreen() {
   const fatGoal = Math.round(calorieGoal * 0.30 / 9);
 
   const macroRows = [
-    { label: 'Protein', val: proteinG, goal: proteinGoal, color: Colors.blue },
-    { label: 'Carbs', val: carbsG, goal: carbsGoal, color: Colors.orange },
-    { label: 'Fat', val: fatG, goal: fatGoal, color: Colors.teal },
+    { label: 'Protein', val: Math.round(proteinG), goal: proteinGoal, color: Colors.blue },
+    { label: 'Carbs', val: Math.round(carbsG), goal: carbsGoal, color: Colors.orange },
+    { label: 'Fat', val: Math.round(fatG), goal: fatGoal, color: Colors.teal },
   ];
 
-  const sections = MEAL_ORDER.map(meal => ({
-    key: meal,
-    title: MEAL_LABELS[meal],
-    data: (data?.logs ?? []).filter(l => l.mealType === meal),
-    kcal: (data?.logs ?? []).filter(l => l.mealType === meal).reduce((s, l) => s + (l.calories ?? 0), 0),
-  }));
+  const sections = MEAL_ORDER.map(meal => {
+    const logs = (data?.logs ?? []).filter(l => l.mealType === meal);
+    return {
+      key: meal,
+      title: MEAL_LABELS[meal],
+      data: logs,
+      kcal: Math.round(logs.reduce((s, l) => s + (l.calories ?? 0), 0)),
+    };
+  });
 
   function toggleSection(title: string) {
     setExpanded(prev => {
@@ -146,6 +151,7 @@ export default function FoodScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark }} edges={['top']}>
       <ScrollView
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.orange} />}
         contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}

@@ -5,15 +5,18 @@ import {
   ScrollView,
   Pressable,
   Alert,
-  TextInput,
   ActivityIndicator,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { SheetTextInput, sheetKeyboardProps } from '../../components/ui/SheetTextInput';
 import { Colors } from '../../constants/colors';
+import { useHideTabBar } from '../../stores/uiStore';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
@@ -84,15 +87,15 @@ function EditSheet({ user, onClose }: { user: BackendUser; onClose: () => void }
       </View>
       <View style={{ gap: 8 }}>
         <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Display Name</Text>
-        <TextInput value={displayName} onChangeText={setDisplayName} placeholder="Your name" placeholderTextColor={Colors.muted} autoCapitalize="words" style={inputStyle} />
+        <SheetTextInput value={displayName} onChangeText={setDisplayName} placeholder="Your name" placeholderTextColor={Colors.muted} autoCapitalize="words" style={inputStyle} />
       </View>
       <View style={{ gap: 8 }}>
         <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Calorie Goal (kcal)</Text>
-        <TextInput value={calorieGoal} onChangeText={setCalorieGoal} placeholder="2000" placeholderTextColor={Colors.muted} keyboardType="numeric" style={inputStyle} />
+        <SheetTextInput value={calorieGoal} onChangeText={setCalorieGoal} placeholder="2000" placeholderTextColor={Colors.muted} keyboardType="numeric" style={inputStyle} />
       </View>
       <View style={{ gap: 8 }}>
         <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Weight (kg)</Text>
-        <TextInput value={weightKg} onChangeText={setWeightKg} placeholder="75" placeholderTextColor={Colors.muted} keyboardType="decimal-pad" style={inputStyle} />
+        <SheetTextInput value={weightKg} onChangeText={setWeightKg} placeholder="75" placeholderTextColor={Colors.muted} keyboardType="decimal-pad" style={inputStyle} />
       </View>
       <Pressable
         onPress={handleSave}
@@ -129,6 +132,7 @@ export default function ProfileScreen() {
   const clearSession = useAuthStore((s) => s.clearSession);
   const sheetRef = useRef<BottomSheet>(null);
   const [showEdit, setShowEdit] = useState(false);
+  useHideTabBar(showEdit);
 
   useFocusEffect(
     useCallback(() => {
@@ -172,6 +176,7 @@ export default function ProfileScreen() {
 
   const { data: habits } = useHabits();
   const { data: habitSummary } = useHabitSummary(habits ?? []);
+  const { refreshing, onRefresh } = usePullToRefresh([['me'], ['habits'], ['habit-summary'], ['activity-week']]);
   const streak = habitSummary?.maxStreak ?? 0;
   const { data: week } = useWeeklySummary();
   // A day counts as active if any activity was logged
@@ -179,7 +184,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.orange} />}>
 
         {/* Gradient banner */}
         <View style={{
@@ -339,6 +344,7 @@ export default function ProfileScreen() {
         snapPoints={['55%']}
         enablePanDownToClose
         onClose={() => setShowEdit(false)}
+        {...sheetKeyboardProps}
         backgroundStyle={{ backgroundColor: Colors.surface }}
         handleIndicatorStyle={{ backgroundColor: Colors.muted }}
       >

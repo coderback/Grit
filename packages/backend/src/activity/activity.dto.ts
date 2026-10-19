@@ -7,6 +7,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { IsNotFuture } from '../common/validators';
 import { ACTIVITY_TYPES } from './activity.constants';
 
 export class CreateActivityLogDto {
@@ -37,5 +38,6 @@ export class CreateActivityLogDto {
 
   @IsOptional()
   @IsISO8601({ strict: true })
+  @IsNotFuture()
   loggedAt?: string;
 }

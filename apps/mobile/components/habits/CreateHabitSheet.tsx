@@ -1,10 +1,12 @@
 import React, { useRef, useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, Alert,
+  View, Text, Pressable, Alert,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { SheetTextInput, sheetKeyboardProps } from '@/components/ui/SheetTextInput';
 import { useHabitPresets, useCreateHabit } from '@/hooks/useHabits';
 import { Button } from '@/components/ui/Button';
+import { useHideTabBar } from '@/stores/uiStore';
 import { Colors } from '@/constants/colors';
 
 interface CreateHabitSheetProps {
@@ -15,6 +17,7 @@ type Mode = 'presets' | 'custom';
 
 export function CreateHabitSheet({ onClose }: CreateHabitSheetProps) {
   const sheetRef = useRef<BottomSheet>(null);
+  useHideTabBar();
   const { data: presets } = useHabitPresets();
   const { mutateAsync: createHabit, isPending } = useCreateHabit();
 
@@ -50,6 +53,7 @@ export function CreateHabitSheet({ onClose }: CreateHabitSheetProps) {
       snapPoints={['75%']}
       enablePanDownToClose
       onClose={onClose}
+      {...sheetKeyboardProps}
       backgroundStyle={{ backgroundColor: Colors.surface }}
       handleIndicatorStyle={{ backgroundColor: Colors.muted }}
     >
@@ -124,7 +128,7 @@ export function CreateHabitSheet({ onClose }: CreateHabitSheetProps) {
               <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12, marginBottom: 8 }}>
                 HABIT NAME
               </Text>
-              <TextInput
+              <SheetTextInput
                 style={{
                   backgroundColor: Colors.surface2,
                   borderRadius: 16,
@@ -146,7 +150,7 @@ export function CreateHabitSheet({ onClose }: CreateHabitSheetProps) {
               <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12, marginBottom: 8 }}>
                 EMOJI
               </Text>
-              <TextInput
+              <SheetTextInput
                 style={{
                   backgroundColor: Colors.surface2,
                   borderRadius: 16,

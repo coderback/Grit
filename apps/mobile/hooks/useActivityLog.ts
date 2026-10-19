@@ -54,6 +54,7 @@ export function useLogActivity() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['activity-logs'] });
       qc.invalidateQueries({ queryKey: ['activity-week'] });
+      qc.invalidateQueries({ queryKey: ['leaderboard-weekly'] });
     },
   });
 }
