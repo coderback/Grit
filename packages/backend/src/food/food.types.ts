@@ -1,9 +1,9 @@
 export interface NormalizedFood {
-  offId: string;        // Open Food Facts product id / barcode
+  offId: string; // Open Food Facts product id / barcode
   name: string;
   brand: string | null;
   barcode: string | null;
-  calories: number;     // per 100 g
+  calories: number; // per 100 g
   proteinG: number;
   carbsG: number;
   fatG: number;

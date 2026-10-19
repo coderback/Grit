@@ -12,6 +12,7 @@ import { Link, router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
+import { syncOnboardingProfile } from '@/lib/onboardingProfile';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Colors } from '@/constants/colors';
@@ -34,6 +35,10 @@ export default function LoginScreen() {
       await setOnboardingComplete();
       // Sync user record with backend (creates if first login)
       await api.post('/auth/sync');
+      // Save any plan answered before signing up (e.g. pending email confirmation)
+      await syncOnboardingProfile().catch(() => {
+        // Kept on the device and retried at the next login
+      });
       router.replace('/(tabs)/');
     } catch (err: any) {
       Alert.alert('Login failed', err.message ?? 'Something went wrong.');

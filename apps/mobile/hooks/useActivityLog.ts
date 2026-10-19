@@ -52,8 +52,7 @@ export function useLogActivity() {
       source?: string;
     }) => api.post('/activity-logs', data).then((r) => r.data),
     onSuccess: () => {
-      const today = new Date().toISOString().split('T')[0];
-      qc.invalidateQueries({ queryKey: ['activity-logs', today] });
+      qc.invalidateQueries({ queryKey: ['activity-logs'] });
       qc.invalidateQueries({ queryKey: ['activity-week'] });
     },
   });

@@ -1,67 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Pressable, RefreshControl, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useFeed, useWeeklyLeaderboard } from '@/hooks/useSocialFeed';
-import { useChallenges } from '@/hooks/useChallenges';
-import { useAuthStore } from '@/stores/authStore';
+import { useChallenges, useJoinChallenge } from '@/hooks/useChallenges';
+import { useMe } from '@/hooks/useMe';
 import { ActivityFeedItem } from '@/components/social/ActivityFeedItem';
 import { Leaderboard } from '@/components/social/Leaderboard';
+import { ChallengeCard } from '@/components/social/ChallengeCard';
 import { CreateChallengeSheet } from '@/components/social/CreateChallengeSheet';
 import { Colors } from '@/constants/colors';
 import { useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 
 type Tab = 'feed' | 'challenges' | 'leaderboard';
-
-const CHALLENGE_COLORS: Record<string, string> = {};
-
-function getColor(index: number) {
-  const pool = [Colors.orange, Colors.teal, Colors.blue];
-  return pool[index % pool.length];
-}
-
-function ChallengeCardRedesign({ challenge, index }: { challenge: any; index: number }) {
-  const color = getColor(index);
-  const pct = challenge.total > 0 ? challenge.progress / challenge.total : 0;
-  const emoji = challenge.emoji ?? ['💪', '🧘', '🚶', '🏆', '🔥'][index % 5];
-
-  return (
-    <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18 }}>
-      <View style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start', marginBottom: 14 }}>
-        <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: `${color}18`, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Text style={{ fontSize: 24 }}>{emoji}</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontFamily: 'DMSans-Bold', color: Colors.text }}>{challenge.title}</Text>
-          {challenge.description && (
-            <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 2 }}>{challenge.description}</Text>
-          )}
-          {challenge.participantCount != null && (
-            <Text style={{ fontSize: 11, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 4 }}>
-              {challenge.participantCount.toLocaleString()} participants
-            </Text>
-          )}
-        </View>
-        {challenge.progress != null && (
-          <View style={{ backgroundColor: `${color}18`, borderWidth: 1, borderColor: `${color}40`, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0 }}>
-            <Text style={{ fontSize: 11, fontFamily: 'DMSans-Bold', color }}> Day {challenge.progress}</Text>
-          </View>
-        )}
-      </View>
-      {challenge.total > 0 && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ flex: 1, height: 6, backgroundColor: Colors.surface2, borderRadius: 999, overflow: 'hidden' }}>
-            <View style={{ height: '100%', width: `${pct * 100}%`, backgroundColor: color, borderRadius: 999 }} />
-          </View>
-          <Text style={{ fontSize: 12, fontFamily: 'JetBrainsMono-Regular', color: Colors.muted }}>
-            {challenge.progress}/{challenge.total}
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-}
 
 export default function SocialScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('challenges');
@@ -73,15 +26,29 @@ export default function SocialScreen() {
     }, [])
   );
 
-  const user = useAuthStore((s) => s.user);
+  const { data: me } = useMe();
   const qc = useQueryClient();
+  const { mutateAsync: joinChallenge, isPending: joining } = useJoinChallenge();
+  const [inviteCode, setInviteCode] = useState('');
+
+  async function handleJoin() {
+    const code = inviteCode.trim();
+    if (!code) return;
+    try {
+      const participant = await joinChallenge(code);
+      setInviteCode('');
+      router.push(`/challenge/${participant.challengeId}`);
+    } catch (err: any) {
+      Alert.alert("Couldn't join", err?.response?.data?.message ?? 'Check the invite code and try again.');
+    }
+  }
 
   const { data: feedItems, isLoading: feedLoading } = useFeed();
   const { data: leaderboard } = useWeeklyLeaderboard();
   const { data: challenges } = useChallenges();
 
-  const activeChallenges = (challenges ?? []).filter((c: any) => !c.isComplete);
-  const pastChallenges = (challenges ?? []).filter((c: any) => c.isComplete);
+  const activeChallenges = (challenges ?? []).filter((c) => !c.isComplete);
+  const pastChallenges = (challenges ?? []).filter((c) => c.isComplete);
 
   function refresh() {
     qc.invalidateQueries({ queryKey: ['feed'] });
@@ -111,7 +78,7 @@ export default function SocialScreen() {
                 borderColor: Colors.orange,
               })}
             >
-              <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 14 }}>Explore</Text>
+              <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 14 }}>+ New</Text>
             </Pressable>
           )}
         </View>
@@ -151,7 +118,7 @@ export default function SocialScreen() {
         {/* FEED */}
         {activeTab === 'feed' && (
           feedItems && feedItems.length > 0 ? (
-            feedItems.map((item: any) => <ActivityFeedItem key={`${item.type}-${item.id}`} item={item} />)
+            feedItems.map((item) => <ActivityFeedItem key={`${item.type}-${item.id}`} item={item} />)
           ) : !feedLoading ? (
             <View style={{ backgroundColor: Colors.surface, borderRadius: 20, padding: 32, alignItems: 'center', gap: 12, borderWidth: 1, borderColor: Colors.border }}>
               <Text style={{ fontSize: 40 }}>👋</Text>
@@ -166,13 +133,40 @@ export default function SocialScreen() {
         {/* CHALLENGES */}
         {activeTab === 'challenges' && (
           <>
+            {/* Join with an invite code */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TextInput
+                value={inviteCode}
+                onChangeText={setInviteCode}
+                placeholder="Have an invite code?"
+                placeholderTextColor={Colors.muted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={{
+                  flex: 1, backgroundColor: Colors.surface, borderRadius: 999,
+                  borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 16,
+                  paddingVertical: 10, color: Colors.text, fontFamily: 'DMSans-Regular', fontSize: 14,
+                }}
+              />
+              <Pressable
+                onPress={handleJoin}
+                disabled={!inviteCode.trim() || joining}
+                style={{
+                  backgroundColor: Colors.orange, borderRadius: 999, paddingHorizontal: 18,
+                  justifyContent: 'center', opacity: !inviteCode.trim() || joining ? 0.5 : 1,
+                }}
+              >
+                <Text style={{ color: '#fff', fontFamily: 'DMSans-Bold', fontSize: 14 }}>Join</Text>
+              </Pressable>
+            </View>
+
             {activeChallenges.length > 0 && (
               <View style={{ gap: 12 }}>
                 <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
                   Active challenges
                 </Text>
-                {activeChallenges.map((c: any, i: number) => (
-                  <ChallengeCardRedesign key={c.id} challenge={c} index={i} />
+                {activeChallenges.map((c) => (
+                  <ChallengeCard key={c.id} challenge={c} myUserId={me?.id} />
                 ))}
               </View>
             )}
@@ -181,8 +175,8 @@ export default function SocialScreen() {
                 <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
                   Completed
                 </Text>
-                {pastChallenges.map((c: any, i: number) => (
-                  <ChallengeCardRedesign key={c.id} challenge={c} index={i} />
+                {pastChallenges.map((c) => (
+                  <ChallengeCard key={c.id} challenge={c} myUserId={me?.id} />
                 ))}
               </View>
             )}

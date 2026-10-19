@@ -113,6 +113,7 @@ export function ActivityFeedItem({ item }: ActivityFeedItemProps) {
           <KudosButton
             logId={item.id}
             initialCount={(item.data.kudosCount as number) ?? 0}
+            initialGiven={item.data.kudosGiven === true}
           />
         </View>
       )}

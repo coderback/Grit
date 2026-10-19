@@ -13,33 +13,57 @@ import { Button } from '@/components/ui/Button';
 import { Colors } from '@/constants/colors';
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
+
+const fieldStyle = {
+  backgroundColor: Colors.surface2,
+  borderRadius: 16,
+  padding: 12,
+  color: Colors.text,
+  fontFamily: 'DMSans-Regular',
+  fontSize: 16,
+  borderWidth: 1.5,
+  borderColor: Colors.border,
+} as const;
 type MealType = typeof MEAL_TYPES[number];
 
 interface LogFoodSheetProps {
   food: NormalizedFood | null;
+  initialMeal?: MealType;
   onClose: () => void;
 }
 
-export function LogFoodSheet({ food, onClose }: LogFoodSheetProps) {
+export function LogFoodSheet({ food, initialMeal, onClose }: LogFoodSheetProps) {
   const sheetRef = useRef<BottomSheet>(null);
   const { mutateAsync: logFood, isPending } = useLogFood();
 
-  const [mealType, setMealType] = useState<MealType>('breakfast');
+  const [mealType, setMealType] = useState<MealType>(initialMeal ?? 'breakfast');
   const [qty, setQty] = useState('1');
 
-  const servingQty = parseFloat(qty) || 1;
-  const multiplier = servingQty / (food?.servingQty ?? 1);
+  // Foods from the database carry nutrition per 100 g (or ml) plus a serving
+  // size; manual entries have neither, so the user types values per serving.
+  const isManual = !food?.offId;
+  const [name, setName] = useState(food?.name ?? '');
+  const [manual, setManual] = useState({ calories: '', proteinG: '', carbsG: '', fatG: '' });
+  const num = (v: string) => Math.max(0, parseFloat(v) || 0);
 
-  const adjustedCalories = (food?.calories ?? 0) * multiplier;
-  const adjustedProtein = (food?.proteinG ?? 0) * multiplier;
-  const adjustedCarbs = (food?.carbsG ?? 0) * multiplier;
-  const adjustedFat = (food?.fatG ?? 0) * multiplier;
+  const servings = parseFloat(qty) > 0 ? parseFloat(qty) : 1;
+  const amount = servings * (food?.servingQty ?? 100); // grams or ml eaten
+  const per100 = amount / 100;
+
+  const adjustedCalories = isManual ? num(manual.calories) * servings : (food?.calories ?? 0) * per100;
+  const adjustedProtein = isManual ? num(manual.proteinG) * servings : (food?.proteinG ?? 0) * per100;
+  const adjustedCarbs = isManual ? num(manual.carbsG) * servings : (food?.carbsG ?? 0) * per100;
+  const adjustedFat = isManual ? num(manual.fatG) * servings : (food?.fatG ?? 0) * per100;
 
   const handleLog = useCallback(async () => {
     if (!food) return;
+    if (isManual && (!name.trim() || !manual.calories.trim())) {
+      Alert.alert('Missing details', 'Enter a name and the calories per serving.');
+      return;
+    }
     try {
       await logFood({
-        name: food.name,
+        name: isManual ? name.trim() : food.name,
         brand: food.brand ?? undefined,
         barcode: food.barcode ?? undefined,
         mealType,
@@ -47,22 +71,22 @@ export function LogFoodSheet({ food, onClose }: LogFoodSheetProps) {
         proteinG: adjustedProtein,
         carbsG: adjustedCarbs,
         fatG: adjustedFat,
-        servingQty,
-        servingUnit: food.servingUnit,
+        servingQty: isManual ? servings : amount,
+        servingUnit: isManual ? 'serving' : food.servingUnit,
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
     } catch {
       Alert.alert('Error', 'Could not log food. Please try again.');
     }
-  }, [food, mealType, servingQty, adjustedCalories, adjustedProtein, adjustedCarbs, adjustedFat, logFood, onClose]);
+  }, [food, isManual, name, manual.calories, mealType, servings, amount, adjustedCalories, adjustedProtein, adjustedCarbs, adjustedFat, logFood, onClose]);
 
   if (!food) return null;
 
   return (
     <BottomSheet
       ref={sheetRef}
-      snapPoints={['55%']}
+      snapPoints={[isManual ? '75%' : '55%']}
       enablePanDownToClose
       onClose={onClose}
       backgroundStyle={{ backgroundColor: Colors.surface }}
@@ -71,16 +95,27 @@ export function LogFoodSheet({ food, onClose }: LogFoodSheetProps) {
       <BottomSheetView style={{ padding: 24, gap: 20 }}>
         {/* Food name */}
         <View>
-          <Text
-            style={{
-              color: Colors.text,
-              fontFamily: 'DMSans-Bold',
-              fontSize: 18,
-            }}
-            numberOfLines={2}
-          >
-            {food.name}
-          </Text>
+          {isManual ? (
+            <TextInput
+              style={fieldStyle}
+              value={name}
+              onChangeText={setName}
+              placeholder="Food name"
+              placeholderTextColor={Colors.muted}
+              maxLength={200}
+            />
+          ) : (
+            <Text
+              style={{
+                color: Colors.text,
+                fontFamily: 'DMSans-Bold',
+                fontSize: 18,
+              }}
+              numberOfLines={2}
+            >
+              {food.name}
+            </Text>
+          )}
           {food.brand && (
             <Text
               style={{
@@ -94,6 +129,32 @@ export function LogFoodSheet({ food, onClose }: LogFoodSheetProps) {
             </Text>
           )}
         </View>
+
+        {/* Manual entry: nutrition per serving */}
+        {isManual && (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {([
+              ['calories', 'kcal'],
+              ['proteinG', 'Protein g'],
+              ['carbsG', 'Carbs g'],
+              ['fatG', 'Fat g'],
+            ] as const).map(([key, label]) => (
+              <View key={key} style={{ flex: 1 }}>
+                <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 11, marginBottom: 4 }}>
+                  {label}
+                </Text>
+                <TextInput
+                  style={fieldStyle}
+                  value={manual[key]}
+                  onChangeText={(v) => setManual((m) => ({ ...m, [key]: v }))}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor={Colors.muted}
+                />
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Macros preview */}
         <View
@@ -126,7 +187,7 @@ export function LogFoodSheet({ food, onClose }: LogFoodSheetProps) {
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12, marginBottom: 6 }}>
-              Servings
+              Servings{!isManual ? ` (${food.servingQty} ${food.servingUnit})` : ''}
             </Text>
             <TextInput
               style={{

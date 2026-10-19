@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
@@ -11,6 +11,15 @@ import {
 import { FoodSearchBar } from '@/components/food/FoodSearchBar';
 import { LogFoodSheet } from '@/components/food/LogFoodSheet';
 import { Colors } from '@/constants/colors';
+import { localDateStr } from '@/lib/date';
+import { useMe } from '@/hooks/useMe';
+
+// Blank entry for logging something that isn't in the food database
+const MANUAL_FOOD: NormalizedFood = {
+  offId: '', name: '', brand: null, barcode: null,
+  calories: 0, proteinG: 0, carbsG: 0, fatG: 0,
+  servingQty: 1, servingUnit: 'serving', imageUrl: null,
+};
 
 const MEAL_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 const MEAL_LABELS: Record<string, string> = {
@@ -76,10 +85,24 @@ function MacroDonutSVG({
 }
 
 export default function FoodScreen() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
   const { data, isLoading } = useFoodLogsForDate(today);
   const { mutate: deleteLog } = useDeleteFoodLog();
+  const { data: me } = useMe();
   const [selectedFood, setSelectedFood] = useState<NormalizedFood | null>(null);
+  const [selectedMeal, setSelectedMeal] = useState<(typeof MEAL_ORDER)[number] | undefined>();
+
+  function openManualEntry(meal?: (typeof MEAL_ORDER)[number]) {
+    setSelectedMeal(meal);
+    setSelectedFood(MANUAL_FOOD);
+  }
+
+  function confirmDelete(id: string, name: string) {
+    Alert.alert('Delete entry', `Remove "${name}" from today's log?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteLog(id) },
+    ]);
+  }
   const [expanded, setExpanded] = useState(new Set<string>(['Breakfast']));
 
   useFocusEffect(
@@ -88,7 +111,7 @@ export default function FoodScreen() {
     }, [])
   );
 
-  const calorieGoal = 2000;
+  const calorieGoal = me?.calorieGoal ?? 2000;
   const eaten = data?.totals?.calories ?? 0;
   const proteinG = data?.totals?.proteinG ?? 0;
   const carbsG = data?.totals?.carbsG ?? 0;
@@ -144,6 +167,8 @@ export default function FoodScreen() {
               <Text style={{ fontSize: 18 }}>📷</Text>
             </Pressable>
             <Pressable
+              onPress={() => openManualEntry()}
+              accessibilityLabel="Log food manually"
               style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.orange, alignItems: 'center', justifyContent: 'center' }}
             >
               <Text style={{ color: '#fff', fontSize: 22, lineHeight: 26 }}>+</Text>
@@ -154,7 +179,7 @@ export default function FoodScreen() {
         {/* Summary card with donut */}
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18, marginBottom: 14 }}>
           <View style={{ flexDirection: 'row', gap: 18, alignItems: 'center' }}>
-            <MacroDonutSVG calories={eaten} proteinG={proteinG} carbsG={carbsG} fatG={fatG} />
+            <MacroDonutSVG calories={Math.round(eaten)} proteinG={proteinG} carbsG={carbsG} fatG={fatG} />
             <View style={{ flex: 1, gap: 8 }}>
               {macroRows.map(m => (
                 <View key={m.label}>
@@ -173,14 +198,14 @@ export default function FoodScreen() {
                 </View>
               ))}
               <Text style={{ fontSize: 11, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 2 }}>
-                {Math.max(0, calorieGoal - eaten)} kcal remaining
+                {Math.round(Math.max(0, calorieGoal - eaten))} kcal remaining
               </Text>
             </View>
           </View>
         </View>
 
         {/* Search bar */}
-        <FoodSearchBar onSelect={(food) => setSelectedFood(food)} />
+        <FoodSearchBar onSelect={(food) => { setSelectedMeal(undefined); setSelectedFood(food); }} />
 
         {/* Meal sections */}
         <View style={{ gap: 12, marginTop: 14 }}>
@@ -204,7 +229,9 @@ export default function FoodScreen() {
                     )}
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={{ fontSize: 13, color: Colors.orange, fontFamily: 'DMSans-Bold' }}>+ Add</Text>
+                    <Pressable onPress={() => openManualEntry(section.key)} hitSlop={8}>
+                      <Text style={{ fontSize: 13, color: Colors.orange, fontFamily: 'DMSans-Bold' }}>+ Add</Text>
+                    </Pressable>
                     <Text style={{ color: Colors.muted, fontSize: 12 }}>{isOpen ? '▲' : '▼'}</Text>
                   </View>
                 </Pressable>
@@ -219,7 +246,7 @@ export default function FoodScreen() {
                       section.data.map(item => (
                         <Pressable
                           key={item.id}
-                          onLongPress={() => deleteLog(item.id)}
+                          onLongPress={() => confirmDelete(item.id, item.name)}
                           style={{ backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}
                         >
                           <View style={{ flex: 1 }}>
@@ -250,7 +277,7 @@ export default function FoodScreen() {
       </ScrollView>
 
       {selectedFood && (
-        <LogFoodSheet food={selectedFood} onClose={() => setSelectedFood(null)} />
+        <LogFoodSheet food={selectedFood} initialMeal={selectedMeal} onClose={() => setSelectedFood(null)} />
       )}
     </SafeAreaView>
   );

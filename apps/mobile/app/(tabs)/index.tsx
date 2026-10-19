@@ -4,31 +4,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import Svg, {
   Circle, Defs, LinearGradient, Stop, Line, Rect, Path,
 } from 'react-native-svg';
 import { NudgeCard } from '@/components/coach/NudgeCard';
 import { useFoodLogsForDate } from '@/hooks/useFoodLog';
 import { useWeeklySummary } from '@/hooks/useActivityLog';
-import { useHabits, useTodayCompletions, useMaxHabitStreak } from '@/hooks/useHabits';
-import { api } from '@/lib/api';
+import { useHabits, useHabitSummary } from '@/hooks/useHabits';
 import { Colors } from '@/constants/colors';
+import { localDateStr } from '@/lib/date';
+import { useMe } from '@/hooks/useMe';
 
-interface BackendUser {
-  id: string;
-  displayName: string;
-  calorieGoal: number;
-  primaryGoal: string;
-}
-
-function useMe() {
-  return useQuery<BackendUser>({
-    queryKey: ['me'],
-    queryFn: () => api.get('/users/me').then((r) => r.data),
-    staleTime: 1000 * 60 * 5,
-  });
-}
 
 function greeting() {
   const h = new Date().getHours();
@@ -38,7 +25,7 @@ function greeting() {
 }
 
 function todayStr() {
-  return new Date().toISOString().split('T')[0];
+  return localDateStr();
 }
 
 // ── CalorieRing ──────────────────────────────────────────────────────────────
@@ -147,8 +134,9 @@ export default function HomeScreen() {
   const { data: foodLogs } = useFoodLogsForDate(today);
   const { data: weeklySummary } = useWeeklySummary();
   const { data: habits } = useHabits();
-  const { data: todayDone } = useTodayCompletions(habits ?? []);
-  const { data: maxStreak = 0 } = useMaxHabitStreak(habits ?? []);
+  const { data: habitSummary } = useHabitSummary(habits ?? []);
+  const todayDone = habitSummary?.todayDone;
+  const maxStreak = habitSummary?.maxStreak ?? 0;
 
   const eaten = foodLogs?.totals.calories ?? 0;
   const proteinG = foodLogs?.totals.proteinG ?? 0;
@@ -158,6 +146,7 @@ export default function HomeScreen() {
 
   const todayActivity = weeklySummary?.days.find((d) => d.date === today);
   const activeMinutes = todayActivity?.activeMinutes ?? 0;
+  const burned = Math.round(todayActivity?.caloriesBurned ?? 0);
   const activePct = Math.min(1, activeMinutes / 60);
 
   const habitCount = habits?.length ?? 0;
@@ -203,6 +192,7 @@ export default function HomeScreen() {
     qc.invalidateQueries({ queryKey: ['food-logs', today] });
     qc.invalidateQueries({ queryKey: ['activity-week'] });
     qc.invalidateQueries({ queryKey: ['habits'] });
+    qc.invalidateQueries({ queryKey: ['habit-summary'] });
     qc.invalidateQueries({ queryKey: ['ai-nudge'] });
   }
 
@@ -257,7 +247,7 @@ export default function HomeScreen() {
               {[
                 { label: 'Goal', val: calorieGoal.toLocaleString(), color: Colors.muted },
                 { label: 'Eaten', val: Math.round(eaten).toLocaleString(), color: Colors.text },
-                { label: 'Burned', val: '0', color: Colors.teal },
+                { label: 'Burned', val: burned.toLocaleString(), color: Colors.teal },
               ].map((row) => (
                 <View key={row.label}>
                   <Text style={{ fontSize: 11, color: Colors.muted, letterSpacing: 0.7, textTransform: 'uppercase', fontFamily: 'DMSans-Medium', marginBottom: 1 }}>
@@ -402,7 +392,7 @@ export default function HomeScreen() {
                 <Line x1="12" y1="5" x2="12" y2="19" stroke={Colors.orange} strokeWidth="2" strokeLinecap="round" />
                 <Line x1="5" y1="12" x2="19" y2="12" stroke={Colors.orange} strokeWidth="2" strokeLinecap="round" />
               </Svg>
-              <Text style={{ fontSize: 14, color: Colors.orange, fontFamily: 'DMSans-Medium' }}>Log dinner</Text>
+              <Text style={{ fontSize: 14, color: Colors.orange, fontFamily: 'DMSans-Medium' }}>Log a meal</Text>
             </Pressable>
           </View>
         </View>

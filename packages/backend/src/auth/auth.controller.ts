@@ -2,6 +2,7 @@ import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { AuthGuard } from './auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { UsersService } from '../users/users.service';
+import { SyncUserDto } from '../users/users.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -15,7 +16,7 @@ export class AuthController {
   @UseGuards(AuthGuard)
   async sync(
     @CurrentUser() user: { supabaseId: string; email?: string },
-    @Body() body: { displayName?: string } = {},
+    @Body() body: SyncUserDto,
   ) {
     return this.users.upsertUser(user.supabaseId, {
       displayName: body.displayName,

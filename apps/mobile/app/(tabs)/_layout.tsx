@@ -4,6 +4,7 @@ import { Tabs } from 'expo-router';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
+import { useAuthStore } from '@/stores/authStore';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -106,6 +107,11 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 }
 
 export default function TabLayout() {
+  const session = useAuthStore((s) => s.session);
+  // "/" resolves to the Home tab, so it mounts briefly before the root layout
+  // redirects signed-out users. Render nothing so no API calls go out unauthenticated.
+  if (!session) return null;
+
   return (
     <Tabs
       tabBar={(props) => <FloatingTabBar {...props} />}

@@ -3,6 +3,7 @@ import { View, Text } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { Colors } from '@/constants/colors';
 import type { WeekDay } from '@/hooks/useActivityLog';
+import { localDateStr } from '@/lib/date';
 
 interface WeeklyBarChartProps {
   days: WeekDay[];
@@ -14,7 +15,7 @@ const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 export function WeeklyBarChart({ days }: WeeklyBarChartProps) {
   const maxMinutes = Math.max(...days.map((d) => d.activeMinutes), 1);
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
 
   return (
     <View style={{ gap: 8 }}>

@@ -14,6 +14,9 @@ Notifications.setNotificationHandler({
 });
 
 async function registerForPushNotifications(): Promise<string | null> {
+  // Expo push tokens are only issued to iOS and Android builds
+  if (Platform.OS === 'web') return null;
+
   const { status: existing } = await Notifications.getPermissionsAsync();
   let finalStatus = existing;
 
@@ -28,8 +31,9 @@ async function registerForPushNotifications(): Promise<string | null> {
   return token.data;
 }
 
-export function usePushNotifications() {
+export function usePushNotifications(enabled: boolean) {
   useEffect(() => {
+    if (!enabled) return;
     registerForPushNotifications()
       .then(async (token) => {
         if (!token) return;
@@ -41,7 +45,7 @@ export function usePushNotifications() {
       .catch(() => {
         // Non-critical — push notifications are optional
       });
-  }, []);
+  }, [enabled]);
 }
 
 /** Schedule a local reminder at 8pm today if not already scheduled */

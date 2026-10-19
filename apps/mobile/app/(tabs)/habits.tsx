@@ -9,6 +9,7 @@ import Svg, { Circle } from 'react-native-svg';
 import {
   useHabits,
   useHabitStreak,
+  useHabitSummary,
   useDeleteHabit,
   type Habit,
 } from '@/hooks/useHabits';
@@ -50,12 +51,13 @@ function HabitCard({ habit, totalHabits, completedCount }: { habit: Habit; total
 
         {completedToday && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 18, paddingBottom: 14 }}>
-            {Array.from({ length: 7 }, (_, i) => (
+            {/* Last 7 days, oldest first */}
+            {(streakData?.grid.slice(-7) ?? []).map((day) => (
               <View
-                key={i}
+                key={day.date}
                 style={{
                   width: 8, height: 8, borderRadius: 4,
-                  backgroundColor: i < (streakCount % 7) + 1 ? Colors.teal : `${Colors.teal}28`,
+                  backgroundColor: day.completed ? Colors.teal : `${Colors.teal}28`,
                 }}
               />
             ))}
@@ -110,8 +112,8 @@ export default function HabitsScreen() {
   const total = habits?.length ?? 0;
   const canAddMore = total < 5;
 
-  // Estimate completed count from habits (rough — actual count from streakData per card)
-  const completedCount = 0;
+  const { data: summary } = useHabitSummary(habits ?? []);
+  const completedCount = summary?.todayDone.size ?? 0;
   const ringR = 28, ringCIRC = 2 * Math.PI * ringR;
   const ringPct = total > 0 ? completedCount / total : 0;
 
@@ -159,7 +161,7 @@ export default function HabitsScreen() {
             </Svg>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 18, fontFamily: 'DMSans-Bold', color: Colors.text, marginBottom: 4 }}>
-                {total} habits tracked
+                {completedCount} of {total} done today
               </Text>
               <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular', lineHeight: 18 }}>
                 Start tiny — one habit beats zero.

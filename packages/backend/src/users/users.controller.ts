@@ -1,14 +1,8 @@
-import {
-  Controller,
-  Get,
-  Put,
-  Body,
-  Param,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Put, Body, Param, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { UsersService } from './users.service';
+import { UpdateUserDto } from './users.dto';
 
 @Controller('users')
 @UseGuards(AuthGuard)
@@ -23,20 +17,13 @@ export class UsersController {
   @Put('me')
   async updateMe(
     @CurrentUser() user: { supabaseId: string },
-    @Body()
-    body: {
-      displayName?: string;
-      avatarUrl?: string;
-      calorieGoal?: number;
-      weightKg?: number;
-      primaryGoal?: string;
-    },
+    @Body() body: UpdateUserDto,
   ) {
     return this.users.updateUser(user.supabaseId, body);
   }
 
   @Get(':id')
   async getUser(@Param('id') id: string) {
-    return this.users.findById(id);
+    return this.users.findPublicById(id);
   }
 }

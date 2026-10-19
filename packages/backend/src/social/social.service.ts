@@ -1,5 +1,10 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { dayRange, localToday, weekStart } from '../common/day';
 
 export type FeedItemType = 'food_log' | 'activity_log' | 'habit_log';
 
@@ -7,7 +12,12 @@ export interface FeedItem {
   id: string;
   type: FeedItemType;
   loggedAt: Date;
-  user: { id: string; displayName: string; avatarUrl: string | null; username: string };
+  user: {
+    id: string;
+    displayName: string;
+    avatarUrl: string | null;
+    username: string;
+  };
   data: Record<string, unknown>;
 }
 
@@ -28,12 +38,17 @@ export class SocialService {
     if (actor.id === targetUserId) {
       throw new ConflictException('Cannot follow yourself');
     }
-    const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+    });
     if (!target) throw new NotFoundException('User not found');
 
     return this.prisma.follow.upsert({
       where: {
-        followerId_followingId: { followerId: actor.id, followingId: targetUserId },
+        followerId_followingId: {
+          followerId: actor.id,
+          followingId: targetUserId,
+        },
       },
       update: {},
       create: { followerId: actor.id, followingId: targetUserId },
@@ -53,7 +68,14 @@ export class SocialService {
     return this.prisma.follow.findMany({
       where: { followerId: user.id },
       include: {
-        following: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+        following: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
       },
     });
   }
@@ -63,14 +85,25 @@ export class SocialService {
     return this.prisma.follow.findMany({
       where: { followingId: user.id },
       include: {
-        follower: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+        follower: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
       },
     });
   }
 
   // ── Feed ──────────────────────────────────────────────────────────────────
 
-  async getFeed(supabaseId: string, cursor?: string, limit = 30): Promise<FeedItem[]> {
+  async getFeed(
+    supabaseId: string,
+    cursor?: string,
+    limit = 30,
+  ): Promise<FeedItem[]> {
     const user = await this.resolveUser(supabaseId);
 
     // Who does this user follow?
@@ -82,30 +115,41 @@ export class SocialService {
 
     if (followedIds.length === 0) return [];
 
-    const since = cursor ? new Date(cursor) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    // Last 7 days, newest first; a cursor pages back to items older than it
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const loggedAt = cursor
+      ? { gte: since, lt: new Date(cursor) }
+      : { gte: since };
 
     const userSelect = {
-      id: true, displayName: true, avatarUrl: true, username: true,
+      id: true,
+      displayName: true,
+      avatarUrl: true,
+      username: true,
     };
 
     // Fetch from all three log tables in parallel
     const [foodLogs, activityLogs, habitLogs] = await Promise.all([
       this.prisma.foodLog.findMany({
-        where: { userId: { in: followedIds }, loggedAt: { gte: since } },
+        where: { userId: { in: followedIds }, loggedAt },
         include: { user: { select: userSelect } },
         orderBy: { loggedAt: 'desc' },
         take: limit,
       }),
       this.prisma.activityLog.findMany({
-        where: { userId: { in: followedIds }, loggedAt: { gte: since } },
-        include: { user: { select: userSelect } },
+        where: { userId: { in: followedIds }, loggedAt },
+        include: {
+          user: { select: userSelect },
+          // Whether the viewer has already given kudos
+          kudos: { where: { userId: user.id }, select: { id: true } },
+        },
         orderBy: { loggedAt: 'desc' },
         take: limit,
       }),
       this.prisma.habitLog.findMany({
         where: {
           userId: { in: followedIds },
-          loggedAt: { gte: since },
+          loggedAt,
           completed: true,
         },
         include: {
@@ -120,14 +164,19 @@ export class SocialService {
     const items: FeedItem[] = [
       ...foodLogs.map((l) => ({
         id: l.id,
-        type: 'food_log' as FeedItemType,
+        type: 'food_log' as const,
         loggedAt: l.loggedAt,
         user: l.user,
-        data: { name: l.name, calories: l.calories, mealType: l.mealType, brand: l.brand },
+        data: {
+          name: l.name,
+          calories: l.calories,
+          mealType: l.mealType,
+          brand: l.brand,
+        },
       })),
       ...activityLogs.map((l) => ({
         id: l.id,
-        type: 'activity_log' as FeedItemType,
+        type: 'activity_log' as const,
         loggedAt: l.loggedAt,
         user: l.user,
         data: {
@@ -136,23 +185,26 @@ export class SocialService {
           caloriesBurned: l.caloriesBurned,
           steps: l.steps,
           kudosCount: l.kudosCount,
+          kudosGiven: l.kudos.length > 0,
         },
       })),
       ...habitLogs.map((l) => ({
         id: l.id,
-        type: 'habit_log' as FeedItemType,
+        type: 'habit_log' as const,
         loggedAt: l.loggedAt,
         user: l.user,
         data: { habitName: l.habit.name, habitEmoji: l.habit.emoji },
       })),
     ];
 
-    return items.sort((a, b) => b.loggedAt.getTime() - a.loggedAt.getTime()).slice(0, limit);
+    return items
+      .sort((a, b) => b.loggedAt.getTime() - a.loggedAt.getTime())
+      .slice(0, limit);
   }
 
   // ── Weekly leaderboard ────────────────────────────────────────────────────
 
-  async getWeeklyLeaderboard(supabaseId: string) {
+  async getWeeklyLeaderboard(supabaseId: string, offset: number) {
     const user = await this.resolveUser(supabaseId);
 
     const follows = await this.prisma.follow.findMany({
@@ -162,9 +214,7 @@ export class SocialService {
     // Include self in leaderboard
     const ids = [user.id, ...follows.map((f) => f.followingId)];
 
-    const monday = new Date();
-    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-    monday.setHours(0, 0, 0, 0);
+    const monday = dayRange(weekStart(localToday(offset)), offset).start;
 
     const logs = await this.prisma.activityLog.groupBy({
       by: ['userId'],
@@ -193,8 +243,12 @@ export class SocialService {
     const user = await this.prisma.user.findUnique({
       where: { id: targetUserId },
       select: {
-        id: true, username: true, displayName: true, avatarUrl: true,
-        primaryGoal: true, createdAt: true,
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        primaryGoal: true,
+        createdAt: true,
         _count: { select: { following: true, followers: true } },
       },
     });

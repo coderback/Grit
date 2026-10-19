@@ -10,29 +10,18 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { router, useFocusEffect } from 'expo-router';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { Colors } from '../../constants/colors';
 import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
+import { useMe, type Me } from '../../hooks/useMe';
+import { useHabits, useHabitSummary } from '../../hooks/useHabits';
+import { useWeeklySummary } from '../../hooks/useActivityLog';
 
-interface BackendUser {
-  id: string;
-  displayName: string;
-  calorieGoal: number;
-  weightKg: number | null;
-  primaryGoal: string | null;
-}
-
-function useMe() {
-  return useQuery<BackendUser>({
-    queryKey: ['me'],
-    queryFn: () => api.get('/users/me').then((r) => r.data),
-    staleTime: 1000 * 60 * 5,
-  });
-}
+type BackendUser = Me;
 
 function labelCase(s: string | null | undefined) {
   if (!s) return '—';
@@ -128,9 +117,9 @@ function EditSheet({ user, onClose }: { user: BackendUser; onClose: () => void }
 }
 
 const SETTINGS_ROWS = [
-  { icon: '🔔', color: Colors.blue, label: 'Notifications', sub: '3 reminders active', action: 'settings' as const },
-  { icon: '🎯', color: Colors.orange, label: 'Goals & Targets', sub: 'Manage your targets', action: 'settings' as const },
-  { icon: '📊', color: Colors.teal, label: 'My Progress', sub: 'View full history', action: 'settings' as const },
+  { icon: '🔔', color: Colors.blue, label: 'Notifications', sub: 'Open system settings', action: 'settings' as const },
+  { icon: '🎯', color: Colors.orange, label: 'Goals & Targets', sub: 'Calorie goal and weight', action: 'edit' as const },
+  { icon: '📊', color: Colors.teal, label: 'My Progress', sub: 'Weekly stats', action: 'progress' as const },
   { icon: '💬', color: Colors.muted, label: 'Help & Feedback', sub: 'Get support', action: 'mail' as const },
 ];
 
@@ -181,7 +170,12 @@ export default function ProfileScreen() {
     { label: 'Phase', value: isLoading ? '—' : labelCase(me?.primaryGoal).split(' ')[0], unit: '', color: Colors.teal },
   ];
 
-  const weekDots = [true, true, true, false, true, true, false];
+  const { data: habits } = useHabits();
+  const { data: habitSummary } = useHabitSummary(habits ?? []);
+  const streak = habitSummary?.maxStreak ?? 0;
+  const { data: week } = useWeeklySummary();
+  // A day counts as active if any activity was logged
+  const weekDots = (week?.days ?? []).map((d) => d.activeMinutes > 0);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
@@ -215,7 +209,7 @@ export default function ProfileScreen() {
               <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 20, letterSpacing: -0.3 }}>{displayName}</Text>
               <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13, marginTop: 2 }}>{email}</Text>
               <View style={{ backgroundColor: 'rgba(255,92,43,0.15)', borderWidth: 1, borderColor: 'rgba(255,92,43,0.3)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, alignSelf: 'flex-start', marginTop: 6 }}>
-                <Text style={{ fontSize: 11, fontFamily: 'DMSans-Bold', color: Colors.orange }}>🔥 21 day streak</Text>
+                <Text style={{ fontSize: 11, fontFamily: 'DMSans-Bold', color: Colors.orange }}>{streak > 0 ? `🔥 ${streak} day streak` : 'Start a streak today'}</Text>
               </View>
             </View>
             <Pressable
@@ -266,7 +260,9 @@ export default function ProfileScreen() {
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <Text style={{ fontSize: 15, fontFamily: 'DMSans-Bold', color: Colors.text }}>This week</Text>
-            <Text style={{ fontSize: 12, color: Colors.orange, fontFamily: 'DMSans-Bold' }}>Details →</Text>
+            <Pressable onPress={() => router.push('/(tabs)/activity')} hitSlop={8}>
+              <Text style={{ fontSize: 12, color: Colors.orange, fontFamily: 'DMSans-Bold' }}>Details →</Text>
+            </Pressable>
           </View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
@@ -287,6 +283,8 @@ export default function ProfileScreen() {
             key={row.label}
             onPress={() => {
               if (row.action === 'mail') Linking.openURL('mailto:support@gritapp.io');
+              else if (row.action === 'edit') openEdit();
+              else if (row.action === 'progress') router.push('/(tabs)/activity');
               else Linking.openSettings();
             }}
             style={({ pressed }) => ({

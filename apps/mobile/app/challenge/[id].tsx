@@ -9,7 +9,7 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withDelay,
 } from 'react-native-reanimated';
 import { useChallenge } from '@/hooks/useChallenges';
-import { useAuthStore } from '@/stores/authStore';
+import { useMe } from '@/hooks/useMe';
 import { Colors } from '@/constants/colors';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -24,7 +24,7 @@ function formatDaysLeft(endDate: string) {
 export default function ChallengeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: challenge, isLoading } = useChallenge(id);
-  const user = useAuthStore((s) => s.user);
+  const { data: me } = useMe();
 
   const wasComplete = useRef(false);
   const confettiOpacity = useSharedValue(0);
@@ -141,12 +141,12 @@ export default function ChallengeDetailScreen() {
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: p.userId === user?.id ? `${Colors.orange}18` : Colors.surface,
+                backgroundColor: p.userId === me?.id ? `${Colors.orange}18` : Colors.surface,
                 borderRadius: 16,
                 padding: 14,
                 gap: 12,
                 borderWidth: 1.5,
-                borderColor: p.userId === user?.id ? Colors.orange : Colors.border,
+                borderColor: p.userId === me?.id ? Colors.orange : Colors.border,
               }}
             >
               <Text style={{ fontSize: 18, width: 28, textAlign: 'center' }}>
@@ -163,11 +163,11 @@ export default function ChallengeDetailScreen() {
               </View>
               <Text style={{
                 flex: 1,
-                color: p.userId === user?.id ? Colors.orange : Colors.text,
-                fontFamily: p.userId === user?.id ? 'DMSans-Bold' : 'DMSans-Medium',
+                color: p.userId === me?.id ? Colors.orange : Colors.text,
+                fontFamily: p.userId === me?.id ? 'DMSans-Bold' : 'DMSans-Medium',
                 fontSize: 14,
               }}>
-                {p.userId === user?.id ? 'You' : p.user.displayName}
+                {p.userId === me?.id ? 'You' : p.user.displayName}
               </Text>
               <Text style={{ color: Colors.muted, fontFamily: 'JetBrainsMono-Regular', fontSize: 13 }}>
                 {p.currentValue.toLocaleString()}

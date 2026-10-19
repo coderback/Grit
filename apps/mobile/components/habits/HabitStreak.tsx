@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { Colors } from '@/constants/colors';
 import type { StreakDay } from '@/hooks/useHabits';
+import { localDateStr } from '@/lib/date';
 
 interface HabitStreakProps {
   grid: StreakDay[];
@@ -19,7 +20,7 @@ export function HabitStreak({ grid, streakCount }: HabitStreakProps) {
     rows.push(grid.slice(i, i + DAYS_PER_ROW));
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
 
   return (
     <View style={{ gap: 8 }}>

@@ -44,7 +44,7 @@ grit/
 | `/(tabs)/activity` | Activity log — workouts + weekly chart |
 | `/(tabs)/social` | Challenges feed + leaderboard |
 | `/(tabs)/profile` | User profile + settings |
-| `/coach` | AI coach chat (Claude-powered) |
+| `/coach` | AI coach chat (GPT-6 Luna via Azure AI Foundry) |
 | `/barcode-scanner` | Camera barcode scanner (full-screen modal) |
 
 **Auth flow:** New users complete all 11 onboarding screens before any account is created. The personalised plan is revealed first, then sign-up. Returning users land directly at login.
@@ -88,23 +88,25 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 
 ## Backend
 
-**Stack:** NestJS 11 · Prisma 5 · PostgreSQL (Supabase) · Supabase Auth (JWT verification) · Upstash Redis · Anthropic SDK (Claude)
+**Stack:** NestJS 11 · Prisma 5 · PostgreSQL (Supabase) · Supabase Auth (JWT verification) · Upstash Redis · OpenAI SDK (GPT-6 Luna on Azure AI Foundry)
 
 **Modules**
 
 | Module | Routes |
 |---|---|
-| `auth` | JWT guard, Supabase token verification |
+| `auth` | Guard that verifies Supabase access tokens, `POST /auth/sync` |
 | `users` | `GET/PUT /users/me`, `GET /users/:id` |
-| `food` | `GET/POST/DELETE /food-logs`, Open Food Facts proxy |
-| `activity` | `GET/POST/DELETE /activity-logs` |
-| `habits` | `GET/POST /habits`, `POST /habits/:id/complete` |
+| `food` | `GET/POST /food-logs`, `GET /food-logs/week`, `DELETE /food-logs/:id`, Open Food Facts search + barcode proxy |
+| `activity` | `GET/POST /activity-logs`, `GET /activity-logs/week`, `POST /activity-logs/:id/kudos` |
+| `habits` | `GET/POST/PUT/DELETE /habits`, `POST /habits/:id/log`, `GET /habits/:id/streak` |
 | `challenges` | `GET/POST /challenges`, join by invite code |
 | `social` | Feed, follow/unfollow, kudos |
-| `ai` | `POST /ai/chat` — Claude-powered coach |
-| `notifications` | Push token registration, trigger sends |
+| `ai` | `POST /ai/message` (streamed), `GET /ai/messages`, `GET /ai/nudge` — AI coach |
+| `notifications` | Push token registration (sending isn't implemented yet) |
 
-**Data models:** User · FoodLog · ActivityLog · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · Follow
+**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · Follow
+
+Requests send an `x-utc-offset` header (minutes ahead of UTC) so days and weeks follow the user's local time. Row level security is enabled on every table; only the API reads and writes them.
 
 ### Run
 
@@ -130,7 +132,7 @@ cd packages/backend && npm run start:dev
 cp packages/backend/.env.example packages/backend/.env
 ```
 
-See [`packages/backend/.env.example`](./packages/backend/.env.example). The app refuses to boot without `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET` and `ANTHROPIC_API_KEY`. `SUPABASE_SERVICE_KEY` and the Upstash vars are not read by the code yet.
+See [`packages/backend/.env.example`](./packages/backend/.env.example). The app refuses to boot without `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY`. `SUPABASE_SERVICE_KEY` and the Upstash vars are not read by the code yet.
 
 ---
 

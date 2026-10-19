@@ -4,7 +4,9 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { addDays, dateMarker, localToday } from '../common/day';
 import { PRESET_HABITS, FREE_TIER_HABIT_LIMIT } from './habits.constants';
+import type { CreateHabitDto, UpdateHabitDto } from './habits.dto';
 
 @Injectable()
 export class HabitsService {
@@ -29,10 +31,7 @@ export class HabitsService {
     });
   }
 
-  async createHabit(
-    supabaseId: string,
-    dto: { name?: string; emoji?: string; presetKey?: string },
-  ) {
+  async createHabit(supabaseId: string, dto: CreateHabitDto) {
     const { id: userId } = await this.resolveUser(supabaseId);
 
     const activeCount = await this.prisma.habit.count({
@@ -63,13 +62,11 @@ export class HabitsService {
     });
   }
 
-  async updateHabit(
-    supabaseId: string,
-    habitId: string,
-    dto: { name?: string; emoji?: string },
-  ) {
+  async updateHabit(supabaseId: string, habitId: string, dto: UpdateHabitDto) {
     const { id: userId } = await this.resolveUser(supabaseId);
-    const habit = await this.prisma.habit.findUnique({ where: { id: habitId } });
+    const habit = await this.prisma.habit.findUnique({
+      where: { id: habitId },
+    });
     if (!habit || habit.userId !== userId) {
       throw new NotFoundException('Habit not found');
     }
@@ -81,7 +78,9 @@ export class HabitsService {
 
   async deleteHabit(supabaseId: string, habitId: string) {
     const { id: userId } = await this.resolveUser(supabaseId);
-    const habit = await this.prisma.habit.findUnique({ where: { id: habitId } });
+    const habit = await this.prisma.habit.findUnique({
+      where: { id: habitId },
+    });
     if (!habit || habit.userId !== userId) {
       throw new NotFoundException('Habit not found');
     }
@@ -93,16 +92,17 @@ export class HabitsService {
 
   // ── Daily check-in ────────────────────────────────────────────────────────
 
-  async logHabit(supabaseId: string, habitId: string) {
+  async logHabit(supabaseId: string, habitId: string, offset: number) {
     const { id: userId } = await this.resolveUser(supabaseId);
-    const habit = await this.prisma.habit.findUnique({ where: { id: habitId } });
+    const habit = await this.prisma.habit.findUnique({
+      where: { id: habitId },
+    });
     if (!habit || habit.userId !== userId) {
       throw new NotFoundException('Habit not found');
     }
 
-    // Normalise to start-of-day so the @@unique constraint works correctly
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // One row per local calendar day, so the @@unique constraint dedupes check-ins
+    const today = dateMarker(localToday(offset));
 
     return this.prisma.habitLog.upsert({
       where: {
@@ -115,17 +115,18 @@ export class HabitsService {
 
   // ── Streak + 30-day grid ──────────────────────────────────────────────────
 
-  async getStreak(supabaseId: string, habitId: string) {
+  async getStreak(supabaseId: string, habitId: string, offset: number) {
     const { id: userId } = await this.resolveUser(supabaseId);
-    const habit = await this.prisma.habit.findUnique({ where: { id: habitId } });
+    const habit = await this.prisma.habit.findUnique({
+      where: { id: habitId },
+    });
     if (!habit || habit.userId !== userId) {
       throw new NotFoundException('Habit not found');
     }
 
     // Fetch last 37 days of logs (30 for grid + 7 buffer for grace calc)
-    const since = new Date();
-    since.setDate(since.getDate() - 37);
-    since.setHours(0, 0, 0, 0);
+    const today = localToday(offset);
+    const since = dateMarker(addDays(today, -37));
 
     const logs = await this.prisma.habitLog.findMany({
       where: { habitId, userId, loggedAt: { gte: since }, completed: true },
@@ -137,46 +138,31 @@ export class HabitsService {
       logs.map((l) => l.loggedAt.toISOString().split('T')[0]),
     );
 
-    const streakCount = this.calculateStreak(completedDates);
-    const grid = this.build30DayGrid(completedDates);
+    const streakCount = this.calculateStreak(completedDates, today);
+    const grid = this.build30DayGrid(completedDates, today);
 
     return { habit, streakCount, grid };
   }
 
   /**
-   * Streak calculation with 1-day grace period:
-   * Allow one missed day if the 6 days before it were all complete.
+   * Consecutive completed days ending today or yesterday. One missed day is
+   * forgiven once, as long as the day before it was completed.
    */
-  private calculateStreak(completedDates: Set<string>): number {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
+  private calculateStreak(completedDates: Set<string>, today: string): number {
     // Allow streak to start from today OR yesterday
-    const startOffset = completedDates.has(this.dateStr(today)) ? 0 : 1;
-    const start = new Date(today);
-    start.setDate(today.getDate() - startOffset);
-
-    if (!completedDates.has(this.dateStr(start))) return 0;
+    let cursor = completedDates.has(today) ? today : addDays(today, -1);
+    if (!completedDates.has(cursor)) return 0;
 
     let streak = 0;
     let graceUsed = false;
-    const cursor = new Date(start);
 
     while (true) {
-      const ds = this.dateStr(cursor);
-      if (completedDates.has(ds)) {
+      if (completedDates.has(cursor)) {
         streak++;
-        cursor.setDate(cursor.getDate() - 1);
-      } else if (!graceUsed) {
-        // Grace: peek at the day before — if completed, use grace
-        const prev = new Date(cursor);
-        prev.setDate(cursor.getDate() - 1);
-        if (completedDates.has(this.dateStr(prev))) {
-          graceUsed = true;
-          cursor.setDate(cursor.getDate() - 1);
-        } else {
-          break;
-        }
+        cursor = addDays(cursor, -1);
+      } else if (!graceUsed && completedDates.has(addDays(cursor, -1))) {
+        graceUsed = true;
+        cursor = addDays(cursor, -1);
       } else {
         break;
       }
@@ -188,23 +174,12 @@ export class HabitsService {
   /** Build last 30 days as [{date, completed}] ordered oldest → newest */
   private build30DayGrid(
     completedDates: Set<string>,
+    today: string,
   ): { date: string; completed: boolean }[] {
-    const result: { date: string; completed: boolean }[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const ds = this.dateStr(d);
-      result.push({ date: ds, completed: completedDates.has(ds) });
-    }
-
-    return result;
-  }
-
-  private dateStr(d: Date): string {
-    return d.toISOString().split('T')[0];
+    return Array.from({ length: 30 }, (_, i) => {
+      const date = addDays(today, i - 29);
+      return { date, completed: completedDates.has(date) };
+    });
   }
 
   getPresets() {

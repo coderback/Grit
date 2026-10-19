@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -10,7 +11,11 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
+import { UtcOffset } from '../common/utc-offset.decorator';
+import { DateQueryDto } from '../common/dto';
+import { localToday } from '../common/day';
 import { FoodService } from './food.service';
+import { CreateFoodLogDto, FoodSearchQueryDto } from './food.dto';
 
 @Controller()
 @UseGuards(AuthGuard)
@@ -20,12 +25,15 @@ export class FoodController {
   // ── Food database search ─────────────────────────────────────────────────
 
   @Get('food/search')
-  search(@Query('q') q: string) {
-    return this.food.searchFoods(q ?? '');
+  search(@Query() query: FoodSearchQueryDto) {
+    return this.food.searchFoods(query.q ?? '');
   }
 
   @Get('food/barcode/:code')
   barcode(@Param('code') code: string) {
+    if (!/^\d{6,14}$/.test(code)) {
+      throw new BadRequestException('Barcode must be 6–14 digits');
+    }
     return this.food.lookupBarcode(code);
   }
 
@@ -34,20 +42,7 @@ export class FoodController {
   @Post('food-logs')
   create(
     @CurrentUser() user: { supabaseId: string },
-    @Body()
-    body: {
-      name: string;
-      brand?: string;
-      barcode?: string;
-      mealType: string;
-      calories: number;
-      proteinG?: number;
-      carbsG?: number;
-      fatG?: number;
-      servingQty?: number;
-      servingUnit?: string;
-      loggedAt?: string;
-    },
+    @Body() body: CreateFoodLogDto,
   ) {
     return this.food.logFood(user.supabaseId, body);
   }
@@ -55,17 +50,23 @@ export class FoodController {
   @Get('food-logs')
   getByDate(
     @CurrentUser() user: { supabaseId: string },
-    @Query('date') date: string,
+    @Query() query: DateQueryDto,
+    @UtcOffset() offset: number,
   ) {
-    const d = date ?? new Date().toISOString().split('T')[0];
-    return this.food.getFoodLogsForDate(user.supabaseId, d);
+    const date = query.date ?? localToday(offset);
+    return this.food.getFoodLogsForDate(user.supabaseId, date, offset);
+  }
+
+  @Get('food-logs/week')
+  getWeekly(
+    @CurrentUser() user: { supabaseId: string },
+    @UtcOffset() offset: number,
+  ) {
+    return this.food.getWeeklySummary(user.supabaseId, offset);
   }
 
   @Delete('food-logs/:id')
-  delete(
-    @CurrentUser() user: { supabaseId: string },
-    @Param('id') id: string,
-  ) {
+  delete(@CurrentUser() user: { supabaseId: string }, @Param('id') id: string) {
     return this.food.deleteFoodLog(user.supabaseId, id);
   }
 }

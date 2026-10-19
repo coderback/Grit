@@ -44,6 +44,18 @@ export function useFoodLogsForDate(date: string) {
   });
 }
 
+export interface FoodWeekDay extends MacroTotals {
+  date: string;
+  entries: number;
+}
+
+export function useFoodWeek() {
+  return useQuery<{ weekStart: string; weekEnd: string; days: FoodWeekDay[] }>({
+    queryKey: ['food-week'],
+    queryFn: () => api.get('/food-logs/week').then((r) => r.data),
+  });
+}
+
 export function useFoodSearch(query: string) {
   return useQuery<NormalizedFood[]>({
     queryKey: ['food-search', query],
@@ -79,8 +91,8 @@ export function useLogFood() {
       servingUnit?: string;
     }) => api.post('/food-logs', data).then((r) => r.data),
     onSuccess: () => {
-      const today = new Date().toISOString().split('T')[0];
-      qc.invalidateQueries({ queryKey: ['food-logs', today] });
+      qc.invalidateQueries({ queryKey: ['food-logs'] });
+      qc.invalidateQueries({ queryKey: ['food-week'] });
     },
   });
 }
@@ -90,8 +102,8 @@ export function useDeleteFoodLog() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/food-logs/${id}`).then((r) => r.data),
     onSuccess: () => {
-      const today = new Date().toISOString().split('T')[0];
-      qc.invalidateQueries({ queryKey: ['food-logs', today] });
+      qc.invalidateQueries({ queryKey: ['food-logs'] });
+      qc.invalidateQueries({ queryKey: ['food-week'] });
     },
   });
 }

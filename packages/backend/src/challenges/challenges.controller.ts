@@ -1,9 +1,17 @@
 import {
-  Controller, Get, Post, Put, Param, Body, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Param,
+  Body,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
+import { UtcOffset } from '../common/utc-offset.decorator';
 import { ChallengesService } from './challenges.service';
+import { CreateChallengeDto, UpdateProgressDto } from './challenges.dto';
 
 @Controller('challenges')
 @UseGuards(AuthGuard)
@@ -13,9 +21,10 @@ export class ChallengesController {
   @Post()
   create(
     @CurrentUser() user: { supabaseId: string },
-    @Body() body: { title: string; goalValue: number; durationDays: number },
+    @Body() body: CreateChallengeDto,
+    @UtcOffset() offset: number,
   ) {
-    return this.challenges.createChallenge(user.supabaseId, body);
+    return this.challenges.createChallenge(user.supabaseId, body, offset);
   }
 
   @Get()
@@ -24,8 +33,8 @@ export class ChallengesController {
   }
 
   @Get(':id')
-  getOne(@Param('id') id: string) {
-    return this.challenges.getChallenge(id);
+  getOne(@CurrentUser() user: { supabaseId: string }, @Param('id') id: string) {
+    return this.challenges.getChallenge(user.supabaseId, id);
   }
 
   @Post('join/:inviteCode')
@@ -40,7 +49,7 @@ export class ChallengesController {
   updateProgress(
     @CurrentUser() user: { supabaseId: string },
     @Param('id') id: string,
-    @Body() body: { steps: number },
+    @Body() body: UpdateProgressDto,
   ) {
     return this.challenges.updateProgress(user.supabaseId, id, body.steps);
   }

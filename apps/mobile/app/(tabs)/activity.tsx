@@ -4,20 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop, G } from 'react-native-svg';
-import { useActivityLogsForDate, useWeeklySummary } from '@/hooks/useActivityLog';
+import { useWeeklySummary } from '@/hooks/useActivityLog';
+import { useFoodWeek } from '@/hooks/useFoodLog';
+import { useHabits, useHabitSummary } from '@/hooks/useHabits';
+import { useMe } from '@/hooks/useMe';
 import { LogActivitySheet } from '@/components/activity/LogActivitySheet';
 import { Colors } from '@/constants/colors';
+import { localDateStr } from '@/lib/date';
 
-const MOCK_CAL_DATA = [
-  { label: 'Mon', v: 1820 }, { label: 'Tue', v: 2180 }, { label: 'Wed', v: 1950 },
-  { label: 'Thu', v: 2210 }, { label: 'Fri', v: 1680 }, { label: 'Sat', v: 2050 },
-  { label: 'Sun', v: 1240, today: true },
-];
-
-const STREAK_DAYS = Array.from({ length: 42 }, (_, i) => {
-  const seed = (i * 17 + 3) % 7;
-  return { done: seed < 5, daysAgo: 41 - i };
-});
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function LineChart({
   data,
@@ -79,21 +74,14 @@ function LineChart({
   );
 }
 
-const METRICS = [
-  { id: 'calories', label: 'Calories' },
-  { id: 'protein', label: 'Protein' },
-  { id: 'activity', label: 'Activity' },
-  { id: 'weight', label: 'Weight' },
-];
-
-const PERIODS = ['7D', '30D', '3M'];
-
 export default function ActivityScreen() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
   const { data: weekly } = useWeeklySummary();
+  const { data: foodWeek } = useFoodWeek();
+  const { data: me } = useMe();
+  const { data: habits } = useHabits();
+  const { data: habitSummary } = useHabitSummary(habits ?? []);
   const [showSheet, setShowSheet] = useState(false);
-  const [metric, setMetric] = useState('calories');
-  const [period, setPeriod] = useState('7D');
 
   useFocusEffect(
     React.useCallback(() => {
@@ -101,14 +89,38 @@ export default function ActivityScreen() {
     }, [])
   );
 
-  const actData = weekly?.days?.map((d: any, i: number) => ({
-    label: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i] ?? `D${i}`,
-    v: d.activeMinutes ?? 0,
-    today: i === (weekly.days.length - 1),
-  })) ?? MOCK_CAL_DATA.map(d => ({ ...d, v: Math.floor(d.v / 40) }));
-
-  const totalMins = weekly?.totals?.activeMinutes ?? 277;
+  const actData = (weekly?.days ?? []).map((d, i) => ({
+    label: DAY_LABELS[i],
+    v: d.activeMinutes,
+    today: d.date === today,
+  }));
+  const totalMins = weekly?.totals.activeMinutes ?? 0;
   const activeDays = actData.filter(d => d.v > 0).length;
+
+  // Calories this week, averaged over the days that have any food logged
+  const calorieGoal = me?.calorieGoal ?? 2000;
+  const calData = (foodWeek?.days ?? []).map((d, i) => ({
+    label: DAY_LABELS[i],
+    v: Math.round(d.calories),
+    today: d.date === today,
+  }));
+  const loggedDays = (foodWeek?.days ?? []).filter(d => d.entries > 0);
+  const avgCalories = loggedDays.length
+    ? Math.round(loggedDays.reduce((s, d) => s + d.calories, 0) / loggedDays.length)
+    : 0;
+  // Negative means eaten under goal (a deficit)
+  const weeklyBalance = Math.round(loggedDays.reduce((s, d) => s + d.calories - calorieGoal, 0));
+  const balancePct = loggedDays.length
+    ? Math.round((Math.abs(weeklyBalance) / (calorieGoal * loggedDays.length)) * 100)
+    : 0;
+
+  // Habit history: last 30 days, padded so columns line up Mon–Sun
+  const habitCount = habits?.length ?? 0;
+  const streak = habitSummary?.maxStreak ?? 0;
+  const historyDays = habitSummary?.days ?? [];
+  const leadingBlanks = historyDays.length
+    ? (new Date(`${historyDays[0].date}T00:00:00Z`).getUTCDay() + 6) % 7
+    : 0;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark }} edges={['top']}>
@@ -119,54 +131,8 @@ export default function ActivityScreen() {
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>
             Analytics
           </Text>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            {PERIODS.map(p => (
-              <Pressable
-                key={p}
-                onPress={() => setPeriod(p)}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 5,
-                  borderRadius: 999,
-                  backgroundColor: period === p ? `${Colors.orange}25` : Colors.surface2,
-                  borderWidth: 1,
-                  borderColor: period === p ? Colors.orange : Colors.border,
-                }}
-              >
-                <Text style={{ fontSize: 12, fontFamily: 'DMSans-Bold', color: period === p ? Colors.orange : Colors.muted }}>
-                  {p}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Medium' }}>This week</Text>
         </View>
-
-        {/* Metric tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginBottom: 16 }}
-          contentContainerStyle={{ gap: 8, paddingRight: 4 }}
-        >
-          {METRICS.map(m => (
-            <Pressable
-              key={m.id}
-              onPress={() => setMetric(m.id)}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderRadius: 999,
-                backgroundColor: metric === m.id ? Colors.orange : Colors.surface,
-                borderWidth: 1,
-                borderColor: metric === m.id ? Colors.orange : Colors.border,
-              }}
-            >
-              <Text style={{ fontSize: 13, fontFamily: 'DMSans-Bold', color: metric === m.id ? '#fff' : Colors.muted }}>
-                {m.label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
 
         {/* Calorie trend card */}
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18, marginBottom: 12 }}>
@@ -176,17 +142,21 @@ export default function ActivityScreen() {
                 Weekly calories
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-                <Text style={{ fontSize: 28, fontFamily: 'JetBrainsMono-Regular', color: Colors.text, letterSpacing: -1 }}>1,876</Text>
+                <Text style={{ fontSize: 28, fontFamily: 'JetBrainsMono-Regular', color: Colors.text, letterSpacing: -1 }}>{avgCalories.toLocaleString()}</Text>
                 <Text style={{ fontSize: 12, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>avg / day</Text>
               </View>
             </View>
-            <View style={{ backgroundColor: `${Colors.teal}20`, borderWidth: 1, borderColor: `${Colors.teal}50`, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-              <Text style={{ fontSize: 12, fontFamily: 'DMSans-Bold', color: Colors.teal }}>▼ 8% deficit</Text>
-            </View>
+            {loggedDays.length > 0 && (
+              <View style={{ backgroundColor: `${Colors.teal}20`, borderWidth: 1, borderColor: `${Colors.teal}50`, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+                <Text style={{ fontSize: 12, fontFamily: 'DMSans-Bold', color: Colors.teal }}>
+                  {weeklyBalance <= 0 ? '▼' : '▲'} {balancePct}% {weeklyBalance <= 0 ? 'deficit' : 'surplus'}
+                </Text>
+              </View>
+            )}
           </View>
-          <LineChart data={MOCK_CAL_DATA} goalVal={2050} color={Colors.orange} gradId="calGrad" />
+          {calData.length > 0 && <LineChart data={calData} goalVal={calorieGoal} color={Colors.orange} gradId="calGrad" />}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-            {MOCK_CAL_DATA.map(d => (
+            {calData.map(d => (
               <Text key={d.label} style={{ flex: 1, fontSize: 10, color: d.today ? Colors.orange : Colors.muted, fontFamily: d.today ? 'DMSans-Bold' : 'DMSans-Regular', textAlign: 'center' }}>
                 {d.label}
               </Text>
@@ -199,7 +169,7 @@ export default function ActivityScreen() {
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               <View style={{ width: 20, height: 1, backgroundColor: Colors.muted, borderRadius: 1 }} />
-              <Text style={{ fontSize: 11, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>Goal 2,050</Text>
+              <Text style={{ fontSize: 11, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>Goal {calorieGoal.toLocaleString()}</Text>
             </View>
           </View>
         </View>
@@ -266,19 +236,19 @@ export default function ActivityScreen() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <View>
               <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 16, marginBottom: 2 }}>Habit streak</Text>
-              <Text style={{ fontSize: 12, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>Last 6 weeks</Text>
+              <Text style={{ fontSize: 12, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>Last 30 days</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={{ fontSize: 26, fontFamily: 'JetBrainsMono-Regular', color: Colors.orange }}>21</Text>
+              <Text style={{ fontSize: 26, fontFamily: 'JetBrainsMono-Regular', color: Colors.orange }}>{streak}</Text>
               <View>
                 <Text style={{ fontSize: 11, color: Colors.orange, fontFamily: 'DMSans-Bold' }}>day streak</Text>
-                <Text style={{ fontSize: 10, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>🔥 personal best</Text>
+                <Text style={{ fontSize: 10, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>🔥 current best</Text>
               </View>
             </View>
           </View>
           {/* Day headers */}
           <View style={{ flexDirection: 'row', marginBottom: 4 }}>
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
               <View key={i} style={{ flex: 1, alignItems: 'center' }}>
                 <Text style={{ fontSize: 9, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>{d}</Text>
               </View>
@@ -286,21 +256,27 @@ export default function ActivityScreen() {
           </View>
           {/* Grid */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-            {STREAK_DAYS.map((day, i) => (
-              <View
-                key={i}
-                style={{
-                  width: `${100 / 7 - 1}%`,
-                  aspectRatio: 1,
-                  borderRadius: 4,
-                  backgroundColor: day.done
-                    ? day.daysAgo < 7 ? Colors.teal
-                    : day.daysAgo < 21 ? `${Colors.teal}BB`
-                    : `${Colors.teal}60`
-                    : Colors.surface2,
-                }}
-              />
+            {Array.from({ length: leadingBlanks }, (_, i) => (
+              <View key={`pad-${i}`} style={{ width: `${100 / 7 - 1}%`, aspectRatio: 1 }} />
             ))}
+            {historyDays.map((day) => {
+              // Shade by the share of habits completed that day
+              const share = habitCount > 0 ? day.completed / habitCount : 0;
+              return (
+                <View
+                  key={day.date}
+                  style={{
+                    width: `${100 / 7 - 1}%`,
+                    aspectRatio: 1,
+                    borderRadius: 4,
+                    backgroundColor: share >= 1 ? Colors.teal
+                      : share >= 0.5 ? `${Colors.teal}BB`
+                      : share > 0 ? `${Colors.teal}60`
+                      : Colors.surface2,
+                  }}
+                />
+              );
+            })}
           </View>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 10 }}>
             <View style={{ flexDirection: 'row', gap: 4 }}>
@@ -315,10 +291,15 @@ export default function ActivityScreen() {
         {/* Summary bento */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           {[
-            { label: 'Avg calories', val: '1,876', unit: 'kcal/day', color: Colors.orange },
-            { label: 'Weekly deficit', val: '−1,218', unit: 'kcal', color: Colors.teal },
+            { label: 'Avg calories', val: avgCalories.toLocaleString(), unit: 'kcal/day', color: Colors.orange },
+            {
+              label: weeklyBalance <= 0 ? 'Weekly deficit' : 'Weekly surplus',
+              val: Math.abs(weeklyBalance).toLocaleString(),
+              unit: 'kcal vs goal',
+              color: Colors.teal,
+            },
             { label: 'Active days', val: String(activeDays), unit: 'this week', color: Colors.blue },
-            { label: 'Best streak', val: '21', unit: 'days', color: Colors.orange },
+            { label: 'Habit streak', val: String(streak), unit: 'days', color: Colors.orange },
           ].map(s => (
             <View
               key={s.label}
