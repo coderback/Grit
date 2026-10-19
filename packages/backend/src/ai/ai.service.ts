@@ -1,10 +1,10 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   addDays,
@@ -14,35 +14,26 @@ import {
   localToday,
 } from '../common/day';
 import OpenAI from 'openai';
+import { AI_MODEL } from './azure-openai';
+import {
+  AIM_LABELS,
+  DIET_LABELS,
+  FOCUS_LABELS,
+  FRICTION_LABELS,
+} from './profile-labels';
+import { macroTargets } from '../common/nutrition';
 
 const DAILY_LIMIT = 10;
-const DEFAULT_DEPLOYMENT = 'gpt-6-luna';
-
-// Accepts the resource endpoint as shown in the Foundry portal and points it at
-// Azure's OpenAI-compatible v1 API, which the standard OpenAI client can call directly.
-function toV1BaseUrl(endpoint: string): string {
-  const base = endpoint.replace(/\/+$/, '');
-  return base.endsWith('/openai/v1') ? `${base}/` : `${base}/openai/v1/`;
-}
 
 @Injectable()
 export class AIService {
-  private openai: OpenAI;
-  private model: string;
   private nudgesInFlight = new Map<string, Promise<string>>();
 
   constructor(
     private prisma: PrismaService,
-    private config: ConfigService,
-  ) {
-    this.openai = new OpenAI({
-      apiKey: config.getOrThrow<string>('AZURE_OPENAI_API_KEY'),
-      baseURL: toV1BaseUrl(config.getOrThrow<string>('AZURE_OPENAI_ENDPOINT')),
-    });
-    // On Azure the model field is the deployment name, not the catalog model ID
-    this.model =
-      config.get<string>('AZURE_OPENAI_DEPLOYMENT') ?? DEFAULT_DEPLOYMENT;
-  }
+    private openai: OpenAI,
+    @Inject(AI_MODEL) private model: string,
+  ) {}
 
   private async resolveUser(supabaseId: string) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
@@ -99,11 +90,27 @@ export class AIService {
             .join('\n')
         : '- No activity logged this week';
 
+    const targets = macroTargets(
+      user?.calorieGoal ?? 2000,
+      user?.goalFocus ?? 'balanced',
+    );
+    const profileLines = [
+      `- Name: ${user?.displayName}`,
+      `- Goal: ${user?.primaryGoal}${user?.aim ? ` (main aim: ${AIM_LABELS[user.aim] ?? user.aim})` : ''}`,
+      `- Calorie target: ${user?.calorieGoal} kcal/day${user?.earnbackCalories ? ', plus calories burned through exercise' : ''}`,
+      `- Macro targets: ${targets.proteinG}g protein, ${targets.carbsG}g carbs, ${targets.fatG}g fat (${FOCUS_LABELS[user?.goalFocus ?? ''] ?? 'balanced'})`,
+      `- Weight: ${user?.weightKg ? `${user.weightKg}kg` : 'not set'}${user?.goalWeightKg ? `, goal ${user.goalWeightKg}kg` : ''}${user?.pace ? ` at a ${user.pace} pace` : ''}`,
+      user?.dietType && user.dietType !== 'none'
+        ? `- Diet: ${DIET_LABELS[user.dietType] ?? user.dietType} (only suggest foods that fit)`
+        : null,
+      user?.friction
+        ? `- Biggest obstacle: ${FRICTION_LABELS[user.friction] ?? user.friction}`
+        : null,
+      `- Active-minutes goal: ${user?.activeMinutesGoal ?? 60} min/day`,
+    ].filter(Boolean);
+
     return `User profile:
-- Name: ${user?.displayName}
-- Goal: ${user?.primaryGoal}
-- Calorie target: ${user?.calorieGoal} kcal/day
-- Weight: ${user?.weightKg ? `${user.weightKg}kg` : 'not set'}
+${profileLines.join('\n')}
 
 Today's nutrition:
 - Calories: ${Math.round(todayCalories)} / ${user?.calorieGoal} kcal

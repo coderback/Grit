@@ -14,6 +14,10 @@ import { useHabits, useHabitSummary } from '@/hooks/useHabits';
 import { Colors } from '@/constants/colors';
 import { localDateStr } from '@/lib/date';
 import { useMe } from '@/hooks/useMe';
+import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
+import { ScreenSkeleton } from '@/components/ui/Skeleton';
+import { calcMacros } from '@/lib/tdee';
+import { todayWeekday, useWorkoutPlan } from '@/hooks/useWorkoutPlan';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 
@@ -126,14 +130,60 @@ function MacroBar({ value, goal, color }: { value: number; goal: number; color: 
   );
 }
 
+/** Today's day of the coach's plan, or an invitation to get one. */
+function TodayWorkoutCard() {
+  const { data: plan, isLoading } = useWorkoutPlan();
+  if (isLoading) return null;
+  const today = plan?.days.find((d) => d.day === todayWeekday());
+
+  return (
+    <Pressable
+      onPress={() => router.push('/plan')}
+      accessibilityRole="button"
+      accessibilityLabel={plan ? "Today's workout" : 'Get a workout plan'}
+      style={({ pressed }) => ({
+        backgroundColor: Colors.surface,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        padding: 18,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <Text style={{ fontSize: 28 }}>{!plan ? '🗓️' : today?.rest ? '😌' : '🏋️'}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 11, color: Colors.muted, letterSpacing: 0.7, textTransform: 'uppercase', fontFamily: 'DMSans-Medium' }}>
+          {plan ? "Today's workout" : 'Workout plan'}
+        </Text>
+        <Text style={{ fontSize: 16, color: Colors.text, fontFamily: 'DMSans-Bold', marginTop: 2 }}>
+          {!plan ? 'Get a weekly plan from your coach' : today?.rest ? 'Rest day — recover well' : today?.title}
+        </Text>
+        {!!plan && today && !today.rest && (
+          <Text style={{ fontSize: 12, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 2 }}>
+            {today.durationMin} min · {today.exercises.length} exercises
+          </Text>
+        )}
+      </View>
+      <Text style={{ color: Colors.orange, fontSize: 18 }}>›</Text>
+    </Pressable>
+  );
+}
+
 export default function HomeScreen() {
   const today = todayStr();
 
-  const { data: me } = useMe();
-  const { data: foodLogs } = useFoodLogsForDate(today);
-  const { data: weeklySummary } = useWeeklySummary();
+  const meQuery = useMe();
+  const foodQuery = useFoodLogsForDate(today);
+  const weekQuery = useWeeklySummary();
+  const me = meQuery.data;
+  const foodLogs = foodQuery.data;
+  const weeklySummary = weekQuery.data;
+  const status = useQueriesStatus(meQuery, foodQuery, weekQuery);
   const { data: habits } = useHabits();
-  const { data: habitSummary } = useHabitSummary(habits ?? []);
+  const { data: habitSummary } = useHabitSummary();
   const todayDone = habitSummary?.todayDone;
   const maxStreak = habitSummary?.maxStreak ?? 0;
 
@@ -141,20 +191,24 @@ export default function HomeScreen() {
   const proteinG = foodLogs?.totals.proteinG ?? 0;
   const carbsG = foodLogs?.totals.carbsG ?? 0;
   const fatG = foodLogs?.totals.fatG ?? 0;
-  const calorieGoal = me?.calorieGoal ?? 2000;
+  // The day's budget: the goal plus earnback and rollover, if switched on
+  const budget = foodLogs?.budget;
+  const calorieGoal = budget?.total ?? me?.calorieGoal ?? 2000;
+  const activeGoal = me?.activeMinutesGoal ?? 60;
 
   const todayActivity = weeklySummary?.days.find((d) => d.date === today);
   const activeMinutes = todayActivity?.activeMinutes ?? 0;
   const burned = Math.round(todayActivity?.caloriesBurned ?? 0);
-  const activePct = Math.min(1, activeMinutes / 60);
+  const activePct = Math.min(1, activeMinutes / Math.max(activeGoal, 1));
 
   const habitCount = habits?.length ?? 0;
   const doneCount = todayDone?.size ?? 0;
 
-  // Macro goals derived from calorie goal (30/40/30 split)
-  const proteinGoal = Math.round((calorieGoal * 0.30) / 4);
-  const carbsGoal = Math.round((calorieGoal * 0.40) / 4);
-  const fatGoal = Math.round((calorieGoal * 0.30) / 9);
+  // Targets follow the goal focus chosen in onboarding (from the backend)
+  const fallback = calcMacros(calorieGoal, me?.goalFocus);
+  const proteinGoal = foodLogs?.targets.proteinG ?? fallback.proteinG;
+  const carbsGoal = foodLogs?.targets.carbsG ?? fallback.carbsG;
+  const fatGoal = foodLogs?.targets.fatG ?? fallback.fatG;
 
   const macros = [
     { label: 'Protein', val: Math.round(proteinG), goal: proteinGoal, color: Colors.blue },
@@ -191,8 +245,9 @@ export default function HomeScreen() {
     ['food-logs', today],
     ['activity-week'],
     ['habits'],
-    ['habit-summary'],
+    ['habit-streaks'],
     ['ai-nudge'],
+    ['workout-plan'],
   ]);
 
   return (
@@ -230,6 +285,13 @@ export default function HomeScreen() {
         {/* AI Nudge */}
         <NudgeCard />
 
+        {status.isError && !status.isBlocked && <ErrorNotice compact onRetry={status.retry} />}
+        {status.isBlocked ? (
+          <ErrorNotice what="your day" onRetry={status.retry} />
+        ) : status.isLoading ? (
+          <ScreenSkeleton />
+        ) : (
+        <>
         {/* Hero calorie card */}
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 20 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -244,7 +306,12 @@ export default function HomeScreen() {
             <CalorieRing eaten={eaten} goal={calorieGoal} />
             <View style={{ flex: 1, gap: 12 }}>
               {[
-                { label: 'Goal', val: calorieGoal.toLocaleString(), color: Colors.muted },
+                {
+                  // "Budget" once earnback or rollover adds to the goal
+                  label: budget && budget.total !== budget.goal ? 'Budget' : 'Goal',
+                  val: calorieGoal.toLocaleString(),
+                  color: Colors.muted,
+                },
                 { label: 'Eaten', val: Math.round(eaten).toLocaleString(), color: Colors.text },
                 { label: 'Burned', val: burned.toLocaleString(), color: Colors.teal },
               ].map((row) => (
@@ -310,7 +377,7 @@ export default function HomeScreen() {
               <Rect x={0} y={0} width={100} height={5} fill={Colors.surface2} rx={2.5} />
               <Rect x={0} y={0} width={activePct * 100} height={5} fill="url(#actGrad)" rx={2.5} />
             </Svg>
-            <Text style={{ fontSize: 11, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 4 }}>Goal: 60 min</Text>
+            <Text style={{ fontSize: 11, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 4 }}>Goal: {activeGoal} min</Text>
           </Pressable>
 
           <Pressable
@@ -341,6 +408,9 @@ export default function HomeScreen() {
             </Text>
           </Pressable>
         </View>
+
+        {/* Today's session from the workout plan */}
+        <TodayWorkoutCard />
 
         {/* Meals preview */}
         <View>
@@ -395,6 +465,8 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         </View>
+        </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

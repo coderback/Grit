@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Query,
   Param,
   Body,
@@ -13,7 +15,7 @@ import { UtcOffset } from '../common/utc-offset.decorator';
 import { DateQueryDto } from '../common/dto';
 import { localToday } from '../common/day';
 import { ActivityService } from './activity.service';
-import { CreateActivityLogDto } from './activity.dto';
+import { CreateActivityLogDto, UpdateActivityLogDto } from './activity.dto';
 
 @Controller('activity-logs')
 @UseGuards(AuthGuard)
@@ -43,12 +45,28 @@ export class ActivityController {
     return this.activity.getActivityLogsForDate(user.supabaseId, date, offset);
   }
 
+  // ?date= picks the week containing that date; defaults to this week
   @Get('week')
   getWeekly(
     @CurrentUser() user: { supabaseId: string },
+    @Query() query: DateQueryDto,
     @UtcOffset() offset: number,
   ) {
-    return this.activity.getWeeklySummary(user.supabaseId, offset);
+    return this.activity.getWeeklySummary(user.supabaseId, offset, query.date);
+  }
+
+  @Patch(':id')
+  update(
+    @CurrentUser() user: { supabaseId: string },
+    @Param('id') id: string,
+    @Body() body: UpdateActivityLogDto,
+  ) {
+    return this.activity.updateActivityLog(user.supabaseId, id, body);
+  }
+
+  @Delete(':id')
+  remove(@CurrentUser() user: { supabaseId: string }, @Param('id') id: string) {
+    return this.activity.deleteActivityLog(user.supabaseId, id);
   }
 
   @Post(':id/kudos')

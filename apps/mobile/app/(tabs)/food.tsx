@@ -1,19 +1,26 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 import {
   useFoodLogsForDate,
   useDeleteFoodLog,
+  type FoodLog,
   type NormalizedFood,
 } from '@/hooks/useFoodLog';
 import { FoodSearchBar } from '@/components/food/FoodSearchBar';
 import { LogFoodSheet } from '@/components/food/LogFoodSheet';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Colors } from '@/constants/colors';
-import { localDateStr } from '@/lib/date';
+import { addDaysStr, dayLabel, localDateStr } from '@/lib/date';
+import { confirmAction } from '@/lib/confirm';
+import { DateNavigator } from '@/components/ui/DateNavigator';
+import { EditFoodSheet } from '@/components/food/EditFoodSheet';
 import { useMe } from '@/hooks/useMe';
+import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
+import { ScreenSkeleton } from '@/components/ui/Skeleton';
+import { calcMacros } from '@/lib/tdee';
 
 // Blank entry for logging something that isn't in the food database
 const MANUAL_FOOD: NormalizedFood = {
@@ -87,10 +94,14 @@ function MacroDonutSVG({
 
 export default function FoodScreen() {
   const today = localDateStr();
-  const { data, isLoading } = useFoodLogsForDate(today);
+  const [date, setDate] = useState(today);
+  const foodQuery = useFoodLogsForDate(date);
+  const { data } = foodQuery;
+  const status = useQueriesStatus(foodQuery);
   const { mutate: deleteLog } = useDeleteFoodLog();
   const { data: me } = useMe();
-  const { refreshing, onRefresh } = usePullToRefresh([['food-logs', today], ['me']]);
+  const { refreshing, onRefresh } = usePullToRefresh([['food-logs', date], ['me']]);
+  const [editingLog, setEditingLog] = useState<FoodLog | null>(null);
   const [selectedFood, setSelectedFood] = useState<NormalizedFood | null>(null);
   const [selectedMeal, setSelectedMeal] = useState<(typeof MEAL_ORDER)[number] | undefined>();
 
@@ -99,29 +110,33 @@ export default function FoodScreen() {
     setSelectedFood(MANUAL_FOOD);
   }
 
-  function confirmDelete(id: string, name: string) {
-    Alert.alert('Delete entry', `Remove "${name}" from today's log?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteLog(id) },
-    ]);
+  async function confirmDelete(id: string, name: string) {
+    if (await confirmAction({ title: 'Delete entry', message: `Remove "${name}" from this day's log?`, confirmLabel: 'Delete', destructive: true })) {
+      deleteLog(id);
+    }
   }
   const [expanded, setExpanded] = useState(new Set<string>(['Breakfast']));
 
   useFocusEffect(
     React.useCallback(() => {
-      return () => setSelectedFood(null);
+      return () => {
+        setSelectedFood(null);
+        setEditingLog(null);
+      };
     }, [])
   );
 
-  const calorieGoal = me?.calorieGoal ?? 2000;
+  const calorieGoal = data?.budget.total ?? me?.calorieGoal ?? 2000;
   const eaten = data?.totals?.calories ?? 0;
   const proteinG = data?.totals?.proteinG ?? 0;
   const carbsG = data?.totals?.carbsG ?? 0;
   const fatG = data?.totals?.fatG ?? 0;
 
-  const proteinGoal = Math.round(calorieGoal * 0.30 / 4);
-  const carbsGoal = Math.round(calorieGoal * 0.40 / 4);
-  const fatGoal = Math.round(calorieGoal * 0.30 / 9);
+  // Targets follow the goal focus chosen in onboarding (from the backend)
+  const fallback = calcMacros(calorieGoal, me?.goalFocus);
+  const proteinGoal = data?.targets.proteinG ?? fallback.proteinG;
+  const carbsGoal = data?.targets.carbsG ?? fallback.carbsG;
+  const fatGoal = data?.targets.fatG ?? fallback.fatG;
 
   const macroRows = [
     { label: 'Protein', val: Math.round(proteinG), goal: proteinGoal, color: Colors.blue },
@@ -182,6 +197,24 @@ export default function FoodScreen() {
           </View>
         </View>
 
+        {/* Day picker: view and back-fill earlier days */}
+        <View style={{ marginBottom: 14 }}>
+          <DateNavigator
+            label={dayLabel(date, today)}
+            onPrev={() => setDate((d) => addDaysStr(d, -1))}
+            onNext={() => setDate((d) => addDaysStr(d, 1))}
+            canGoNext={date < today}
+            onReset={date !== today ? () => setDate(today) : undefined}
+          />
+        </View>
+
+        {status.isError && !status.isBlocked && <ErrorNotice compact onRetry={status.retry} />}
+        {status.isBlocked ? (
+          <ErrorNotice what="your food log" onRetry={status.retry} />
+        ) : status.isLoading ? (
+          <ScreenSkeleton />
+        ) : (
+        <>
         {/* Summary card with donut */}
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18, marginBottom: 14 }}>
           <View style={{ flexDirection: 'row', gap: 18, alignItems: 'center' }}>
@@ -252,7 +285,11 @@ export default function FoodScreen() {
                       section.data.map(item => (
                         <Pressable
                           key={item.id}
+                          onPress={() => setEditingLog(item)}
                           onLongPress={() => confirmDelete(item.id, item.name)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${item.name}, ${Math.round(item.calories)} kcal`}
+                          accessibilityHint="Tap to edit"
                           style={{ backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}
                         >
                           <View style={{ flex: 1 }}>
@@ -279,12 +316,14 @@ export default function FoodScreen() {
             );
           })}
         </View>
-
+        </>
+        )}
       </ScrollView>
 
       {selectedFood && (
-        <LogFoodSheet food={selectedFood} initialMeal={selectedMeal} onClose={() => setSelectedFood(null)} />
+        <LogFoodSheet food={selectedFood} initialMeal={selectedMeal} date={date} onClose={() => setSelectedFood(null)} />
       )}
+      {editingLog && <EditFoodSheet key={editingLog.id} log={editingLog} onClose={() => setEditingLog(null)} />}
     </SafeAreaView>
   );
 }

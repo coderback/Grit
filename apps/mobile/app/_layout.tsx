@@ -1,6 +1,6 @@
 import '../global.css';
 import React, { useEffect } from 'react';
-import { Stack, SplashScreen, Redirect } from 'expo-router';
+import { Stack, SplashScreen, router, useSegments } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
@@ -18,11 +18,13 @@ import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { Toast } from '@/components/ui/Toast';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const { session, isLoading, onboardingLoading, setSession, onboardingComplete, loadOnboardingState, setOnboardingComplete } = useAuthStore();
+  const segments = useSegments();
   // Register for push only once signed in; the backend rejects anonymous calls
   usePushNotifications(!!session);
 
@@ -77,6 +79,16 @@ export default function RootLayout() {
     }
   }, [isLoading, onboardingLoading, session, onboardingComplete, setOnboardingComplete]);
 
+  // Signed-out users may only see onboarding, login and the password reset
+  // screen (which signs in from its link); anything else sends them to one of
+  // the first two
+  const ready = !isLoading && !onboardingLoading && fontsReady;
+  const publicRoute = segments[0] === 'onboarding' || segments[0] === '(auth)' || segments[0] === 'reset-password';
+  useEffect(() => {
+    if (!ready || session || publicRoute) return;
+    router.replace(onboardingComplete ? '/(auth)/login' : '/onboarding');
+  }, [ready, session, publicRoute, onboardingComplete]);
+
   if (isLoading || onboardingLoading || !fontsReady) {
     return null;
   }
@@ -94,9 +106,13 @@ export default function RootLayout() {
           <Stack.Screen name="profile/[id]" />
           <Stack.Screen name="challenge/[id]" />
           <Stack.Screen name="challenges/join/[code]" />
+          <Stack.Screen name="settings/goals" />
+          <Stack.Screen name="settings/notifications" />
+          <Stack.Screen name="settings/account" />
+          <Stack.Screen name="reset-password" />
+          <Stack.Screen name="plan" />
         </Stack>
-        {!onboardingComplete && !session && <Redirect href="/onboarding" />}
-        {onboardingComplete && !session && <Redirect href="/(auth)/login" />}
+        <Toast />
       </GestureHandlerRootView>
     </QueryClientProvider>
   );

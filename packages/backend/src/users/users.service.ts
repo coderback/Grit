@@ -73,4 +73,23 @@ export class UsersService {
       },
     });
   }
+
+  /**
+   * Permanently deletes the account: every row the user owns (the foreign
+   * keys cascade) and their Supabase sign-in, in one transaction so neither
+   * is left behind if the other fails.
+   */
+  async deleteAccount(supabaseId: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.deleteMany({ where: { supabaseId } });
+
+      // Supabase keeps sign-ins in auth.users, which the API's database role
+      // can write to. A local database without Supabase has no auth schema.
+      const [{ hasAuth }] = await tx.$queryRaw<{ hasAuth: boolean }[]>`
+        SELECT to_regclass('auth.users') IS NOT NULL AS "hasAuth"`;
+      if (hasAuth) {
+        await tx.$executeRaw`DELETE FROM auth.users WHERE id = ${supabaseId}::uuid`;
+      }
+    });
+  }
 }

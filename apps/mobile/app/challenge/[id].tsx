@@ -10,6 +10,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useChallenge } from '@/hooks/useChallenges';
 import { useMe } from '@/hooks/useMe';
+import { ErrorNotice } from '@/components/ui/QueryStatus';
+import { ScreenHeader } from '@/components/settings/SettingsUI';
 import { Colors } from '@/constants/colors';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -23,7 +25,7 @@ function formatDaysLeft(endDate: string) {
 
 export default function ChallengeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: challenge, isLoading } = useChallenge(id);
+  const { data: challenge, isLoading, isError, refetch } = useChallenge(id);
   const { data: me } = useMe();
 
   const wasComplete = useRef(false);
@@ -47,6 +49,18 @@ export default function ChallengeDetailScreen() {
       message: `Join my GRIT challenge "${challenge.title}"! Use invite code: ${challenge.inviteCode}`,
       url: `grit://challenges/join/${challenge.inviteCode}`,
     });
+  }
+
+  // Without this the spinner below would spin forever on a failed request
+  if (isError && !challenge) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark }}>
+        <ScreenHeader title="" />
+        <View style={{ padding: 20 }}>
+          <ErrorNotice what="this challenge" onRetry={() => refetch()} />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (isLoading || !challenge) {

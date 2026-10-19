@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useAIMessages, useStreamMessage } from '@/hooks/useAICoach';
+import { ErrorNotice } from '@/components/ui/QueryStatus';
 import { ChatBubble } from '@/components/coach/ChatBubble';
 import { Colors } from '@/constants/colors';
 
@@ -17,7 +18,7 @@ interface LocalMessage {
 }
 
 export default function CoachScreen() {
-  const { data: history, isLoading: historyLoading } = useAIMessages();
+  const { data: history, isLoading: historyLoading, isError: historyError, refetch: refetchHistory } = useAIMessages();
   const { sendMessage, isStreaming } = useStreamMessage();
 
   const [input, setInput] = useState('');
@@ -127,6 +128,11 @@ export default function CoachScreen() {
         >
           {historyLoading && displayMessages.length === 0 ? (
             <ActivityIndicator color={Colors.orange} style={{ marginTop: 40 }} />
+          ) : historyError && displayMessages.length === 0 ? (
+            // Don't greet as if the chat were new when the history just failed to load
+            <View style={{ marginTop: 24 }}>
+              <ErrorNotice what="your chat" onRetry={() => refetchHistory()} />
+            </View>
           ) : displayMessages.length === 0 && !historyLoading ? (
             <View style={{ alignItems: 'center', marginTop: 60, gap: 12 }}>
               <Text style={{ fontSize: 40 }}>🤖</Text>
