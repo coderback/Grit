@@ -97,9 +97,7 @@ export class FoodService {
 
     return data.hits.map((hit) => ({
       ...hit,
-      brands: (Array.isArray(hit.brands) ? hit.brands[0] : hit.brands)
-        // Taxonomy tags can carry a language prefix, e.g. "xx:ferrero"
-        ?.replace(/^[a-z]{2}:/, ''),
+      brands: Array.isArray(hit.brands) ? hit.brands[0] : hit.brands,
     }));
   }
 
@@ -139,8 +137,15 @@ export class FoodService {
       }
     }
 
+    // Products with no calorie data would show as 0 kcal, so leave them out;
+    // the user can still add the food manually
     const results = products
-      .filter((p) => p.product_name)
+      .filter(
+        (p) =>
+          p.product_name &&
+          (toNumber(p.nutriments?.['energy-kcal_100g']) ??
+            toNumber(p.nutriments?.['energy-kcal'])) !== undefined,
+      )
       .map((p) => this.normalize(p));
 
     // Map keeps insertion order, so the first key is the oldest entry

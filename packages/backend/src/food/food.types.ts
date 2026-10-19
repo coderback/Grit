@@ -33,8 +33,8 @@ export interface OFFProduct {
   image_small_url?: string;
 }
 
-// A hit from search-a-licious (search.openfoodfacts.org). Brands come from the
-// brands taxonomy, so they arrive as a list of tags rather than a display string.
+// A hit from search-a-licious (search.openfoodfacts.org), where brands are a
+// list of names rather than one comma-separated string.
 export interface SearchHit extends Omit<OFFProduct, 'brands'> {
   brands?: string | string[];
 }

@@ -101,12 +101,12 @@ describe('FoodService', () => {
       ]);
     });
 
-    it('accepts brands as a string and strips taxonomy language prefixes', async () => {
+    it('accepts brands as a list or a string', async () => {
       mockSearchGet.mockResolvedValue({
         data: {
           hits: [
             { ...nutella, brands: 'Ferrero' },
-            { ...nutella, code: '2', brands: ['xx:ben-jerry-s'] },
+            { ...nutella, code: '2', brands: ["Ben & Jerry's", 'Unilever'] },
             { ...nutella, code: '3', brands: [] },
           ],
         },
@@ -116,9 +116,27 @@ describe('FoodService', () => {
 
       expect(results.map((r) => r.brand)).toEqual([
         'Ferrero',
-        'ben-jerry-s',
+        "Ben & Jerry's",
         null,
       ]);
+    });
+
+    it('leaves out products with no calorie data', async () => {
+      mockSearchGet.mockResolvedValue({
+        data: {
+          hits: [
+            { ...nutella, code: '1', nutriments: undefined },
+            { ...nutella, code: '2', nutriments: { proteins_100g: 3 } },
+            { ...nutella, code: '3', nutriments: { 'energy-kcal_100g': 0 } },
+            nutella,
+          ],
+        },
+      });
+
+      const results = await service.searchFoods('nutella');
+
+      // A genuine 0 kcal (e.g. water) is kept
+      expect(results.map((r) => r.barcode)).toEqual(['3', '3017620422003']);
     });
 
     it('reduces Lucene syntax in the query to plain words', async () => {
