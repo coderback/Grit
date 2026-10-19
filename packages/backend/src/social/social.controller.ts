@@ -8,15 +8,16 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
-import { IsISO8601, IsOptional } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { CurrentUser } from '../common/current-user.decorator';
 import { UtcOffset } from '../common/utc-offset.decorator';
 import { SocialService } from './social.service';
 
 class FeedQueryDto {
-  // loggedAt of the last item already shown; returns older items
+  // `cursor` of the last item already shown; returns the items after it
   @IsOptional()
-  @IsISO8601({ strict: true })
+  @IsString()
+  @MaxLength(100)
   cursor?: string;
 }
 

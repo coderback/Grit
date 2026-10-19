@@ -125,13 +125,17 @@ model HabitLog {
   habitId   String
   userId    String
   completed Boolean  @default(true)
+  // The local day checked off, stored as midnight UTC of that date
   loggedAt  DateTime @default(now())
+  // When the check-in actually happened; the social feed orders by this
+  createdAt DateTime @default(now())
 
   habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([habitId, userId, loggedAt])
   @@index([userId, loggedAt])
+  @@index([userId, createdAt])
   @@map("habit_logs")
 }
 
