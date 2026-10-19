@@ -109,6 +109,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings/notifications" />
           <Stack.Screen name="settings/account" />
           <Stack.Screen name="reset-password" />
+          <Stack.Screen name="plan" />
         </Stack>
       </GestureHandlerRootView>
     </QueryClientProvider>

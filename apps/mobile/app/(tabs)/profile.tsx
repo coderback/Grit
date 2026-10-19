@@ -119,6 +119,7 @@ function EditSheet({ user, onClose }: { user: BackendUser; onClose: () => void }
 
 const SETTINGS_ROWS = [
   { icon: '🎯', color: Colors.orange, label: 'Goals & Targets', sub: 'Calories, macros and weight goal', href: '/settings/goals' as const },
+  { icon: '🏋️', color: Colors.teal, label: 'Workout Plan', sub: 'Your weekly plan from the coach', href: '/plan' as const },
   { icon: '🔔', color: Colors.blue, label: 'Notifications', sub: 'Reminders and alerts', href: '/settings/notifications' as const },
   { icon: '👤', color: Colors.muted, label: 'Account', sub: 'Units, password, delete account', href: '/settings/account' as const },
   { icon: '📊', color: Colors.teal, label: 'My Progress', sub: 'Weekly stats', href: '/(tabs)/activity' as const },

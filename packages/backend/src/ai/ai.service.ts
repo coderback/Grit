@@ -1,10 +1,10 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   addDays,
@@ -14,60 +14,26 @@ import {
   localToday,
 } from '../common/day';
 import OpenAI from 'openai';
+import { AI_MODEL } from './azure-openai';
+import {
+  AIM_LABELS,
+  DIET_LABELS,
+  FOCUS_LABELS,
+  FRICTION_LABELS,
+} from './profile-labels';
 import { macroTargets } from '../common/nutrition';
 
 const DAILY_LIMIT = 10;
 
-const AIM_LABELS: Record<string, string> = {
-  fat_loss: 'fat loss',
-  muscle_gain: 'muscle gain',
-  energy: 'more energy',
-  discipline: 'discipline',
-};
-const FOCUS_LABELS: Record<string, string> = {
-  high_protein: 'high protein',
-  balanced: 'balanced',
-  low_carb: 'low carb',
-};
-const DIET_LABELS: Record<string, string> = {
-  vegetarian: 'vegetarian',
-  vegan: 'vegan',
-  halal_kosher: 'halal / kosher',
-};
-const FRICTION_LABELS: Record<string, string> = {
-  consistency: 'staying consistent',
-  time: 'not enough time',
-  diet: 'finding a diet hard to stick to',
-  motivation: 'low motivation',
-  plan: 'not having a clear plan',
-};
-const DEFAULT_DEPLOYMENT = 'gpt-6-luna';
-
-// Accepts the resource endpoint as shown in the Foundry portal and points it at
-// Azure's OpenAI-compatible v1 API, which the standard OpenAI client can call directly.
-function toV1BaseUrl(endpoint: string): string {
-  const base = endpoint.replace(/\/+$/, '');
-  return base.endsWith('/openai/v1') ? `${base}/` : `${base}/openai/v1/`;
-}
-
 @Injectable()
 export class AIService {
-  private openai: OpenAI;
-  private model: string;
   private nudgesInFlight = new Map<string, Promise<string>>();
 
   constructor(
     private prisma: PrismaService,
-    private config: ConfigService,
-  ) {
-    this.openai = new OpenAI({
-      apiKey: config.getOrThrow<string>('AZURE_OPENAI_API_KEY'),
-      baseURL: toV1BaseUrl(config.getOrThrow<string>('AZURE_OPENAI_ENDPOINT')),
-    });
-    // On Azure the model field is the deployment name, not the catalog model ID
-    this.model =
-      config.get<string>('AZURE_OPENAI_DEPLOYMENT') ?? DEFAULT_DEPLOYMENT;
-  }
+    private openai: OpenAI,
+    @Inject(AI_MODEL) private model: string,
+  ) {}
 
   private async resolveUser(supabaseId: string) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });

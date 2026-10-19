@@ -15,6 +15,7 @@ import { Colors } from '@/constants/colors';
 import { localDateStr } from '@/lib/date';
 import { useMe } from '@/hooks/useMe';
 import { calcMacros } from '@/lib/tdee';
+import { todayWeekday, useWorkoutPlan } from '@/hooks/useWorkoutPlan';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 
@@ -127,6 +128,48 @@ function MacroBar({ value, goal, color }: { value: number; goal: number; color: 
   );
 }
 
+/** Today's day of the coach's plan, or an invitation to get one. */
+function TodayWorkoutCard() {
+  const { data: plan, isLoading } = useWorkoutPlan();
+  if (isLoading) return null;
+  const today = plan?.days.find((d) => d.day === todayWeekday());
+
+  return (
+    <Pressable
+      onPress={() => router.push('/plan')}
+      accessibilityRole="button"
+      accessibilityLabel={plan ? "Today's workout" : 'Get a workout plan'}
+      style={({ pressed }) => ({
+        backgroundColor: Colors.surface,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        padding: 18,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <Text style={{ fontSize: 28 }}>{!plan ? '🗓️' : today?.rest ? '😌' : '🏋️'}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 11, color: Colors.muted, letterSpacing: 0.7, textTransform: 'uppercase', fontFamily: 'DMSans-Medium' }}>
+          {plan ? "Today's workout" : 'Workout plan'}
+        </Text>
+        <Text style={{ fontSize: 16, color: Colors.text, fontFamily: 'DMSans-Bold', marginTop: 2 }}>
+          {!plan ? 'Get a weekly plan from your coach' : today?.rest ? 'Rest day — recover well' : today?.title}
+        </Text>
+        {!!plan && today && !today.rest && (
+          <Text style={{ fontSize: 12, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 2 }}>
+            {today.durationMin} min · {today.exercises.length} exercises
+          </Text>
+        )}
+      </View>
+      <Text style={{ color: Colors.orange, fontSize: 18 }}>›</Text>
+    </Pressable>
+  );
+}
+
 export default function HomeScreen() {
   const today = todayStr();
 
@@ -198,6 +241,7 @@ export default function HomeScreen() {
     ['habits'],
     ['habit-streaks'],
     ['ai-nudge'],
+    ['workout-plan'],
   ]);
 
   return (
@@ -351,6 +395,9 @@ export default function HomeScreen() {
             </Text>
           </Pressable>
         </View>
+
+        {/* Today's session from the workout plan */}
+        <TodayWorkoutCard />
 
         {/* Meals preview */}
         <View>
