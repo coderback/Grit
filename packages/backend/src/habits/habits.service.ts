@@ -4,8 +4,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { dateMarker, localToday } from '../common/day';
-import { PRESET_HABITS, MAX_ACTIVE_HABITS } from './habits.constants';
+import { addDays, dateMarker, localToday } from '../common/day';
+import {
+  BACKFILL_DAYS,
+  MAX_ACTIVE_HABITS,
+  PRESET_HABITS,
+} from './habits.constants';
 import type { CreateHabitDto, UpdateHabitDto } from './habits.dto';
 import { build30DayGrid, calculateStreak } from './habits.streak';
 
@@ -93,25 +97,61 @@ export class HabitsService {
 
   // ── Daily check-in ────────────────────────────────────────────────────────
 
-  async logHabit(supabaseId: string, habitId: string, offset: number) {
-    const { id: userId } = await this.resolveUser(supabaseId);
-    const habit = await this.prisma.habit.findUnique({
-      where: { id: habitId },
-    });
-    if (!habit || habit.userId !== userId) {
-      throw new NotFoundException('Habit not found');
+  /** Check-ins can be back-filled within the 30 days the streak grid shows. */
+  private checkInDay(offset: number, date?: string): Date {
+    const today = localToday(offset);
+    const day = date ?? today;
+    if (day > today) {
+      throw new BadRequestException("You can't check in for a future day");
     }
+    if (day < addDays(today, -(BACKFILL_DAYS - 1))) {
+      throw new BadRequestException(
+        `Check-ins can be added up to ${BACKFILL_DAYS} days back`,
+      );
+    }
+    return dateMarker(day);
+  }
+
+  private async ownHabit(userId: string, habitId: string) {
+    const habit = await this.prisma.habit.findFirst({
+      where: { id: habitId, userId },
+    });
+    if (!habit) throw new NotFoundException('Habit not found');
+    return habit;
+  }
+
+  async logHabit(
+    supabaseId: string,
+    habitId: string,
+    offset: number,
+    date?: string,
+  ) {
+    const { id: userId } = await this.resolveUser(supabaseId);
+    await this.ownHabit(userId, habitId);
 
     // One row per local calendar day, so the @@unique constraint dedupes check-ins
-    const today = dateMarker(localToday(offset));
+    const loggedAt = this.checkInDay(offset, date);
 
     return this.prisma.habitLog.upsert({
-      where: {
-        habitId_userId_loggedAt: { habitId, userId, loggedAt: today },
-      },
+      where: { habitId_userId_loggedAt: { habitId, userId, loggedAt } },
       update: { completed: true },
-      create: { habitId, userId, completed: true, loggedAt: today },
+      create: { habitId, userId, completed: true, loggedAt },
     });
+  }
+
+  /** Removes a day's check-in (undo, or correcting the past). */
+  async unlogHabit(
+    supabaseId: string,
+    habitId: string,
+    offset: number,
+    date?: string,
+  ) {
+    const { id: userId } = await this.resolveUser(supabaseId);
+    await this.ownHabit(userId, habitId);
+    await this.prisma.habitLog.deleteMany({
+      where: { habitId, userId, loggedAt: this.checkInDay(offset, date) },
+    });
+    return { ok: true };
   }
 
   // ── Streak + 30-day grid ──────────────────────────────────────────────────
@@ -146,6 +186,53 @@ export class HabitsService {
     const grid = build30DayGrid(completedDates, today);
 
     return { habit, streakCount, grid };
+  }
+
+  /**
+   * Streak, 30-day grid and today's state for every active habit, in two
+   * queries. Replaces one /streak request per habit.
+   */
+  async getAllStreaks(supabaseId: string, offset: number) {
+    const { id: userId } = await this.resolveUser(supabaseId);
+    const today = localToday(offset);
+
+    const habits = await this.prisma.habit.findMany({
+      where: { userId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    const logs = await this.prisma.habitLog.findMany({
+      where: {
+        userId,
+        completed: true,
+        habitId: { in: habits.map((h) => h.id) },
+        loggedAt: { lte: dateMarker(today) },
+      },
+      select: { habitId: true, loggedAt: true },
+    });
+
+    const datesByHabit = new Map<string, Set<string>>();
+    for (const log of logs) {
+      const dates = datesByHabit.get(log.habitId) ?? new Set<string>();
+      dates.add(log.loggedAt.toISOString().slice(0, 10));
+      datesByHabit.set(log.habitId, dates);
+    }
+
+    const streaks = habits.map(({ id }) => {
+      const dates = datesByHabit.get(id) ?? new Set<string>();
+      return {
+        habitId: id,
+        streakCount: calculateStreak(dates, today),
+        completedToday: dates.has(today),
+        grid: build30DayGrid(dates, today),
+      };
+    });
+
+    return {
+      streaks,
+      todayDone: streaks.filter((s) => s.completedToday).length,
+      maxStreak: Math.max(0, ...streaks.map((s) => s.streakCount)),
+    };
   }
 
   getPresets() {

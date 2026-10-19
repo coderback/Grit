@@ -69,7 +69,7 @@ export function ChipGroup<T extends string>({
           <Pressable
             key={o.value}
             accessibilityRole="radio"
-            accessibilityState={{ selected }}
+            aria-selected={selected}
             onPress={() => {
               Haptics.selectionAsync();
               onChange(o.value);
@@ -193,7 +193,7 @@ export function PrimaryButton({ label, onPress, disabled, loading }: { label: st
       onPress={onPress}
       disabled={disabled || loading}
       accessibilityRole="button"
-      accessibilityState={{ disabled: disabled || loading }}
+      aria-disabled={disabled || loading}
       style={({ pressed }) => ({
         backgroundColor: Colors.orange,
         borderRadius: 999,

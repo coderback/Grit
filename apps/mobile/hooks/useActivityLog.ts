@@ -24,6 +24,8 @@ export interface WeeklySummary {
   weekEnd: string;
   days: WeekDay[];
   totals: { activeMinutes: number; caloriesBurned: number; steps: number };
+  /** Every workout in the week, oldest first */
+  logs: ActivityLog[];
 }
 
 export function useActivityLogsForDate(date: string) {
@@ -34,10 +36,41 @@ export function useActivityLogsForDate(date: string) {
   });
 }
 
-export function useWeeklySummary() {
+/** Activity per day for the week containing `date` (default: this week). */
+export function useWeeklySummary(date?: string) {
   return useQuery<WeeklySummary>({
-    queryKey: ['activity-week'],
-    queryFn: () => api.get('/activity-logs/week').then((r) => r.data),
+    queryKey: ['activity-week', date ?? 'current'],
+    queryFn: () => api.get('/activity-logs/week', { params: { date } }).then((r) => r.data),
+  });
+}
+
+/** Everything that changes when a workout is added, edited or removed. */
+function invalidateActivity(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['activity-logs'] });
+  qc.invalidateQueries({ queryKey: ['activity-week'] });
+  qc.invalidateQueries({ queryKey: ['leaderboard-weekly'] });
+  // Burned calories feed the day's budget when earnback is on
+  qc.invalidateQueries({ queryKey: ['food-logs'] });
+}
+
+export type ActivityUpdate = Partial<Pick<ActivityLog, 'activityType' | 'durationMin' | 'steps'>> & {
+  caloriesBurned?: number;
+};
+
+export function useUpdateActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: ActivityUpdate & { id: string }) =>
+      api.patch<ActivityLog>(`/activity-logs/${id}`, data).then((r) => r.data),
+    onSuccess: () => invalidateActivity(qc),
+  });
+}
+
+export function useDeleteActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/activity-logs/${id}`).then((r) => r.data),
+    onSuccess: () => invalidateActivity(qc),
   });
 }
 
@@ -50,12 +83,10 @@ export function useLogActivity() {
       caloriesBurned?: number;
       steps?: number;
       source?: string;
+      /** For back-filling an earlier day; omitted for now */
+      loggedAt?: string;
     }) => api.post('/activity-logs', data).then((r) => r.data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['activity-logs'] });
-      qc.invalidateQueries({ queryKey: ['activity-week'] });
-      qc.invalidateQueries({ queryKey: ['leaderboard-weekly'] });
-    },
+    onSuccess: () => invalidateActivity(qc),
   });
 }
 

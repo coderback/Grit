@@ -1,4 +1,5 @@
 import { IsOptional, IsString, Length } from 'class-validator';
+export { DateQueryDto as HabitDayDto } from '../common/dto';
 
 export class CreateHabitDto {
   @IsOptional()

@@ -134,7 +134,7 @@ export default function HomeScreen() {
   const { data: foodLogs } = useFoodLogsForDate(today);
   const { data: weeklySummary } = useWeeklySummary();
   const { data: habits } = useHabits();
-  const { data: habitSummary } = useHabitSummary(habits ?? []);
+  const { data: habitSummary } = useHabitSummary();
   const todayDone = habitSummary?.todayDone;
   const maxStreak = habitSummary?.maxStreak ?? 0;
 
@@ -196,7 +196,7 @@ export default function HomeScreen() {
     ['food-logs', today],
     ['activity-week'],
     ['habits'],
-    ['habit-summary'],
+    ['habit-streaks'],
     ['ai-nudge'],
   ]);
 

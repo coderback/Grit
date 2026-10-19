@@ -13,7 +13,10 @@ import {
   weekStart,
 } from '../common/day';
 import { ACTIVITY_TYPES, MET } from './activity.constants';
-import type { CreateActivityLogDto } from './activity.dto';
+import type {
+  CreateActivityLogDto,
+  UpdateActivityLogDto,
+} from './activity.dto';
 
 @Injectable()
 export class ActivityService {
@@ -28,14 +31,23 @@ export class ActivityService {
     return user;
   }
 
+  /** MET × body weight × hours, using 70 kg when the weight isn't set. */
+  private estimateCalories(
+    activityType: string,
+    durationMin: number,
+    weightKg: number | null,
+  ) {
+    const met = MET[activityType] ?? 5.0;
+    return Math.round(met * (weightKg ?? 70) * (durationMin / 60));
+  }
+
   async logActivity(supabaseId: string, dto: CreateActivityLogDto) {
     const user = await this.resolveUser(supabaseId);
 
     // Auto-estimate calories if not provided
-    const weightKg = user.weightKg ?? 70;
-    const met = MET[dto.activityType] ?? 5.0;
     const estimatedCalories =
-      dto.caloriesBurned ?? Math.round(met * weightKg * (dto.durationMin / 60));
+      dto.caloriesBurned ??
+      this.estimateCalories(dto.activityType, dto.durationMin, user.weightKg);
 
     return this.prisma.activityLog.create({
       data: {
@@ -48,6 +60,46 @@ export class ActivityService {
         loggedAt: dto.loggedAt ? new Date(dto.loggedAt) : new Date(),
       },
     });
+  }
+
+  async updateActivityLog(
+    supabaseId: string,
+    id: string,
+    dto: UpdateActivityLogDto,
+  ) {
+    const user = await this.resolveUser(supabaseId);
+    const log = await this.prisma.activityLog.findFirst({
+      where: { id, userId: user.id },
+    });
+    if (!log) throw new NotFoundException('Activity log not found');
+
+    const activityType = dto.activityType ?? log.activityType;
+    const durationMin = dto.durationMin ?? log.durationMin;
+    const reestimate =
+      dto.caloriesBurned === undefined &&
+      (activityType !== log.activityType || durationMin !== log.durationMin);
+
+    return this.prisma.activityLog.update({
+      where: { id },
+      data: {
+        activityType,
+        durationMin,
+        steps: dto.steps,
+        loggedAt: dto.loggedAt ? new Date(dto.loggedAt) : undefined,
+        caloriesBurned: reestimate
+          ? this.estimateCalories(activityType, durationMin, user.weightKg)
+          : dto.caloriesBurned,
+      },
+    });
+  }
+
+  async deleteActivityLog(supabaseId: string, id: string) {
+    const user = await this.resolveUser(supabaseId);
+    const { count } = await this.prisma.activityLog.deleteMany({
+      where: { id, userId: user.id },
+    });
+    if (!count) throw new NotFoundException('Activity log not found');
+    return { ok: true };
   }
 
   async getActivityLogsForDate(
@@ -64,11 +116,11 @@ export class ActivityService {
     });
   }
 
-  async getWeeklySummary(supabaseId: string, offset: number) {
+  /** The Mon–Sun week containing `date` (default: this week), with its workouts. */
+  async getWeeklySummary(supabaseId: string, offset: number, date?: string) {
     const { id: userId } = await this.resolveUser(supabaseId);
 
-    // Mon–Sun of the user's current local week
-    const monday = weekStart(localToday(offset));
+    const monday = weekStart(date ?? localToday(offset));
     const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
     const logs = await this.prisma.activityLog.findMany({
@@ -101,6 +153,7 @@ export class ActivityService {
       weekStart: monday,
       weekEnd: days[6],
       days: byDay,
+      logs,
       totals: {
         activeMinutes: byDay.reduce((s, d) => s + d.activeMinutes, 0),
         caloriesBurned: byDay.reduce((s, d) => s + d.caloriesBurned, 0),

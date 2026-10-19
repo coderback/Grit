@@ -12,6 +12,7 @@ import { useLogFood, type NormalizedFood } from '@/hooks/useFoodLog';
 import { Button } from '@/components/ui/Button';
 import { useHideTabBar } from '@/stores/uiStore';
 import { Colors } from '@/constants/colors';
+import { loggedAtFor } from '@/lib/date';
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 
@@ -30,10 +31,12 @@ type MealType = typeof MEAL_TYPES[number];
 interface LogFoodSheetProps {
   food: NormalizedFood | null;
   initialMeal?: MealType;
+  /** Day to log against (YYYY-MM-DD); defaults to today */
+  date?: string;
   onClose: () => void;
 }
 
-export function LogFoodSheet({ food, initialMeal, onClose }: LogFoodSheetProps) {
+export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetProps) {
   const sheetRef = useRef<BottomSheet>(null);
   useHideTabBar();
   const { mutateAsync: logFood, isPending } = useLogFood();
@@ -75,13 +78,14 @@ export function LogFoodSheet({ food, initialMeal, onClose }: LogFoodSheetProps) 
         fatG: adjustedFat,
         servingQty: isManual ? servings : amount,
         servingUnit: isManual ? 'serving' : food.servingUnit,
+        loggedAt: date ? loggedAtFor(date) : undefined,
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
     } catch {
       Alert.alert('Error', 'Could not log food. Please try again.');
     }
-  }, [food, isManual, name, manual.calories, mealType, servings, amount, adjustedCalories, adjustedProtein, adjustedCarbs, adjustedFat, logFood, onClose]);
+  }, [food, isManual, name, manual.calories, mealType, servings, amount, adjustedCalories, adjustedProtein, adjustedCarbs, adjustedFat, logFood, onClose, date]);
 
   if (!food) return null;
 

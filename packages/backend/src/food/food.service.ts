@@ -13,7 +13,7 @@ import {
   weekStart,
 } from '../common/day';
 import { calorieBudget, macroTargets } from '../common/nutrition';
-import type { CreateFoodLogDto } from './food.dto';
+import type { CreateFoodLogDto, UpdateFoodLogDto } from './food.dto';
 import type { NormalizedFood, OFFProduct, SearchHit } from './food.types';
 
 // Open Food Facts asks every client to identify itself and can be slow, so
@@ -283,10 +283,10 @@ export class FoodService {
     };
   }
 
-  /** Calories and macros per day for the user's current local week (Mon–Sun). */
-  async getWeeklySummary(supabaseId: string, offset: number) {
+  /** Calories and macros per day for the Mon–Sun week containing `date` (default: this week). */
+  async getWeeklySummary(supabaseId: string, offset: number, date?: string) {
     const userId = await this.resolveUserId(supabaseId);
-    const monday = weekStart(localToday(offset));
+    const monday = weekStart(date ?? localToday(offset));
     const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
     const logs = await this.prisma.foodLog.findMany({
@@ -323,6 +323,19 @@ export class FoodService {
         };
       }),
     };
+  }
+
+  async updateFoodLog(supabaseId: string, id: string, dto: UpdateFoodLogDto) {
+    const userId = await this.resolveUserId(supabaseId);
+    const { count } = await this.prisma.foodLog.updateMany({
+      where: { id, userId },
+      data: {
+        ...dto,
+        loggedAt: dto.loggedAt ? new Date(dto.loggedAt) : undefined,
+      },
+    });
+    if (!count) throw new NotFoundException('Food log not found');
+    return this.prisma.foodLog.findUniqueOrThrow({ where: { id } });
   }
 
   async deleteFoodLog(supabaseId: string, id: string) {

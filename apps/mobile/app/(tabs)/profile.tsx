@@ -166,8 +166,8 @@ export default function ProfileScreen() {
   ];
 
   const { data: habits } = useHabits();
-  const { data: habitSummary } = useHabitSummary(habits ?? []);
-  const { refreshing, onRefresh } = usePullToRefresh([['me'], ['habits'], ['habit-summary'], ['activity-week']]);
+  const { data: habitSummary } = useHabitSummary();
+  const { refreshing, onRefresh } = usePullToRefresh([['me'], ['habits'], ['habit-streaks'], ['activity-week']]);
   const streak = habitSummary?.maxStreak ?? 0;
   const { data: week } = useWeeklySummary();
   // A day counts as active if any activity was logged

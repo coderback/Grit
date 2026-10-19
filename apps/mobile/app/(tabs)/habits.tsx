@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable, Alert, Animated, RefreshControl,
+  View, Text, ScrollView, Pressable, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -11,103 +11,137 @@ import {
   useHabitStreak,
   useHabitSummary,
   useDeleteHabit,
+  useLogHabit,
+  useUnlogHabit,
   type Habit,
 } from '@/hooks/useHabits';
+import { confirmAction } from '@/lib/confirm';
+import { dayLabel } from '@/lib/date';
 import { HabitCheckIn } from '@/components/habits/HabitCheckIn';
 import { CreateHabitSheet } from '@/components/habits/CreateHabitSheet';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Colors } from '@/constants/colors';
 
-function HabitCard({ habit, totalHabits, completedCount }: { habit: Habit; totalHabits: number; completedCount: number }) {
+function HabitCard({ habit, onEdit }: { habit: Habit; onEdit: (habit: Habit) => void }) {
   const { data: streakData } = useHabitStreak(habit.id);
   const { mutate: deleteHabit } = useDeleteHabit();
+  const { mutate: logHabit } = useLogHabit();
+  const { mutate: unlogHabit } = useUnlogHabit();
   const [expanded, setExpanded] = useState(false);
-  const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
-  const completedToday = streakData?.grid.at(-1)?.completed ?? false;
+  const completedToday = streakData?.completedToday ?? false;
   const streakCount = streakData?.streakCount ?? 0;
+  const grid = streakData?.grid ?? [];
 
-  function handlePress() {
-    Animated.sequence([
-      Animated.timing(scaleAnim, { toValue: 0.97, duration: 80, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
-    ]).start();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  // Tap a day in the history to add or clear a check-in (up to 30 days back)
+  function toggleDay(date: string, completed: boolean) {
+    Haptics.selectionAsync();
+    if (completed) unlogHabit({ habitId: habit.id, date });
+    else logHabit({ habitId: habit.id, date });
+  }
+
+  async function handleRemove() {
+    const ok = await confirmAction({
+      title: 'Remove habit',
+      message: `Remove "${habit.name}"? Your history will be kept.`,
+      confirmLabel: 'Remove',
+      destructive: true,
+    });
+    if (ok) deleteHabit(habit.id);
   }
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <View style={{
-        backgroundColor: completedToday ? 'rgba(0,200,160,0.06)' : Colors.surface,
-        borderRadius: 20,
-        borderWidth: 1.5,
-        borderColor: completedToday ? Colors.teal : Colors.border,
-        overflow: 'hidden',
-      }}>
-        <HabitCheckIn
-          habit={habit}
-          completedToday={completedToday}
-          streakCount={streakCount}
-        />
+    <View style={{
+      backgroundColor: completedToday ? 'rgba(0,200,160,0.06)' : Colors.surface,
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: completedToday ? Colors.teal : Colors.border,
+      overflow: 'hidden',
+    }}>
+      <HabitCheckIn
+        habit={habit}
+        completedToday={completedToday}
+        streakCount={streakCount}
+      />
 
-        {completedToday && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 18, paddingBottom: 14 }}>
-            {/* Last 7 days, oldest first */}
-            {(streakData?.grid.slice(-7) ?? []).map((day) => (
-              <View
-                key={day.date}
-                style={{
-                  width: 8, height: 8, borderRadius: 4,
-                  backgroundColor: day.completed ? Colors.teal : `${Colors.teal}28`,
-                }}
-              />
-            ))}
-            <Text style={{ fontSize: 10, color: Colors.teal, fontFamily: 'DMSans-Regular', marginLeft: 4 }}>
-              {streakCount}d
-            </Text>
-          </View>
-        )}
-
-        <Pressable
-          onPress={() => setExpanded(v => !v)}
-          style={{ paddingHorizontal: 16, paddingBottom: expanded ? 0 : 12, paddingTop: completedToday ? 0 : 4 }}
-        >
-          <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12 }}>
-            {expanded ? 'Hide history ▲' : 'View history ▼'}
-          </Text>
-        </Pressable>
-
-        {expanded && (
-          <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8 }}>
-            <Pressable
-              onPress={() => {
-                Alert.alert(
-                  'Remove habit',
-                  `Remove "${habit.name}"? Your history will be kept.`,
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Remove', style: 'destructive', onPress: () => deleteHabit(habit.id) },
-                  ],
-                );
+      {!expanded && grid.length > 0 && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 18, paddingBottom: 6 }}>
+          {/* Last 7 days, oldest first */}
+          {grid.slice(-7).map((day) => (
+            <View
+              key={day.date}
+              style={{
+                width: 8, height: 8, borderRadius: 4,
+                backgroundColor: day.completed ? Colors.teal : `${Colors.teal}28`,
               }}
-            >
+            />
+          ))}
+        </View>
+      )}
+
+      <Pressable
+        onPress={() => setExpanded(v => !v)}
+        accessibilityRole="button"
+        style={{ paddingHorizontal: 16, paddingBottom: expanded ? 0 : 12, paddingTop: 6 }}
+      >
+        <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12 }}>
+          {expanded ? 'Hide history ▲' : 'History & edit ▼'}
+        </Text>
+      </Pressable>
+
+      {expanded && (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 10, gap: 14 }}>
+          <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12 }}>
+            Last 30 days. Tap a day to add or clear a check-in.
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {grid.map((day) => (
+              <Pressable
+                key={day.date}
+                onPress={() => toggleDay(day.date, day.completed)}
+                accessibilityRole="checkbox"
+                aria-checked={day.completed}
+                accessibilityLabel={`${habit.name}, ${dayLabel(day.date)}`}
+                style={{
+                  width: 30, height: 30, borderRadius: 8,
+                  alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: day.completed ? Colors.teal : Colors.surface2,
+                  borderWidth: 1,
+                  borderColor: day.completed ? Colors.teal : Colors.border,
+                }}
+              >
+                <Text style={{ fontSize: 11, fontFamily: 'JetBrainsMono-Regular', color: day.completed ? '#0F0F0F' : Colors.muted }}>
+                  {Number(day.date.slice(8))}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 20 }}>
+            <Pressable onPress={() => onEdit(habit)} accessibilityRole="button" hitSlop={8}>
+              <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 13 }}>Edit habit</Text>
+            </Pressable>
+            <Pressable onPress={handleRemove} accessibilityRole="button" hitSlop={8}>
               <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13 }}>Remove habit</Text>
             </Pressable>
           </View>
-        )}
-      </View>
-    </Animated.View>
+        </View>
+      )}
+    </View>
   );
 }
 
 export default function HabitsScreen() {
   const { data: habits, isLoading } = useHabits();
   const [showCreate, setShowCreate] = useState(false);
-  const { refreshing, onRefresh } = usePullToRefresh([['habits'], ['habit-streak'], ['habit-summary']]);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  const { refreshing, onRefresh } = usePullToRefresh([['habits'], ['habit-streaks']]);
 
   useFocusEffect(
     React.useCallback(() => {
-      return () => setShowCreate(false);
+      return () => {
+        setShowCreate(false);
+        setEditingHabit(null);
+      };
     }, [])
   );
 
@@ -115,7 +149,7 @@ export default function HabitsScreen() {
   // Mirrors the backend's MAX_ACTIVE_HABITS
   const canAddMore = total < 20;
 
-  const { data: summary } = useHabitSummary(habits ?? []);
+  const { data: summary } = useHabitSummary();
   const completedCount = summary?.todayDone.size ?? 0;
   const ringR = 28, ringCIRC = 2 * Math.PI * ringR;
   const ringPct = total > 0 ? completedCount / total : 0;
@@ -167,7 +201,7 @@ export default function HabitsScreen() {
                 {completedCount} of {total} done today
               </Text>
               <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular', lineHeight: 18 }}>
-                Start tiny — one habit beats zero.
+                {completedCount === 0 ? 'Start tiny — one habit beats zero.' : completedCount >= total ? 'All done for today! 🎉' : 'Keep the momentum going.'}
               </Text>
             </View>
           </View>
@@ -177,7 +211,7 @@ export default function HabitsScreen() {
         {habits && habits.length > 0 ? (
           <View style={{ gap: 12 }}>
             {habits.map(habit => (
-              <HabitCard key={habit.id} habit={habit} totalHabits={total} completedCount={completedCount} />
+              <HabitCard key={habit.id} habit={habit} onEdit={setEditingHabit} />
             ))}
           </View>
         ) : !isLoading ? (
@@ -207,6 +241,7 @@ export default function HabitsScreen() {
       </ScrollView>
 
       {showCreate && <CreateHabitSheet onClose={() => setShowCreate(false)} />}
+      {editingHabit && <CreateHabitSheet key={editingHabit.id} editing={editingHabit} onClose={() => setEditingHabit(null)} />}
     </SafeAreaView>
   );
 }

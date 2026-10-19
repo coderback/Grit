@@ -63,10 +63,11 @@ export interface FoodWeekDay extends MacroTotals {
   entries: number;
 }
 
-export function useFoodWeek() {
+/** Calories and macros per day for the week containing `date` (default: this week). */
+export function useFoodWeek(date?: string) {
   return useQuery<{ weekStart: string; weekEnd: string; days: FoodWeekDay[] }>({
-    queryKey: ['food-week'],
-    queryFn: () => api.get('/food-logs/week').then((r) => r.data),
+    queryKey: ['food-week', date ?? 'current'],
+    queryFn: () => api.get('/food-logs/week', { params: { date } }).then((r) => r.data),
   });
 }
 
@@ -103,6 +104,8 @@ export function useLogFood() {
       fatG?: number;
       servingQty?: number;
       servingUnit?: string;
+      /** For back-filling an earlier day; omitted for now */
+      loggedAt?: string;
     }) => api.post('/food-logs', data).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['food-logs'] });
@@ -115,6 +118,20 @@ export function useDeleteFoodLog() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/food-logs/${id}`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['food-logs'] });
+      qc.invalidateQueries({ queryKey: ['food-week'] });
+    },
+  });
+}
+
+export type FoodLogUpdate = Partial<Pick<FoodLog, 'name' | 'mealType' | 'calories' | 'proteinG' | 'carbsG' | 'fatG' | 'servingQty' | 'servingUnit'>>;
+
+export function useUpdateFoodLog() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: FoodLogUpdate & { id: string }) =>
+      api.patch<FoodLog>(`/food-logs/${id}`, data).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['food-logs'] });
       qc.invalidateQueries({ queryKey: ['food-week'] });

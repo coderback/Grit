@@ -41,3 +41,33 @@ export class CreateActivityLogDto {
   @IsNotFuture()
   loggedAt?: string;
 }
+
+/** Edits to a logged workout. Calories are re-estimated if the type or duration changes without new calories. */
+export class UpdateActivityLogDto {
+  @IsOptional()
+  @IsIn(ACTIVITY_TYPES)
+  activityType?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1440)
+  durationMin?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(20000)
+  caloriesBurned?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(300000)
+  steps?: number;
+
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  @IsNotFuture()
+  loggedAt?: string;
+}

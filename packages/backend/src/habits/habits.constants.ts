@@ -13,3 +13,6 @@ export const PRESET_HABITS: Record<string, { name: string; emoji: string }> = {
 
 // A sanity limit to keep the habit list and streak queries bounded
 export const MAX_ACTIVE_HABITS = 20;
+
+// Check-ins can be added or removed this many days back (the streak grid's span)
+export const BACKFILL_DAYS = 30;
