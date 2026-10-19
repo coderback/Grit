@@ -23,6 +23,20 @@ export interface MacroTotals {
   fatG: number;
 }
 
+/** The day's calorie budget: the goal plus earnback and rollover, if enabled. */
+export interface CalorieBudget {
+  goal: number;
+  earnback: number;
+  rollover: number;
+  total: number;
+}
+
+export interface MacroTargets {
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+}
+
 export interface NormalizedFood {
   offId: string;
   name: string;
@@ -38,7 +52,7 @@ export interface NormalizedFood {
 }
 
 export function useFoodLogsForDate(date: string) {
-  return useQuery<{ logs: FoodLog[]; totals: MacroTotals }>({
+  return useQuery<{ logs: FoodLog[]; totals: MacroTotals; budget: CalorieBudget; targets: MacroTargets }>({
     queryKey: ['food-logs', date],
     queryFn: () => api.get(`/food-logs?date=${date}`).then((r) => r.data),
   });

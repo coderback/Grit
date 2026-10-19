@@ -11,4 +11,5 @@ export const PRESET_HABITS: Record<string, { name: string; emoji: string }> = {
   screen_free: { name: 'Screen-free morning', emoji: '🌅' },
 };
 
-export const FREE_TIER_HABIT_LIMIT = 5;
+// A sanity limit to keep the habit list and streak queries bounded
+export const MAX_ACTIVE_HABITS = 20;

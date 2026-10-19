@@ -12,6 +12,7 @@ import {
   localToday,
   weekStart,
 } from '../common/day';
+import { calorieBudget, macroTargets } from '../common/nutrition';
 import type { CreateFoodLogDto } from './food.dto';
 import type { NormalizedFood, OFFProduct, SearchHit } from './food.types';
 
@@ -215,13 +216,43 @@ export class FoodService {
   }
 
   async getFoodLogsForDate(supabaseId: string, date: string, offset: number) {
-    const userId = await this.resolveUserId(supabaseId);
-    const { start, end } = dayRange(date, offset);
-
-    const logs = await this.prisma.foodLog.findMany({
-      where: { userId, loggedAt: { gte: start, lt: end } },
-      orderBy: { loggedAt: 'asc' },
+    const user = await this.prisma.user.findUnique({
+      where: { supabaseId },
+      select: {
+        id: true,
+        calorieGoal: true,
+        goalFocus: true,
+        earnbackCalories: true,
+        rolloverCalories: true,
+      },
     });
+    if (!user) throw new NotFoundException('User not found');
+
+    const { start, end } = dayRange(date, offset);
+    const yesterday = dayRange(addDays(date, -1), offset);
+
+    const [logs, burned, eatenYesterday] = await Promise.all([
+      this.prisma.foodLog.findMany({
+        where: { userId: user.id, loggedAt: { gte: start, lt: end } },
+        orderBy: { loggedAt: 'asc' },
+      }),
+      user.earnbackCalories
+        ? this.prisma.activityLog.aggregate({
+            where: { userId: user.id, loggedAt: { gte: start, lt: end } },
+            _sum: { caloriesBurned: true },
+          })
+        : null,
+      user.rolloverCalories
+        ? this.prisma.foodLog.aggregate({
+            where: {
+              userId: user.id,
+              loggedAt: { gte: yesterday.start, lt: yesterday.end },
+            },
+            _sum: { calories: true },
+            _count: true,
+          })
+        : null,
+    ]);
 
     const totals = logs.reduce(
       (acc, log) => ({
@@ -233,7 +264,23 @@ export class FoodService {
       { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 },
     );
 
-    return { logs, totals };
+    const budget = calorieBudget({
+      calorieGoal: user.calorieGoal,
+      earnbackCalories: user.earnbackCalories,
+      rolloverCalories: user.rolloverCalories,
+      burnedToday: burned?._sum.caloriesBurned ?? 0,
+      eatenYesterday: eatenYesterday?._count
+        ? (eatenYesterday._sum.calories ?? 0)
+        : null,
+    });
+
+    return {
+      logs,
+      totals,
+      budget,
+      // Macro targets scale with the day's full budget
+      targets: macroTargets(budget.total, user.goalFocus),
+    };
   }
 
   /** Calories and macros per day for the user's current local week (Mon–Sun). */

@@ -17,15 +17,19 @@ async function registerForPushNotifications(): Promise<string | null> {
   // Expo push tokens are only issued to iOS and Android builds
   if (Platform.OS === 'web') return null;
 
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  let finalStatus = existing;
-
-  if (existing !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
+  // Android 8+ shows nothing without a channel, and Android 13 only offers the
+  // permission prompt once one exists
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'Reminders and alerts',
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
   }
 
-  if (finalStatus !== 'granted') return null;
+  // Permission is asked for in onboarding and in Settings, where the user
+  // chooses to get notifications; here we only register if it was granted
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return null;
 
   const token = await Notifications.getExpoPushTokenAsync();
   return token.data;

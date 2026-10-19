@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useMe } from '@/hooks/useMe';
+import { syncLocalReminders } from '@/lib/reminders';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -113,6 +115,20 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   );
 }
 
+/** Keeps the device's scheduled reminders in step with the saved preferences. */
+function ReminderSync() {
+  const { data: me } = useMe();
+  const workout = me?.notifWorkout;
+  const meal = me?.notifMeal;
+  useEffect(() => {
+    if (workout === undefined || meal === undefined) return;
+    syncLocalReminders({ notifWorkout: workout, notifMeal: meal }).catch(() => {
+      // Reminders are best-effort; never block the app on them
+    });
+  }, [workout, meal]);
+  return null;
+}
+
 export default function TabLayout() {
   const session = useAuthStore((s) => s.session);
   // "/" resolves to the Home tab, so it mounts briefly before the root layout
@@ -120,16 +136,19 @@ export default function TabLayout() {
   if (!session) return null;
 
   return (
-    <Tabs
-      tabBar={(props) => <FloatingTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="food" />
-      <Tabs.Screen name="activity" />
-      <Tabs.Screen name="habits" />
-      <Tabs.Screen name="social" />
-      <Tabs.Screen name="profile" />
-    </Tabs>
+    <>
+      <ReminderSync />
+      <Tabs
+        tabBar={(props) => <FloatingTabBar {...props} />}
+        screenOptions={{ headerShown: false }}
+      >
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="food" />
+        <Tabs.Screen name="activity" />
+        <Tabs.Screen name="habits" />
+        <Tabs.Screen name="social" />
+        <Tabs.Screen name="profile" />
+      </Tabs>
+    </>
   );
 }

@@ -25,14 +25,14 @@ export default function RevealScreen() {
   const store = useOnboardingStore();
 
   const plan = useMemo(() => {
-    const { gender, dateOfBirth, heightCm, weightKg, activityLevel, primaryGoal, pace, desiredWeightKg } = store;
+    const { gender, dateOfBirth, heightCm, weightKg, activityLevel, primaryGoal, pace, desiredWeightKg, goalFocus } = store;
     if (!gender || !dateOfBirth || !heightCm || !weightKg || !activityLevel || !primaryGoal || !pace) return null;
 
     const age = ageFromDOB(dateOfBirth);
     const bmr = calcBMR(gender, weightKg, heightCm, age);
     const tdee = calcTDEE(bmr, activityLevel);
     const calories = calcAdjustedCalories(tdee, primaryGoal, pace);
-    const macros = calcMacros(calories);
+    const macros = calcMacros(calories, goalFocus);
     const weeks = desiredWeightKg ? calcTimeline(weightKg, desiredWeightKg, pace) : null;
 
     return { tdee, calories, macros, weeks, goal: primaryGoal };

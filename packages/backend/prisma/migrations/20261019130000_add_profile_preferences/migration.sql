@@ -1,0 +1,17 @@
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN     "activeMinutesGoal" INTEGER NOT NULL DEFAULT 60,
+ADD COLUMN     "aim" TEXT,
+ADD COLUMN     "dietType" TEXT,
+ADD COLUMN     "earnbackCalories" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "friction" TEXT,
+ADD COLUMN     "goalFocus" TEXT NOT NULL DEFAULT 'balanced',
+ADD COLUMN     "goalWeightKg" DOUBLE PRECISION,
+ADD COLUMN     "heightUnit" TEXT NOT NULL DEFAULT 'cm',
+ADD COLUMN     "notifMeal" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "notifOffTrackOnly" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "notifProgress" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "notifStreak" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "notifWorkout" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "pace" TEXT,
+ADD COLUMN     "rolloverCalories" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "weightUnit" TEXT NOT NULL DEFAULT 'kg';

@@ -14,8 +14,33 @@ import {
   localToday,
 } from '../common/day';
 import OpenAI from 'openai';
+import { macroTargets } from '../common/nutrition';
 
 const DAILY_LIMIT = 10;
+
+const AIM_LABELS: Record<string, string> = {
+  fat_loss: 'fat loss',
+  muscle_gain: 'muscle gain',
+  energy: 'more energy',
+  discipline: 'discipline',
+};
+const FOCUS_LABELS: Record<string, string> = {
+  high_protein: 'high protein',
+  balanced: 'balanced',
+  low_carb: 'low carb',
+};
+const DIET_LABELS: Record<string, string> = {
+  vegetarian: 'vegetarian',
+  vegan: 'vegan',
+  halal_kosher: 'halal / kosher',
+};
+const FRICTION_LABELS: Record<string, string> = {
+  consistency: 'staying consistent',
+  time: 'not enough time',
+  diet: 'finding a diet hard to stick to',
+  motivation: 'low motivation',
+  plan: 'not having a clear plan',
+};
 const DEFAULT_DEPLOYMENT = 'gpt-6-luna';
 
 // Accepts the resource endpoint as shown in the Foundry portal and points it at
@@ -99,11 +124,27 @@ export class AIService {
             .join('\n')
         : '- No activity logged this week';
 
+    const targets = macroTargets(
+      user?.calorieGoal ?? 2000,
+      user?.goalFocus ?? 'balanced',
+    );
+    const profileLines = [
+      `- Name: ${user?.displayName}`,
+      `- Goal: ${user?.primaryGoal}${user?.aim ? ` (main aim: ${AIM_LABELS[user.aim] ?? user.aim})` : ''}`,
+      `- Calorie target: ${user?.calorieGoal} kcal/day${user?.earnbackCalories ? ', plus calories burned through exercise' : ''}`,
+      `- Macro targets: ${targets.proteinG}g protein, ${targets.carbsG}g carbs, ${targets.fatG}g fat (${FOCUS_LABELS[user?.goalFocus ?? ''] ?? 'balanced'})`,
+      `- Weight: ${user?.weightKg ? `${user.weightKg}kg` : 'not set'}${user?.goalWeightKg ? `, goal ${user.goalWeightKg}kg` : ''}${user?.pace ? ` at a ${user.pace} pace` : ''}`,
+      user?.dietType && user.dietType !== 'none'
+        ? `- Diet: ${DIET_LABELS[user.dietType] ?? user.dietType} (only suggest foods that fit)`
+        : null,
+      user?.friction
+        ? `- Biggest obstacle: ${FRICTION_LABELS[user.friction] ?? user.friction}`
+        : null,
+      `- Active-minutes goal: ${user?.activeMinutesGoal ?? 60} min/day`,
+    ].filter(Boolean);
+
     return `User profile:
-- Name: ${user?.displayName}
-- Goal: ${user?.primaryGoal}
-- Calorie target: ${user?.calorieGoal} kcal/day
-- Weight: ${user?.weightKg ? `${user.weightKg}kg` : 'not set'}
+${profileLines.join('\n')}
 
 Today's nutrition:
 - Calories: ${Math.round(todayCalories)} / ${user?.calorieGoal} kcal

@@ -96,8 +96,8 @@ export default function ActivityScreen() {
     v: d.activeMinutes,
     today: d.date === today,
   }));
-  // Bars scale to the 60-minute goal, or to the longest day if that's more
-  const barScale = Math.max(60, ...actData.map(d => d.v));
+  // Bars scale to the daily active-minutes goal, or to the longest day if that's more
+  const barScale = Math.max(me?.activeMinutesGoal ?? 60, ...actData.map(d => d.v));
   const totalMins = weekly?.totals.activeMinutes ?? 0;
   const activeDays = actData.filter(d => d.v > 0).length;
 

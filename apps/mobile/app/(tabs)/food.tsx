@@ -14,6 +14,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Colors } from '@/constants/colors';
 import { localDateStr } from '@/lib/date';
 import { useMe } from '@/hooks/useMe';
+import { calcMacros } from '@/lib/tdee';
 
 // Blank entry for logging something that isn't in the food database
 const MANUAL_FOOD: NormalizedFood = {
@@ -113,15 +114,17 @@ export default function FoodScreen() {
     }, [])
   );
 
-  const calorieGoal = me?.calorieGoal ?? 2000;
+  const calorieGoal = data?.budget.total ?? me?.calorieGoal ?? 2000;
   const eaten = data?.totals?.calories ?? 0;
   const proteinG = data?.totals?.proteinG ?? 0;
   const carbsG = data?.totals?.carbsG ?? 0;
   const fatG = data?.totals?.fatG ?? 0;
 
-  const proteinGoal = Math.round(calorieGoal * 0.30 / 4);
-  const carbsGoal = Math.round(calorieGoal * 0.40 / 4);
-  const fatGoal = Math.round(calorieGoal * 0.30 / 9);
+  // Targets follow the goal focus chosen in onboarding (from the backend)
+  const fallback = calcMacros(calorieGoal, me?.goalFocus);
+  const proteinGoal = data?.targets.proteinG ?? fallback.proteinG;
+  const carbsGoal = data?.targets.carbsG ?? fallback.carbsG;
+  const fatGoal = data?.targets.fatG ?? fallback.fatG;
 
   const macroRows = [
     { label: 'Protein', val: Math.round(proteinG), goal: proteinGoal, color: Colors.blue },

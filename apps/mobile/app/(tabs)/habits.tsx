@@ -112,7 +112,8 @@ export default function HabitsScreen() {
   );
 
   const total = habits?.length ?? 0;
-  const canAddMore = total < 5;
+  // Mirrors the backend's MAX_ACTIVE_HABITS
+  const canAddMore = total < 20;
 
   const { data: summary } = useHabitSummary(habits ?? []);
   const completedCount = summary?.todayDone.size ?? 0;
@@ -184,7 +185,7 @@ export default function HabitsScreen() {
             <Text style={{ fontSize: 40 }}>🌱</Text>
             <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 17 }}>No habits yet</Text>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14, textAlign: 'center' }}>
-              Add up to 5 habits to track. Start tiny — one habit beats zero.
+              Start tiny — one habit beats zero.
             </Text>
             <Pressable
               onPress={() => setShowCreate(true)}
@@ -199,7 +200,7 @@ export default function HabitsScreen() {
           <View style={{ backgroundColor: Colors.surface2, borderRadius: 16, padding: 14, flexDirection: 'row', gap: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
             <Text style={{ fontSize: 18 }}>💡</Text>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13, flex: 1 }}>
-              Free tier supports 5 habits. Remove one to add another.
+              You're tracking 20 habits, the most at once. Remove one to add another.
             </Text>
           </View>
         )}

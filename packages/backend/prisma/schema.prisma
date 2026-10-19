@@ -22,6 +22,28 @@ model User {
   gender        String?
   dateOfBirth   DateTime?
   pushToken     String?
+
+  // Goal details from onboarding, editable in Goals & Targets
+  goalWeightKg      Float?
+  pace              String? // slow | moderate | aggressive
+  goalFocus         String  @default("balanced") // high_protein | balanced | low_carb
+  dietType          String? // none | vegetarian | vegan | halal_kosher
+  aim               String? // fat_loss | muscle_gain | energy | discipline
+  friction          String? // what gets in the way, for the coach
+  activeMinutesGoal Int     @default(60)
+  // Add today's burned calories to the budget / carry unused calories forward
+  earnbackCalories  Boolean @default(false)
+  rolloverCalories  Boolean @default(false)
+
+  weightUnit String @default("kg") // kg | lb
+  heightUnit String @default("cm") // cm | ft
+
+  notifWorkout      Boolean @default(true)
+  notifMeal         Boolean @default(false)
+  notifProgress     Boolean @default(true)
+  notifStreak       Boolean @default(true)
+  notifOffTrackOnly Boolean @default(false)
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

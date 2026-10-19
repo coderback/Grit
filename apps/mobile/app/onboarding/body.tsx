@@ -144,12 +144,12 @@ function HorizRuler({ value, onChange, min, max, unit, majorEvery = 5, format = 
 }
 
 export default function BodyScreen() {
-  const { heightCm, weightKg, set } = useOnboardingStore();
+  const { heightCm, weightKg, weightUnit: savedWeightUnit, heightUnit: savedHeightUnit, set } = useOnboardingStore();
 
   const [height, setHeight] = useState(heightCm ?? 175);
   const [weight, setWeight] = useState(weightKg ?? 78);
-  const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
-  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
+  const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>(savedHeightUnit);
+  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>(savedWeightUnit === 'lb' ? 'lbs' : 'kg');
 
   const hRange = HEIGHT_RANGE[heightUnit];
   const wRange = WEIGHT_RANGE[weightUnit];
@@ -158,7 +158,13 @@ export default function BodyScreen() {
   const weightShown = clamp(Math.round(weightUnit === 'kg' ? weight : weight * LB_PER_KG), wRange);
 
   function handleContinue() {
-    set({ heightCm: roundTo1(height), weightKg: roundTo1(weight) });
+    set({
+      heightCm: roundTo1(height),
+      weightKg: roundTo1(weight),
+      // Remembered as the user's display units for the rest of the app
+      weightUnit: weightUnit === 'lbs' ? 'lb' : 'kg',
+      heightUnit,
+    });
     router.push('/onboarding/activity');
   }
 

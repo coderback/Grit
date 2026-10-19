@@ -28,6 +28,21 @@ export async function syncOnboardingProfile(): Promise<void> {
     activityLevel: s.activityLevel ?? undefined,
     primaryGoal: s.primaryGoal ?? undefined,
     calorieGoal,
+    goalWeightKg: s.desiredWeightKg ?? undefined,
+    pace: s.pace ?? undefined,
+    goalFocus: s.goalFocus ?? undefined,
+    dietType: s.dietType ?? undefined,
+    aim: s.accomplishment ?? undefined,
+    friction: s.friction ?? undefined,
+    earnbackCalories: s.earnbackCalories,
+    rolloverCalories: s.rolloverCalories,
+    weightUnit: s.weightUnit,
+    heightUnit: s.heightUnit,
+    notifWorkout: s.notifWorkout,
+    notifMeal: s.notifMeal,
+    notifProgress: s.notifProgress,
+    notifStreak: s.notifStreak,
+    notifOffTrackOnly: s.notifOffTrackOnly,
   });
   s.reset();
 }

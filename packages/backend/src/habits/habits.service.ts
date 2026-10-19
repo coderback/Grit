@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { dateMarker, localToday } from '../common/day';
-import { PRESET_HABITS, FREE_TIER_HABIT_LIMIT } from './habits.constants';
+import { PRESET_HABITS, MAX_ACTIVE_HABITS } from './habits.constants';
 import type { CreateHabitDto, UpdateHabitDto } from './habits.dto';
 import { build30DayGrid, calculateStreak } from './habits.streak';
 
@@ -38,9 +38,9 @@ export class HabitsService {
     const activeCount = await this.prisma.habit.count({
       where: { userId, isActive: true },
     });
-    if (activeCount >= FREE_TIER_HABIT_LIMIT) {
+    if (activeCount >= MAX_ACTIVE_HABITS) {
       throw new BadRequestException(
-        `Free tier supports up to ${FREE_TIER_HABIT_LIMIT} habits.`,
+        `You can track up to ${MAX_ACTIVE_HABITS} habits at a time.`,
       );
     }
 
