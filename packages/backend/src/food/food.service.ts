@@ -13,64 +13,146 @@ import {
   weekStart,
 } from '../common/day';
 import type { CreateFoodLogDto } from './food.dto';
-import type { NormalizedFood, OFFProduct } from './food.types';
+import type { NormalizedFood, OFFProduct, SearchHit } from './food.types';
 
 // Open Food Facts asks every client to identify itself and can be slow, so
 // requests carry a User-Agent and a timeout.
+const OFF_HEADERS = { 'User-Agent': 'GRIT/1.0 (support@gritapp.io)' };
+
 const off = axios.create({
   baseURL: 'https://world.openfoodfacts.org',
   timeout: 10_000,
-  headers: { 'User-Agent': 'GRIT/1.0 (support@gritapp.io)' },
+  headers: OFF_HEADERS,
 });
+
+// search-a-licious is OFF's full-text search service. The legacy search.pl is
+// heavily rate limited and often returns 503, so it is only the fallback.
+const offSearch = axios.create({
+  baseURL: 'https://search.openfoodfacts.org',
+  timeout: 8_000,
+  headers: OFF_HEADERS,
+});
+
+const SEARCH_PAGE_SIZE = 20;
+const SEARCH_FIELDS =
+  'code,product_name,brands,nutriments,serving_quantity,serving_quantity_unit,image_small_url';
+
+// Repeat searches (typing, re-opening the sheet) are served from memory to
+// stay well under OFF's rate limits.
+const SEARCH_CACHE_TTL_MS = 10 * 60_000;
+const SEARCH_CACHE_MAX = 500;
+
+function toNumber(value: number | string | undefined): number | undefined {
+  const n = typeof value === 'string' ? parseFloat(value) : value;
+  return n !== undefined && Number.isFinite(n) ? n : undefined;
+}
 
 @Injectable()
 export class FoodService {
+  private searchCache = new Map<
+    string,
+    { expiresAt: number; results: NormalizedFood[] }
+  >();
+
   constructor(private prisma: PrismaService) {}
 
   // ── Open Food Facts helpers ────────────────────────────────────────────────
 
   private normalize(product: OFFProduct): NormalizedFood {
     const n = product.nutriments ?? {};
+    const servingQty = toNumber(product.serving_quantity);
+    const hasServing = servingQty !== undefined && servingQty > 0;
     return {
       offId: product.id ?? product.code ?? '',
       name: product.product_name ?? 'Unknown product',
       brand: product.brands ?? null,
       barcode: product.code ?? null,
-      calories: n['energy-kcal_100g'] ?? n['energy-kcal'] ?? 0,
-      proteinG: n.proteins_100g ?? 0,
-      carbsG: n.carbohydrates_100g ?? 0,
-      fatG: n.fat_100g ?? 0,
-      servingQty: product.serving_quantity ?? 100,
-      servingUnit: product.serving_quantity_unit ?? 'g',
+      calories:
+        toNumber(n['energy-kcal_100g']) ?? toNumber(n['energy-kcal']) ?? 0,
+      proteinG: toNumber(n.proteins_100g) ?? 0,
+      carbsG: toNumber(n.carbohydrates_100g) ?? 0,
+      fatG: toNumber(n.fat_100g) ?? 0,
+      servingQty: hasServing ? servingQty : 100,
+      servingUnit: product.serving_quantity_unit || 'g',
       imageUrl: product.image_small_url ?? null,
     };
+  }
+
+  /** search-a-licious takes Lucene syntax, so user input is reduced to plain words. */
+  private async searchFullText(terms: string): Promise<OFFProduct[]> {
+    // Lowercasing also stops words like AND/OR/NOT acting as operators
+    const q = terms
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s']/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!q) return [];
+
+    const { data } = await offSearch.get<{ hits?: SearchHit[] }>('/search', {
+      params: { q, page_size: SEARCH_PAGE_SIZE, fields: SEARCH_FIELDS },
+    });
+    if (!Array.isArray(data.hits)) {
+      throw new Error('Unexpected search response');
+    }
+
+    return data.hits.map((hit) => ({
+      ...hit,
+      brands: (Array.isArray(hit.brands) ? hit.brands[0] : hit.brands)
+        // Taxonomy tags can carry a language prefix, e.g. "xx:ferrero"
+        ?.replace(/^[a-z]{2}:/, ''),
+    }));
+  }
+
+  private async searchLegacy(terms: string): Promise<OFFProduct[]> {
+    const { data } = await off.get<{ products?: OFFProduct[] }>(
+      '/cgi/search.pl',
+      {
+        params: {
+          search_terms: terms,
+          search_simple: 1,
+          action: 'process',
+          json: 1,
+          page_size: SEARCH_PAGE_SIZE,
+          fields: `id,${SEARCH_FIELDS}`,
+        },
+      },
+    );
+    return data.products ?? [];
   }
 
   async searchFoods(query: string): Promise<NormalizedFood[]> {
     const terms = query.trim();
     if (terms.length < 2) return [];
 
+    const key = terms.toLowerCase();
+    const cached = this.searchCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.results;
+
+    let products: OFFProduct[];
     try {
-      const { data } = await off.get<{ products?: OFFProduct[] }>(
-        '/cgi/search.pl',
-        {
-          params: {
-            search_terms: terms,
-            search_simple: 1,
-            action: 'process',
-            json: 1,
-            page_size: 20,
-            fields:
-              'id,code,product_name,brands,nutriments,serving_quantity,serving_quantity_unit,image_small_url',
-          },
-        },
-      );
-      return (data.products ?? [])
-        .filter((p) => p.product_name)
-        .map((p) => this.normalize(p));
+      products = await this.searchFullText(terms);
     } catch {
-      throw new BadGatewayException('Food database is unavailable');
+      try {
+        products = await this.searchLegacy(terms);
+      } catch {
+        throw new BadGatewayException('Food database is unavailable');
+      }
     }
+
+    const results = products
+      .filter((p) => p.product_name)
+      .map((p) => this.normalize(p));
+
+    // Map keeps insertion order, so the first key is the oldest entry
+    const oldest = this.searchCache.keys().next();
+    if (this.searchCache.size >= SEARCH_CACHE_MAX && !oldest.done) {
+      this.searchCache.delete(oldest.value);
+    }
+    this.searchCache.set(key, {
+      expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
+      results,
+    });
+    return results;
   }
 
   async lookupBarcode(barcode: string): Promise<NormalizedFood> {

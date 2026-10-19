@@ -12,20 +12,29 @@ export interface NormalizedFood {
   imageUrl: string | null;
 }
 
-// Raw shape returned by Open Food Facts search endpoint
+// OFF sometimes sends numbers as strings ("30"), so numeric fields accept both
+type OFFNumber = number | string;
+
+// Raw shape returned by the legacy search and product endpoints
 export interface OFFProduct {
   id?: string;
   code?: string;
   product_name?: string;
   brands?: string;
   nutriments?: {
-    'energy-kcal_100g'?: number;
-    'energy-kcal'?: number;
-    proteins_100g?: number;
-    carbohydrates_100g?: number;
-    fat_100g?: number;
+    'energy-kcal_100g'?: OFFNumber;
+    'energy-kcal'?: OFFNumber;
+    proteins_100g?: OFFNumber;
+    carbohydrates_100g?: OFFNumber;
+    fat_100g?: OFFNumber;
   };
-  serving_quantity?: number;
+  serving_quantity?: OFFNumber;
   serving_quantity_unit?: string;
   image_small_url?: string;
+}
+
+// A hit from search-a-licious (search.openfoodfacts.org). Brands come from the
+// brands taxonomy, so they arrive as a list of tags rather than a display string.
+export interface SearchHit extends Omit<OFFProduct, 'brands'> {
+  brands?: string | string[];
 }
