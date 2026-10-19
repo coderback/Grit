@@ -52,7 +52,7 @@ export interface NormalizedFood {
 }
 
 export function useFoodLogsForDate(date: string) {
-  return useQuery<{ logs: FoodLog[]; totals: MacroTotals; budget: CalorieBudget; targets: MacroTargets }>({
+  return useQuery<DayLog>({
     queryKey: ['food-logs', date],
     queryFn: () => api.get(`/food-logs?date=${date}`).then((r) => r.data),
   });
@@ -114,11 +114,37 @@ export function useLogFood() {
   });
 }
 
+type DayLog = { logs: FoodLog[]; totals: MacroTotals; budget: CalorieBudget; targets: MacroTargets };
+
+/** Removes the entry from the screen straight away, putting it back if the request fails. */
 export function useDeleteFoodLog() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/food-logs/${id}`).then((r) => r.data),
-    onSuccess: () => {
+    meta: { errorMessage: "Couldn't delete that entry. Check your connection." },
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ['food-logs'] });
+      const previous = qc.getQueriesData<DayLog>({ queryKey: ['food-logs'] });
+      for (const [key, day] of previous) {
+        const removed = day?.logs.find((l) => l.id === id);
+        if (!day || !removed) continue;
+        qc.setQueryData<DayLog>(key, {
+          ...day,
+          logs: day.logs.filter((l) => l.id !== id),
+          totals: {
+            calories: day.totals.calories - removed.calories,
+            proteinG: day.totals.proteinG - removed.proteinG,
+            carbsG: day.totals.carbsG - removed.carbsG,
+            fatG: day.totals.fatG - removed.fatG,
+          },
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      for (const [key, day] of context?.previous ?? []) qc.setQueryData(key, day);
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ['food-logs'] });
       qc.invalidateQueries({ queryKey: ['food-week'] });
     },

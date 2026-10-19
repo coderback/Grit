@@ -14,6 +14,8 @@ import { useHabits, useHabitSummary } from '@/hooks/useHabits';
 import { Colors } from '@/constants/colors';
 import { localDateStr } from '@/lib/date';
 import { useMe } from '@/hooks/useMe';
+import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
+import { ScreenSkeleton } from '@/components/ui/Skeleton';
 import { calcMacros } from '@/lib/tdee';
 import { todayWeekday, useWorkoutPlan } from '@/hooks/useWorkoutPlan';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
@@ -173,9 +175,13 @@ function TodayWorkoutCard() {
 export default function HomeScreen() {
   const today = todayStr();
 
-  const { data: me } = useMe();
-  const { data: foodLogs } = useFoodLogsForDate(today);
-  const { data: weeklySummary } = useWeeklySummary();
+  const meQuery = useMe();
+  const foodQuery = useFoodLogsForDate(today);
+  const weekQuery = useWeeklySummary();
+  const me = meQuery.data;
+  const foodLogs = foodQuery.data;
+  const weeklySummary = weekQuery.data;
+  const status = useQueriesStatus(meQuery, foodQuery, weekQuery);
   const { data: habits } = useHabits();
   const { data: habitSummary } = useHabitSummary();
   const todayDone = habitSummary?.todayDone;
@@ -279,6 +285,13 @@ export default function HomeScreen() {
         {/* AI Nudge */}
         <NudgeCard />
 
+        {status.isError && !status.isBlocked && <ErrorNotice compact onRetry={status.retry} />}
+        {status.isBlocked ? (
+          <ErrorNotice what="your day" onRetry={status.retry} />
+        ) : status.isLoading ? (
+          <ScreenSkeleton />
+        ) : (
+        <>
         {/* Hero calorie card */}
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 20 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -452,6 +465,8 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         </View>
+        </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

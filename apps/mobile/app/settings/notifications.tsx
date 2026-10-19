@@ -4,6 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { Colors } from '@/constants/colors';
+import { showToast } from '@/stores/toastStore';
 import { useMe, useUpdateMe, type Me } from '@/hooks/useMe';
 import { requestNotificationPermission, syncLocalReminders } from '@/lib/reminders';
 import { NavRow, ScreenHeader, Section, ToggleRow } from '@/components/settings/SettingsUI';
@@ -38,7 +39,7 @@ export default function NotificationsScreen() {
       refreshPermission();
       if (!granted) return;
     }
-    save({ [key]: value });
+    save({ [key]: value }, { onError: () => showToast("Couldn't save that setting.") });
     syncLocalReminders(next).catch(() => {});
   }
 

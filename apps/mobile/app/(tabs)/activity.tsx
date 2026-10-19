@@ -8,6 +8,8 @@ import { useWeeklySummary, type ActivityLog } from '@/hooks/useActivityLog';
 import { useFoodWeek } from '@/hooks/useFoodLog';
 import { useHabits, useHabitSummary } from '@/hooks/useHabits';
 import { useMe } from '@/hooks/useMe';
+import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
+import { ScreenSkeleton } from '@/components/ui/Skeleton';
 import { ACTIVITY_LABELS, LogActivitySheet } from '@/components/activity/LogActivitySheet';
 import { DateNavigator } from '@/components/ui/DateNavigator';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
@@ -81,8 +83,11 @@ export default function ActivityScreen() {
   const thisWeek = weekStartStr(today);
   const [week, setWeek] = useState(thisWeek);
   const isThisWeek = week === thisWeek;
-  const { data: weekly } = useWeeklySummary(isThisWeek ? undefined : week);
-  const { data: foodWeek } = useFoodWeek(isThisWeek ? undefined : week);
+  const weekQuery = useWeeklySummary(isThisWeek ? undefined : week);
+  const foodWeekQuery = useFoodWeek(isThisWeek ? undefined : week);
+  const weekly = weekQuery.data;
+  const foodWeek = foodWeekQuery.data;
+  const status = useQueriesStatus(weekQuery, foodWeekQuery);
   const [editingWorkout, setEditingWorkout] = useState<ActivityLog | null>(null);
   const { data: me } = useMe();
   const { data: habits } = useHabits();
@@ -156,6 +161,13 @@ export default function ActivityScreen() {
           />
         </View>
 
+        {status.isError && !status.isBlocked && <ErrorNotice compact onRetry={status.retry} />}
+        {status.isBlocked ? (
+          <ErrorNotice what="your stats" onRetry={status.retry} />
+        ) : status.isLoading ? (
+          <ScreenSkeleton />
+        ) : (
+        <>
         {/* Calorie trend card */}
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18, marginBottom: 12 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14 }}>
@@ -380,7 +392,8 @@ export default function ActivityScreen() {
             </View>
           ))}
         </View>
-
+        </>
+        )}
       </ScrollView>
 
       {showSheet && <LogActivitySheet onClose={() => setShowSheet(false)} />}

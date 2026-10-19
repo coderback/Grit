@@ -18,6 +18,8 @@ import { confirmAction } from '@/lib/confirm';
 import { DateNavigator } from '@/components/ui/DateNavigator';
 import { EditFoodSheet } from '@/components/food/EditFoodSheet';
 import { useMe } from '@/hooks/useMe';
+import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
+import { ScreenSkeleton } from '@/components/ui/Skeleton';
 import { calcMacros } from '@/lib/tdee';
 
 // Blank entry for logging something that isn't in the food database
@@ -93,7 +95,9 @@ function MacroDonutSVG({
 export default function FoodScreen() {
   const today = localDateStr();
   const [date, setDate] = useState(today);
-  const { data, isLoading } = useFoodLogsForDate(date);
+  const foodQuery = useFoodLogsForDate(date);
+  const { data } = foodQuery;
+  const status = useQueriesStatus(foodQuery);
   const { mutate: deleteLog } = useDeleteFoodLog();
   const { data: me } = useMe();
   const { refreshing, onRefresh } = usePullToRefresh([['food-logs', date], ['me']]);
@@ -204,6 +208,13 @@ export default function FoodScreen() {
           />
         </View>
 
+        {status.isError && !status.isBlocked && <ErrorNotice compact onRetry={status.retry} />}
+        {status.isBlocked ? (
+          <ErrorNotice what="your food log" onRetry={status.retry} />
+        ) : status.isLoading ? (
+          <ScreenSkeleton />
+        ) : (
+        <>
         {/* Summary card with donut */}
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18, marginBottom: 14 }}>
           <View style={{ flexDirection: 'row', gap: 18, alignItems: 'center' }}>
@@ -305,7 +316,8 @@ export default function FoodScreen() {
             );
           })}
         </View>
-
+        </>
+        )}
       </ScrollView>
 
       {selectedFood && (

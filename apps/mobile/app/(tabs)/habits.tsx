@@ -20,6 +20,8 @@ import { dayLabel } from '@/lib/date';
 import { HabitCheckIn } from '@/components/habits/HabitCheckIn';
 import { CreateHabitSheet } from '@/components/habits/CreateHabitSheet';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
+import { ScreenSkeleton } from '@/components/ui/Skeleton';
 import { Colors } from '@/constants/colors';
 
 function HabitCard({ habit, onEdit }: { habit: Habit; onEdit: (habit: Habit) => void }) {
@@ -131,7 +133,8 @@ function HabitCard({ habit, onEdit }: { habit: Habit; onEdit: (habit: Habit) => 
 }
 
 export default function HabitsScreen() {
-  const { data: habits, isLoading } = useHabits();
+  const habitsQuery = useHabits();
+  const { data: habits, isLoading } = habitsQuery;
   const [showCreate, setShowCreate] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const { refreshing, onRefresh } = usePullToRefresh([['habits'], ['habit-streaks']]);
@@ -149,7 +152,9 @@ export default function HabitsScreen() {
   // Mirrors the backend's MAX_ACTIVE_HABITS
   const canAddMore = total < 20;
 
-  const { data: summary } = useHabitSummary();
+  const summaryQuery = useHabitSummary();
+  const { data: summary } = summaryQuery;
+  const status = useQueriesStatus(habitsQuery, summaryQuery);
   const completedCount = summary?.todayDone.size ?? 0;
   const ringR = 28, ringCIRC = 2 * Math.PI * ringR;
   const ringPct = total > 0 ? completedCount / total : 0;
@@ -179,6 +184,13 @@ export default function HabitsScreen() {
           )}
         </View>
 
+        {status.isError && !status.isBlocked && <ErrorNotice compact onRetry={status.retry} />}
+        {status.isBlocked ? (
+          <ErrorNotice what="your habits" onRetry={status.retry} />
+        ) : status.isLoading ? (
+          <ScreenSkeleton />
+        ) : (
+        <>
         {/* Completion ring header */}
         {total > 0 && (
           <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 18 }}>
@@ -237,6 +249,8 @@ export default function HabitsScreen() {
               You're tracking 20 habits, the most at once. Remove one to add another.
             </Text>
           </View>
+        )}
+        </>
         )}
       </ScrollView>
 

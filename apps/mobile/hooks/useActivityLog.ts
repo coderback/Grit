@@ -95,6 +95,7 @@ export function useGiveKudos() {
   return useMutation({
     mutationFn: (logId: string) =>
       api.post(`/activity-logs/${logId}/kudos`).then((r) => r.data),
+    meta: { errorMessage: "Couldn't send kudos. Check your connection." },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['feed'] });
     },

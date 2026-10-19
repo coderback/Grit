@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { Toast } from '@/components/ui/Toast';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -111,6 +112,7 @@ export default function RootLayout() {
           <Stack.Screen name="reset-password" />
           <Stack.Screen name="plan" />
         </Stack>
+        <Toast />
       </GestureHandlerRootView>
     </QueryClientProvider>
   );

@@ -90,6 +90,7 @@ export function useDeleteHabit() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/habits/${id}`).then((r) => r.data),
+    meta: { errorMessage: "Couldn't remove the habit. Check your connection." },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['habits'] });
       qc.invalidateQueries({ queryKey: STREAKS_KEY });
@@ -126,6 +127,8 @@ function useSetHabitDay(completed: boolean) {
         ? api.post(`/habits/${habitId}/log${query}`).then((r) => r.data)
         : api.delete(`/habits/${habitId}/log${query}`).then((r) => r.data);
     },
+    // The tick is shown before the request finishes, so say when it's undone
+    meta: { errorMessage: "Couldn't save that check-in. Check your connection." },
     onMutate: async ({ habitId, date }) => {
       await qc.cancelQueries({ queryKey: STREAKS_KEY });
       const previous = qc.getQueryData<StreaksResponse>(STREAKS_KEY);

@@ -18,6 +18,8 @@ import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { useMe, useUpdateMe, type Me } from '../../hooks/useMe';
+import { ErrorNotice, useQueriesStatus } from '../../components/ui/QueryStatus';
+import { ScreenSkeleton } from '../../components/ui/Skeleton';
 import { kgToUnit, unitToKg } from '../../lib/units';
 import { confirmAction, notify } from '../../lib/confirm';
 import Constants from 'expo-constants';
@@ -127,7 +129,9 @@ const SETTINGS_ROWS = [
 ];
 
 export default function ProfileScreen() {
-  const { data: me, isLoading } = useMe();
+  const meQuery = useMe();
+  const { data: me, isLoading } = meQuery;
+  const status = useQueriesStatus(meQuery);
   const user = useAuthStore((s) => s.user);
   const clearSession = useAuthStore((s) => s.clearSession);
   const sheetRef = useRef<BottomSheet>(null);
@@ -178,6 +182,13 @@ export default function ProfileScreen() {
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
       <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.orange} />}>
 
+        {status.isError && !status.isBlocked && <ErrorNotice compact onRetry={status.retry} />}
+        {status.isBlocked ? (
+          <ErrorNotice what="your profile" onRetry={status.retry} />
+        ) : status.isLoading ? (
+          <ScreenSkeleton />
+        ) : (
+        <>
         {/* Gradient banner */}
         <View style={{
           borderRadius: 20,
@@ -270,8 +281,9 @@ export default function ProfileScreen() {
             ))}
           </View>
         </View>
-
-        {/* Settings rows */}
+        </>
+        )}
+      {/* Settings rows */}
         <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8, paddingHorizontal: 4 }}>
           Account
         </Text>

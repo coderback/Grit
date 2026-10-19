@@ -3,6 +3,7 @@ import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { Colors } from '@/constants/colors';
+import { showToast } from '@/stores/toastStore';
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { confirmAction, notify } from '@/lib/confirm';
@@ -67,7 +68,7 @@ export default function AccountScreen() {
               <ChipGroup
                 options={[{ value: 'kg', label: 'Kilograms (kg)' }, { value: 'lb', label: 'Pounds (lb)' }]}
                 value={me.weightUnit}
-                onChange={(weightUnit) => save({ weightUnit })}
+                onChange={(weightUnit) => save({ weightUnit }, { onError: () => showToast("Couldn't save your units.") })}
               />
             </View>
             <View style={{ gap: 8 }}>
@@ -75,7 +76,7 @@ export default function AccountScreen() {
               <ChipGroup
                 options={[{ value: 'cm', label: 'Centimetres' }, { value: 'ft', label: 'Feet & inches' }]}
                 value={me.heightUnit}
-                onChange={(heightUnit) => save({ heightUnit })}
+                onChange={(heightUnit) => save({ heightUnit }, { onError: () => showToast("Couldn't save your units.") })}
               />
             </View>
           </Section>

@@ -61,12 +61,8 @@ export function EditFoodSheet({ log, onClose }: { log: FoodLog; onClose: () => v
   async function handleDelete() {
     const ok = await confirmAction({ title: 'Delete entry', message: `Remove "${log.name}" from this day's log?`, confirmLabel: 'Delete', destructive: true });
     if (!ok) return;
-    try {
-      await remove(log.id);
-      onClose();
-    } catch {
-      notify("Couldn't delete", 'Check your connection and try again.');
-    }
+    // A failure shows a toast (from the mutation), so only close on success
+    await remove(log.id).then(onClose, () => {});
   }
 
   const field = (key: keyof typeof values, label: string, color: string) => (

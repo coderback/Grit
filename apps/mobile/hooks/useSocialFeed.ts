@@ -69,6 +69,7 @@ export function useFollow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userId: string) => api.post(`/follow/${userId}`).then((r) => r.data),
+    meta: { errorMessage: "Couldn't follow. Check your connection." },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['following'] });
       qc.invalidateQueries({ queryKey: ['feed'] });
@@ -81,6 +82,7 @@ export function useUnfollow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userId: string) => api.delete(`/follow/${userId}`).then((r) => r.data),
+    meta: { errorMessage: "Couldn't unfollow. Check your connection." },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['following'] });
       qc.invalidateQueries({ queryKey: ['feed'] });
