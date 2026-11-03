@@ -7,8 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFoodBarcode } from '@/hooks/useFoodLog';
 import { LogFoodSheet } from '@/components/food/LogFoodSheet';
 import { Colors } from '@/constants/colors';
+import { DEMO_MODE } from '@/lib/demo/mode';
+import { DemoScanner } from '@/components/demo/DemoScanner';
 
-export default function BarcodeScannerScreen() {
+export default function BarcodeScannerRoute() {
+  return DEMO_MODE ? <DemoScanner /> : <BarcodeScannerScreen />;
+}
+
+function BarcodeScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [showSheet, setShowSheet] = useState(false);

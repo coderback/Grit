@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
+import { DEMO_MODE } from '@/lib/demo/mode';
+import { demoReplyFor } from '@/lib/demo/replies';
 
 export interface AIMessage {
   id: string;
@@ -44,6 +46,17 @@ export function useStreamMessage() {
       onError: (err: string) => void,
     ) => {
       setIsStreaming(true);
+
+      if (DEMO_MODE) {
+        // Replays a saved sample reply word by word. Nothing leaves the browser.
+        for (const word of demoReplyFor(message).split(/(?<= )/)) {
+          await new Promise((r) => setTimeout(r, 35));
+          onChunk(word);
+        }
+        onDone();
+        setIsStreaming(false);
+        return;
+      }
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {

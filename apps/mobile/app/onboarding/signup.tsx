@@ -6,6 +6,8 @@ import { Colors } from '../../constants/colors';
 import { useOnboardingStore } from '../../stores/onboardingStore';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
+import { DEMO_MODE } from '../../lib/demo/mode';
+import { enterDemo } from '../../lib/demo/auth';
 import { api } from '../../lib/api';
 import { calcBMR, calcTDEE, calcAdjustedCalories, ageFromDOB } from '../../lib/tdee';
 
@@ -27,6 +29,22 @@ export default function SignupScreen() {
   }, [store]);
 
   async function handleSignup() {
+    if (DEMO_MODE) {
+      await api.put('/users/me', {
+        gender: store.gender,
+        dateOfBirth: store.dateOfBirth,
+        heightCm: store.heightCm,
+        weightKg: store.weightKg,
+        activityLevel: store.activityLevel,
+        primaryGoal: store.primaryGoal,
+        calorieGoal,
+      });
+      store.reset();
+      enterDemo();
+      await setOnboardingComplete();
+      router.replace('/(tabs)/');
+      return;
+    }
     if (!email.trim() || !password.trim()) {
       Alert.alert('Missing fields', 'Please enter your email and password.');
       return;
@@ -89,14 +107,14 @@ export default function SignupScreen() {
             GRIT
           </Text>
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>
-            Create your account
+            {DEMO_MODE ? 'Your plan is ready' : 'Create your account'}
           </Text>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 15 }}>
-            Save your plan and start tracking.
+            {DEMO_MODE ? `Continue to the demo with your ${calorieGoal} kcal target. No account is created.` : 'Save your plan and start tracking.'}
           </Text>
         </View>
 
-        <View style={{ gap: 12 }}>
+        {!DEMO_MODE && <View style={{ gap: 12 }}>
           <View style={{ gap: 8 }}>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>
               Email
@@ -126,7 +144,7 @@ export default function SignupScreen() {
               style={inputStyle}
             />
           </View>
-        </View>
+        </View>}
 
         <Pressable
           onPress={handleSignup}
@@ -144,11 +162,11 @@ export default function SignupScreen() {
         >
           {loading && <ActivityIndicator size="small" color="#fff" />}
           <Text style={{ color: '#fff', fontFamily: 'DMSans-Bold', fontSize: 17 }}>
-            {loading ? 'Creating account…' : 'Create account'}
+            {DEMO_MODE ? 'Continue to the demo' : loading ? 'Creating account…' : 'Create account'}
           </Text>
         </Pressable>
 
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+        {!DEMO_MODE && <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>
             Already have an account?
           </Text>
@@ -157,7 +175,7 @@ export default function SignupScreen() {
               Sign in
             </Text>
           </Pressable>
-        </View>
+        </View>}
 
         <Pressable onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>← Back</Text>

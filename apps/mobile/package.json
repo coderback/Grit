@@ -7,7 +7,8 @@
     "android": "cross-env NODE_OPTIONS=--no-experimental-require-module expo start --android",
     "ios": "cross-env NODE_OPTIONS=--no-experimental-require-module expo start --ios",
     "web": "cross-env NODE_OPTIONS=--no-experimental-require-module expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "export:demo": "cross-env EXPO_PUBLIC_DEMO_MODE=true NODE_OPTIONS=--no-experimental-require-module expo export --platform web --output-dir demo-dist"
   },
   "dependencies": {
     "@expo-google-fonts/dm-sans": "^0.4.2",

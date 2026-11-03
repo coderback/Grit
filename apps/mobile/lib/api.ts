@@ -1,10 +1,13 @@
 import axios from 'axios';
 import { supabase } from './supabase';
+import { DEMO_MODE } from './demo/mode';
+import { demoAdapter } from './demo/backend';
 
 export const api = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL,
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
+  ...(DEMO_MODE ? { adapter: demoAdapter } : {}),
 });
 
 // Attach the current Supabase JWT to every request

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import { DEMO_MODE } from '@/lib/demo/mode';
 import type { Session, User } from '@supabase/supabase-js';
 
 const ONBOARDING_KEY = 'grit_onboarding_complete';
@@ -28,10 +29,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   setLoading: (isLoading) => set({ isLoading }),
   clearSession: () => set({ session: null, user: null, isLoading: false }),
   setOnboardingComplete: async () => {
-    await SecureStore.setItemAsync(ONBOARDING_KEY, 'true');
+    if (!DEMO_MODE) await SecureStore.setItemAsync(ONBOARDING_KEY, 'true');
     set({ onboardingComplete: true });
   },
   loadOnboardingState: async () => {
+    if (DEMO_MODE) {
+      set({ onboardingComplete: true, onboardingLoading: false });
+      return;
+    }
     const val = await SecureStore.getItemAsync(ONBOARDING_KEY);
     set({ onboardingComplete: val === 'true', onboardingLoading: false });
   },

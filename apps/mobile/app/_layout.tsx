@@ -18,8 +18,12 @@ import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { DEMO_MODE } from '@/lib/demo/mode';
+import { installWebAlert } from '@/lib/demo/webAlert';
+import { DemoFrame } from '@/components/demo/DemoFrame';
 
 SplashScreen.preventAutoHideAsync();
+if (DEMO_MODE) installWebAlert();
 
 export default function RootLayout() {
   const { session, isLoading, onboardingLoading, setSession, onboardingComplete, loadOnboardingState, setOnboardingComplete } = useAuthStore();
@@ -75,7 +79,10 @@ export default function RootLayout() {
     return null;
   }
 
+  const Frame = DEMO_MODE ? DemoFrame : React.Fragment;
+
   return (
+    <Frame>
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <StatusBar style="light" />
@@ -92,5 +99,6 @@ export default function RootLayout() {
         {onboardingComplete && !session && <Redirect href="/(auth)/login" />}
       </GestureHandlerRootView>
     </QueryClientProvider>
+    </Frame>
   );
 }

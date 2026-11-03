@@ -78,3 +78,7 @@ Grit-handoff.zip
 
 # Local agent skill tooling
 skills-lock.json
+
+# Demo web export
+apps/mobile/demo-dist/
+.vercel

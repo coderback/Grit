@@ -17,6 +17,7 @@ import { Colors } from '../../constants/colors';
 import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
+import { DEMO_MODE } from '../../lib/demo/mode';
 
 interface BackendUser {
   id: string;
@@ -286,6 +287,10 @@ export default function ProfileScreen() {
           <Pressable
             key={row.label}
             onPress={() => {
+              if (DEMO_MODE) {
+                Alert.alert(row.label, 'This is switched off in the demo.');
+                return;
+              }
               if (row.action === 'mail') Linking.openURL('mailto:support@gritapp.io');
               else Linking.openSettings();
             }}

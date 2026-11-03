@@ -2,8 +2,9 @@ import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { api } from '@/lib/api';
+import { DEMO_MODE } from '@/lib/demo/mode';
 
-Notifications.setNotificationHandler({
+if (!DEMO_MODE) Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: false,
@@ -30,6 +31,7 @@ async function registerForPushNotifications(): Promise<string | null> {
 
 export function usePushNotifications() {
   useEffect(() => {
+    if (DEMO_MODE) return;
     registerForPushNotifications()
       .then(async (token) => {
         if (!token) return;

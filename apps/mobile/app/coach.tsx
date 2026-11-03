@@ -9,6 +9,8 @@ import * as Haptics from 'expo-haptics';
 import { useAIMessages, useStreamMessage } from '@/hooks/useAICoach';
 import { ChatBubble } from '@/components/coach/ChatBubble';
 import { Colors } from '@/constants/colors';
+import { DEMO_MODE } from '@/lib/demo/mode';
+import { DEMO_REPLY_LABEL } from '@/lib/demo/replies';
 
 interface LocalMessage {
   id: string;
@@ -85,6 +87,11 @@ export default function CoachScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
+        {DEMO_MODE && (
+          <Text accessibilityRole="alert" style={{ backgroundColor: `${Colors.orange}22`, color: Colors.text, fontFamily: 'DMSans-Medium', fontSize: 13, padding: 10, textAlign: 'center' }}>
+            {DEMO_REPLY_LABEL}
+          </Text>
+        )}
         {/* Header */}
         <View style={{
           flexDirection: 'row',
