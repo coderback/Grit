@@ -19,6 +19,8 @@ import {
 } from './challenge-rules';
 
 const MAX_PARTICIPANTS = 8;
+// Most recent challenges shown in the app
+const MAX_LISTED = 100;
 const participantUser = {
   select: { id: true, displayName: true, avatarUrl: true, username: true },
 };
@@ -152,6 +154,7 @@ export class ChallengesService {
       where,
       include: withParticipants,
       orderBy: { createdAt: 'desc' },
+      take: MAX_LISTED,
     });
     return challenges.map((c) => this.withTotals(c));
   }
@@ -265,8 +268,11 @@ export class ChallengesService {
    * challenge finish once.
    */
   async finishEnded(now = new Date()): Promise<number> {
+    // A batch per run; any left over are picked up an hour later
     const due = await this.prisma.challenge.findMany({
       where: { endDate: { lte: now }, endedAt: null },
+      orderBy: { endDate: 'asc' },
+      take: 200,
     });
     let finished = 0;
     for (const c of due) {

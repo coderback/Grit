@@ -21,8 +21,6 @@ model User {
   activityLevel String?
   gender        String?
   dateOfBirth   DateTime?
-  // Replaced by push_devices; kept until older servers are gone, then dropped
-  pushToken     String?
 
   // Goal details from onboarding, editable in Goals & Targets
   goalWeightKg      Float?
@@ -160,6 +158,7 @@ model Kudos {
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([activityLogId, userId])
+  @@index([userId])
   @@map("kudos")
 }
 
@@ -176,6 +175,7 @@ model Habit {
   user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   logs HabitLog[]
 
+  @@index([userId, isActive])
   @@map("habits")
 }
 
@@ -218,6 +218,8 @@ model Challenge {
 
   participants ChallengeParticipant[]
 
+  // The hourly job looks for challenges past their end that haven't finished
+  @@index([endedAt, endDate])
   @@map("challenges")
 }
 
@@ -233,6 +235,7 @@ model ChallengeParticipant {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([challengeId, userId])
+  @@index([userId])
   @@map("challenge_participants")
 }
 
