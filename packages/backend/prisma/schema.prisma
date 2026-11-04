@@ -21,6 +21,8 @@ model User {
   activityLevel String?
   gender        String?
   dateOfBirth   DateTime?
+  // Replaced by push_devices; kept until older servers are gone, then dropped
+  pushToken     String?
 
   // Goal details from onboarding, editable in Goals & Targets
   goalWeightKg      Float?

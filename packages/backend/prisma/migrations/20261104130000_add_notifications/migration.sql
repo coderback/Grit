@@ -60,7 +60,8 @@ FROM "users"
 WHERE "pushToken" IS NOT NULL
 ON CONFLICT ("token") DO NOTHING;
 
-ALTER TABLE "users" DROP COLUMN "pushToken";
+-- "pushToken" itself stays until every running server uses push_devices:
+-- older builds still read it. Drop it in a later migration.
 
 -- Same as every other table: only the API (as table owner) may read or write them
 ALTER TABLE "push_devices" ENABLE ROW LEVEL SECURITY;
