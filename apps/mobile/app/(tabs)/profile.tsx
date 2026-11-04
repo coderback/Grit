@@ -4,23 +4,25 @@ import {
   Text,
   ScrollView,
   Pressable,
-  Alert,
   ActivityIndicator,
   Linking,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { SheetTextInput, sheetKeyboardProps } from '../../components/ui/SheetTextInput';
 import { Colors } from '../../constants/colors';
 import { useHideTabBar } from '../../stores/uiStore';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
-import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
-import { useMe, type Me } from '../../hooks/useMe';
+import { useMe, useUpdateMe, type Me } from '../../hooks/useMe';
+import { ErrorNotice, useQueriesStatus } from '../../components/ui/QueryStatus';
+import { ScreenSkeleton } from '../../components/ui/Skeleton';
+import { kgToUnit, unitToKg } from '../../lib/units';
+import { confirmAction, notify } from '../../lib/confirm';
+import Constants from 'expo-constants';
 import { useHabits, useHabitSummary } from '../../hooks/useHabits';
 import { useWeeklySummary } from '../../hooks/useActivityLog';
 
@@ -32,37 +34,31 @@ function labelCase(s: string | null | undefined) {
 }
 
 function EditSheet({ user, onClose }: { user: BackendUser; onClose: () => void }) {
-  const queryClient = useQueryClient();
+  const unit = user.weightUnit;
   const [displayName, setDisplayName] = useState(user.displayName ?? '');
-  const [calorieGoal, setCalorieGoal] = useState(user.calorieGoal ? String(user.calorieGoal) : '');
-  const [weightKg, setWeightKg] = useState(user.weightKg ? String(user.weightKg) : '');
+  const [weight, setWeight] = useState(user.weightKg ? String(kgToUnit(user.weightKg, unit)) : '');
 
   useEffect(() => {
     setDisplayName(user.displayName ?? '');
-    setCalorieGoal(user.calorieGoal ? String(user.calorieGoal) : '');
-    setWeightKg(user.weightKg ? String(user.weightKg) : '');
-  }, [user]);
+    setWeight(user.weightKg ? String(kgToUnit(user.weightKg, unit)) : '');
+  }, [user, unit]);
 
-  const { mutate: save, isPending } = useMutation({
-    mutationFn: (payload: Partial<BackendUser>) =>
-      api.put('/users/me', payload).then((r) => r.data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['me'] });
-      onClose();
-    },
-    onError: (err: any) => {
-      Alert.alert('Could not save', err?.response?.data?.message ?? err.message);
-    },
-  });
+  const { mutate: save, isPending } = useUpdateMe();
+
+  const wt = parseFloat(weight);
+  const weightKg = !isNaN(wt) ? unitToKg(wt, unit) : null;
+  const weightError = weight.trim() && (weightKg === null || weightKg < 20 || weightKg > 400) ? 'Enter a realistic weight.' : null;
+  const nameError = !displayName.trim() ? 'Enter a name.' : null;
 
   function handleSave() {
-    const payload: Record<string, unknown> = {};
-    if (displayName.trim()) payload.displayName = displayName.trim();
-    const cal = parseInt(calorieGoal, 10);
-    if (!isNaN(cal) && cal > 0) payload.calorieGoal = cal;
-    const wt = parseFloat(weightKg);
-    if (!isNaN(wt) && wt > 0) payload.weightKg = wt;
-    save(payload as Partial<BackendUser>);
+    if (weightError || nameError) return;
+    save(
+      { displayName: displayName.trim(), ...(weightKg !== null ? { weightKg } : {}) },
+      {
+        onSuccess: onClose,
+        onError: (err: any) => notify('Could not save', err?.response?.data?.message?.toString() ?? err.message),
+      },
+    );
   }
 
   const inputStyle = {
@@ -76,36 +72,40 @@ function EditSheet({ user, onClose }: { user: BackendUser; onClose: () => void }
     fontFamily: 'DMSans-Regular',
     fontSize: 16,
   };
+  const labelStyle = { color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase' as const, letterSpacing: 0.8 };
+  const errorStyle = { color: Colors.error, fontFamily: 'DMSans-Regular', fontSize: 12 };
 
   return (
     <BottomSheetScrollView contentContainerStyle={{ padding: 20, gap: 20 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 18 }}>Edit Profile</Text>
-        <Pressable onPress={onClose} hitSlop={12}>
+        <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
           <Text style={{ color: Colors.muted, fontSize: 20 }}>✕</Text>
         </Pressable>
       </View>
       <View style={{ gap: 8 }}>
-        <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Display Name</Text>
-        <SheetTextInput value={displayName} onChangeText={setDisplayName} placeholder="Your name" placeholderTextColor={Colors.muted} autoCapitalize="words" style={inputStyle} />
+        <Text style={labelStyle}>Display Name</Text>
+        <SheetTextInput value={displayName} onChangeText={setDisplayName} placeholder="Your name" placeholderTextColor={Colors.muted} autoCapitalize="words" style={inputStyle} accessibilityLabel="Display name" />
+        {!!nameError && <Text style={errorStyle}>{nameError}</Text>}
       </View>
       <View style={{ gap: 8 }}>
-        <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Calorie Goal (kcal)</Text>
-        <SheetTextInput value={calorieGoal} onChangeText={setCalorieGoal} placeholder="2000" placeholderTextColor={Colors.muted} keyboardType="numeric" style={inputStyle} />
+        <Text style={labelStyle}>Today's weight ({unit})</Text>
+        <SheetTextInput value={weight} onChangeText={setWeight} placeholder={unit === 'lb' ? '165' : '75'} placeholderTextColor={Colors.muted} keyboardType="decimal-pad" style={inputStyle} accessibilityLabel="Weight" />
+        {!!weightError && <Text style={errorStyle}>{weightError}</Text>}
       </View>
-      <View style={{ gap: 8 }}>
-        <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Weight (kg)</Text>
-        <SheetTextInput value={weightKg} onChangeText={setWeightKg} placeholder="75" placeholderTextColor={Colors.muted} keyboardType="decimal-pad" style={inputStyle} />
-      </View>
+      <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12, marginTop: -8 }}>
+        Calorie and macro goals are in Goals & Targets.
+      </Text>
       <Pressable
         onPress={handleSave}
-        disabled={isPending}
+        disabled={isPending || !!weightError || !!nameError}
+        accessibilityRole="button"
         style={({ pressed }) => ({
           backgroundColor: Colors.orange,
           borderRadius: 999,
           paddingVertical: 16,
           alignItems: 'center',
-          opacity: isPending ? 0.6 : pressed ? 0.85 : 1,
+          opacity: isPending || weightError || nameError ? 0.6 : pressed ? 0.85 : 1,
           flexDirection: 'row',
           justifyContent: 'center',
           gap: 8,
@@ -120,14 +120,18 @@ function EditSheet({ user, onClose }: { user: BackendUser; onClose: () => void }
 }
 
 const SETTINGS_ROWS = [
-  { icon: '🔔', color: Colors.blue, label: 'Notifications', sub: 'Open system settings', action: 'settings' as const },
-  { icon: '🎯', color: Colors.orange, label: 'Goals & Targets', sub: 'Calorie goal and weight', action: 'edit' as const },
-  { icon: '📊', color: Colors.teal, label: 'My Progress', sub: 'Weekly stats', action: 'progress' as const },
-  { icon: '💬', color: Colors.muted, label: 'Help & Feedback', sub: 'Get support', action: 'mail' as const },
+  { icon: '🎯', color: Colors.orange, label: 'Goals & Targets', sub: 'Calories, macros and weight goal', href: '/settings/goals' as const },
+  { icon: '🏋️', color: Colors.teal, label: 'Workout Plan', sub: 'Your weekly plan from the coach', href: '/plan' as const },
+  { icon: '🔔', color: Colors.blue, label: 'Notifications', sub: 'Reminders and alerts', href: '/settings/notifications' as const },
+  { icon: '👤', color: Colors.muted, label: 'Account', sub: 'Units, password, delete account', href: '/settings/account' as const },
+  { icon: '📊', color: Colors.teal, label: 'My Progress', sub: 'Weekly stats', href: '/(tabs)/activity' as const },
+  { icon: '💬', color: Colors.muted, label: 'Help & Feedback', sub: 'Email support', href: null },
 ];
 
 export default function ProfileScreen() {
-  const { data: me, isLoading } = useMe();
+  const meQuery = useMe();
+  const { data: me, isLoading } = meQuery;
+  const status = useQueriesStatus(meQuery);
   const user = useAuthStore((s) => s.user);
   const clearSession = useAuthStore((s) => s.clearSession);
   const sheetRef = useRef<BottomSheet>(null);
@@ -149,18 +153,10 @@ export default function ProfileScreen() {
     : email[0]?.toUpperCase() ?? '?';
   const displayName = isLoading ? '—' : (me?.displayName || 'No name set');
 
-  function handleLogout() {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: async () => {
-          await supabase.auth.signOut();
-          clearSession();
-        },
-      },
-    ]);
+  async function handleLogout() {
+    if (!(await confirmAction({ title: 'Log out', message: 'Are you sure you want to log out?', confirmLabel: 'Log out', destructive: true }))) return;
+    await supabase.auth.signOut();
+    clearSession();
   }
 
   function openEdit() {
@@ -170,13 +166,13 @@ export default function ProfileScreen() {
 
   const statChips = [
     { label: 'Goal', value: isLoading ? '—' : String(me?.calorieGoal ?? '—'), unit: 'kcal', color: Colors.orange },
-    { label: 'Weight', value: isLoading ? '—' : (me?.weightKg ? String(me.weightKg) : '—'), unit: 'kg', color: Colors.blue },
+    { label: 'Weight', value: isLoading || !me?.weightKg ? '—' : String(kgToUnit(me.weightKg, me.weightUnit)), unit: me?.weightUnit ?? 'kg', color: Colors.blue },
     { label: 'Phase', value: isLoading ? '—' : labelCase(me?.primaryGoal).split(' ')[0], unit: '', color: Colors.teal },
   ];
 
   const { data: habits } = useHabits();
-  const { data: habitSummary } = useHabitSummary(habits ?? []);
-  const { refreshing, onRefresh } = usePullToRefresh([['me'], ['habits'], ['habit-summary'], ['activity-week']]);
+  const { data: habitSummary } = useHabitSummary();
+  const { refreshing, onRefresh } = usePullToRefresh([['me'], ['habits'], ['habit-streaks'], ['activity-week']]);
   const streak = habitSummary?.maxStreak ?? 0;
   const { data: week } = useWeeklySummary();
   // A day counts as active if any activity was logged
@@ -186,6 +182,13 @@ export default function ProfileScreen() {
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
       <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.orange} />}>
 
+        {status.isError && !status.isBlocked && <ErrorNotice compact onRetry={status.retry} />}
+        {status.isBlocked ? (
+          <ErrorNotice what="your profile" onRetry={status.retry} />
+        ) : status.isLoading ? (
+          <ScreenSkeleton />
+        ) : (
+        <>
         {/* Gradient banner */}
         <View style={{
           borderRadius: 20,
@@ -278,20 +281,18 @@ export default function ProfileScreen() {
             ))}
           </View>
         </View>
-
-        {/* Settings rows */}
+        </>
+        )}
+      {/* Settings rows */}
         <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8, paddingHorizontal: 4 }}>
           Account
         </Text>
         {SETTINGS_ROWS.map(row => (
           <Pressable
             key={row.label}
-            onPress={() => {
-              if (row.action === 'mail') Linking.openURL('mailto:support@gritapp.io');
-              else if (row.action === 'edit') openEdit();
-              else if (row.action === 'progress') router.push('/(tabs)/activity');
-              else Linking.openSettings();
-            }}
+            onPress={() => (row.href ? router.push(row.href) : Linking.openURL('mailto:support@gritapp.io'))}
+            accessibilityRole="button"
+            accessibilityLabel={row.label}
             style={({ pressed }) => ({
               backgroundColor: pressed ? Colors.surface3 : Colors.surface,
               borderRadius: 16,
@@ -334,7 +335,7 @@ export default function ProfileScreen() {
         </Pressable>
 
         <Text style={{ color: Colors.border, fontFamily: 'DMSans-Regular', fontSize: 12, textAlign: 'center' }}>
-          GRIT · v2.0
+          GRIT · v{Constants.expoConfig?.version ?? '1.0.0'}
         </Text>
       </ScrollView>
 

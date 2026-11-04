@@ -42,15 +42,27 @@ export function calcAdjustedCalories(
   return tdee; // maintain / recomp
 }
 
-export function calcMacros(calories: number): {
+// Share of calories from each macro by goal focus. Mirrors the backend's
+// common/nutrition.ts, which is the source of truth once signed in.
+const MACRO_SPLITS: Record<string, { protein: number; carbs: number; fat: number }> = {
+  high_protein: { protein: 0.4, carbs: 0.3, fat: 0.3 },
+  balanced: { protein: 0.3, carbs: 0.4, fat: 0.3 },
+  low_carb: { protein: 0.3, carbs: 0.2, fat: 0.5 },
+};
+
+export function calcMacros(
+  calories: number,
+  goalFocus?: string | null,
+): {
   proteinG: number;
   carbsG: number;
   fatG: number;
 } {
+  const split = MACRO_SPLITS[goalFocus ?? 'balanced'] ?? MACRO_SPLITS.balanced;
   return {
-    proteinG: Math.round((calories * 0.3) / 4),
-    carbsG: Math.round((calories * 0.4) / 4),
-    fatG: Math.round((calories * 0.3) / 9),
+    proteinG: Math.round((calories * split.protein) / 4),
+    carbsG: Math.round((calories * split.carbs) / 4),
+    fatG: Math.round((calories * split.fat) / 9),
   };
 }
 

@@ -8,6 +8,8 @@ interface OnboardingState {
   dateOfBirth: string | null; // ISO date string YYYY-MM-DD
   heightCm: number | null;
   weightKg: number | null;
+  weightUnit: 'kg' | 'lb';
+  heightUnit: 'cm' | 'ft';
   // Step 2 — activity
   activityLevel: 'sedentary' | 'lightly_active' | 'active' | 'very_active' | null;
   // Step 3 — goal
@@ -40,6 +42,8 @@ const defaults = {
   dateOfBirth: null,
   heightCm: null,
   weightKg: null,
+  weightUnit: 'kg',
+  heightUnit: 'cm',
   activityLevel: null,
   primaryGoal: null,
   desiredWeightKg: null,

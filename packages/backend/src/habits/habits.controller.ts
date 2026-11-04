@@ -6,13 +6,14 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { UtcOffset } from '../common/utc-offset.decorator';
 import { HabitsService } from './habits.service';
-import { CreateHabitDto, UpdateHabitDto } from './habits.dto';
+import { CreateHabitDto, HabitDayDto, UpdateHabitDto } from './habits.dto';
 
 @Controller('habits')
 @UseGuards(AuthGuard)
@@ -51,13 +52,34 @@ export class HabitsController {
     return this.habits.deleteHabit(user.supabaseId, id);
   }
 
+  // Streaks for every active habit in one request
+  @Get('streaks')
+  streaks(
+    @CurrentUser() user: { supabaseId: string },
+    @UtcOffset() offset: number,
+  ) {
+    return this.habits.getAllStreaks(user.supabaseId, offset);
+  }
+
+  // ?date= back-fills an earlier day (up to 30 days); defaults to today
   @Post(':id/log')
   log(
     @CurrentUser() user: { supabaseId: string },
     @Param('id') id: string,
+    @Query() query: HabitDayDto,
     @UtcOffset() offset: number,
   ) {
-    return this.habits.logHabit(user.supabaseId, id, offset);
+    return this.habits.logHabit(user.supabaseId, id, offset, query.date);
+  }
+
+  @Delete(':id/log')
+  unlog(
+    @CurrentUser() user: { supabaseId: string },
+    @Param('id') id: string,
+    @Query() query: HabitDayDto,
+    @UtcOffset() offset: number,
+  ) {
+    return this.habits.unlogHabit(user.supabaseId, id, offset, query.date);
   }
 
   @Get(':id/streak')

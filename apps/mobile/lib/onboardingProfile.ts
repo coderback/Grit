@@ -28,6 +28,25 @@ export async function syncOnboardingProfile(): Promise<void> {
     activityLevel: s.activityLevel ?? undefined,
     primaryGoal: s.primaryGoal ?? undefined,
     calorieGoal,
+    goalWeightKg: s.desiredWeightKg ?? undefined,
+    pace: s.pace ?? undefined,
+    goalFocus: s.goalFocus ?? undefined,
+    dietType: s.dietType ?? undefined,
+    aim: s.accomplishment ?? undefined,
+    friction: s.friction ?? undefined,
+    earnbackCalories: s.earnbackCalories,
+    rolloverCalories: s.rolloverCalories,
+    weightUnit: s.weightUnit,
+    heightUnit: s.heightUnit,
+    notifWorkout: s.notifWorkout,
+    notifMeal: s.notifMeal,
+    notifProgress: s.notifProgress,
+    notifStreak: s.notifStreak,
+    notifOffTrackOnly: s.notifOffTrackOnly,
   });
   s.reset();
+
+  // The coach builds a first workout plan from these answers. It takes a few
+  // seconds, so it runs in the background; the Plan screen can retry it.
+  void api.post('/workout-plan/generate', {}, { timeout: 90_000 }).catch(() => {});
 }

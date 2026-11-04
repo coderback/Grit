@@ -38,12 +38,17 @@ grit/
 | `/onboarding/reveal` | Personalised TDEE + macro plan reveal |
 | `/onboarding/signup` | Account creation (email + password) |
 | `/(auth)/login` | Returning user login |
-| `/(tabs)/` | Home — daily calorie target + macro progress |
-| `/(tabs)/food` | Food log — meal sections + barcode scanner |
-| `/(tabs)/habits` | Habit tracker — daily check-ins + streaks |
-| `/(tabs)/activity` | Activity log — workouts + weekly chart |
+| `/(tabs)/` | Home — daily calorie budget, macro progress, today's workout |
+| `/(tabs)/food` | Food log — any day, meal sections, edit entries, barcode scanner |
+| `/(tabs)/habits` | Habit tracker — check-ins, undo, 30-day history and back-fill |
+| `/(tabs)/activity` | Stats — any week, workouts list with edit/delete, trends |
 | `/(tabs)/social` | Challenges feed + leaderboard |
 | `/(tabs)/profile` | User profile + settings |
+| `/settings/goals` | Goals & Targets — goal, body stats, calories, macros, earnback/rollover |
+| `/settings/notifications` | Daily reminders and alert preferences |
+| `/settings/account` | Units, password reset, log out, delete account |
+| `/plan` | Weekly workout plan built by the coach |
+| `/reset-password` | Opened from the password reset email |
 | `/coach` | AI coach chat (GPT-6 Luna via Azure AI Foundry) |
 | `/barcode-scanner` | Camera barcode scanner (full-screen modal) |
 
@@ -95,16 +100,19 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 | Module | Routes |
 |---|---|
 | `auth` | Guard that verifies Supabase access tokens, `POST /auth/sync` |
-| `users` | `GET/PUT /users/me`, `GET /users/:id` |
-| `food` | `GET/POST /food-logs`, `GET /food-logs/week`, `DELETE /food-logs/:id`, Open Food Facts search + barcode proxy |
-| `activity` | `GET/POST /activity-logs`, `GET /activity-logs/week`, `POST /activity-logs/:id/kudos` |
-| `habits` | `GET/POST/PUT/DELETE /habits`, `POST /habits/:id/log`, `GET /habits/:id/streak` |
+| `users` | `GET/PUT/DELETE /users/me` (delete removes the account and its Supabase sign-in), `GET /users/:id` |
+| `food` | `GET/POST /food-logs` (with the day's calorie budget and macro targets), `GET /food-logs/week?date=`, `PATCH/DELETE /food-logs/:id`, Open Food Facts search + barcode proxy |
+| `activity` | `GET/POST /activity-logs`, `GET /activity-logs/week?date=`, `PATCH/DELETE /activity-logs/:id`, `POST /activity-logs/:id/kudos` |
+| `habits` | `GET/POST/PUT/DELETE /habits`, `POST/DELETE /habits/:id/log?date=`, `GET /habits/streaks`, `GET /habits/:id/streak` |
+| `workout-plan` | `GET /workout-plan`, `POST /workout-plan/generate`, `PUT /workout-plan/days/:day` |
 | `challenges` | `GET/POST /challenges`, join by invite code |
 | `social` | Feed, follow/unfollow, kudos |
 | `ai` | `POST /ai/message` (streamed), `GET /ai/messages`, `GET /ai/nudge` — AI coach |
 | `notifications` | Push token registration (sending isn't implemented yet) |
 
-**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · Follow
+**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · Follow · WorkoutPlan
+
+See [`docs/ROADMAP.md`](./docs/ROADMAP.md) for what's done and what's next.
 
 Requests send an `x-utc-offset` header (minutes ahead of UTC) so days and weeks follow the user's local time. Row level security is enabled on every table; only the API reads and writes them.
 

@@ -3,13 +3,15 @@ import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { SheetTextInput, sheetKeyboardProps } from '@/components/ui/SheetTextInput';
 import * as Haptics from 'expo-haptics';
-import { useLogActivity, useActivityTypes } from '@/hooks/useActivityLog';
+import { useLogActivity, useActivityTypes, useUpdateActivity, useDeleteActivity, type ActivityLog } from '@/hooks/useActivityLog';
+import { confirmAction } from '@/lib/confirm';
+import { loggedAtFor } from '@/lib/date';
 import { Button } from '@/components/ui/Button';
 import { useHideTabBar } from '@/stores/uiStore';
 import { Colors } from '@/constants/colors';
 
 // Display labels for activity types
-const ACTIVITY_LABELS: Record<string, string> = {
+export const ACTIVITY_LABELS: Record<string, string> = {
   running: '🏃 Running',
   cycling: '🚴 Cycling',
   walking: '🚶 Walking',
@@ -34,31 +36,55 @@ const ACTIVITY_LABELS: Record<string, string> = {
 
 interface LogActivitySheetProps {
   onClose: () => void;
+  /** Edit (or delete) this workout instead of logging a new one */
+  editing?: ActivityLog;
+  /** Day to log a new workout against (YYYY-MM-DD); defaults to today */
+  date?: string;
 }
 
-export function LogActivitySheet({ onClose }: LogActivitySheetProps) {
+export function LogActivitySheet({ onClose, editing, date }: LogActivitySheetProps) {
   const sheetRef = useRef<BottomSheet>(null);
   useHideTabBar();
-  const { mutateAsync: logActivity, isPending } = useLogActivity();
+  const { mutateAsync: logActivity, isPending: logging } = useLogActivity();
+  const { mutateAsync: updateActivity, isPending: updating } = useUpdateActivity();
+  const { mutateAsync: deleteActivity, isPending: deleting } = useDeleteActivity();
+  const isPending = logging || updating;
   const { data: types } = useActivityTypes();
 
-  const [selectedType, setSelectedType] = useState('running');
-  const [duration, setDuration] = useState('30');
+  const [selectedType, setSelectedType] = useState(editing?.activityType ?? 'running');
+  const [duration, setDuration] = useState(String(editing?.durationMin ?? 30));
 
   const handleLog = useCallback(async () => {
     const durationMin = parseInt(duration, 10);
-    if (!durationMin || durationMin < 1) {
+    if (!durationMin || durationMin < 1 || durationMin > 1440) {
       Alert.alert('Invalid duration', 'Please enter a duration in minutes.');
       return;
     }
     try {
-      await logActivity({ activityType: selectedType, durationMin });
+      if (editing) {
+        // Calories are re-estimated on the server when type or duration change
+        await updateActivity({ id: editing.id, activityType: selectedType, durationMin });
+      } else {
+        await logActivity({ activityType: selectedType, durationMin, loggedAt: date ? loggedAtFor(date) : undefined });
+      }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
     } catch {
-      Alert.alert('Error', 'Could not log activity. Please try again.');
+      Alert.alert('Error', editing ? 'Could not save the workout. Please try again.' : 'Could not log activity. Please try again.');
     }
-  }, [selectedType, duration, logActivity, onClose]);
+  }, [selectedType, duration, logActivity, updateActivity, editing, date, onClose]);
+
+  async function handleDelete() {
+    if (!editing) return;
+    const ok = await confirmAction({ title: 'Delete workout', message: 'Remove this workout from your log?', confirmLabel: 'Delete', destructive: true });
+    if (!ok) return;
+    try {
+      await deleteActivity(editing.id);
+      onClose();
+    } catch {
+      Alert.alert('Error', 'Could not delete the workout. Please try again.');
+    }
+  }
 
   return (
     <BottomSheet
@@ -72,7 +98,7 @@ export function LogActivitySheet({ onClose }: LogActivitySheetProps) {
     >
       <BottomSheetScrollView contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 40 }}>
         <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 20 }}>
-          Log Activity
+          {editing ? 'Edit workout' : 'Log Activity'}
         </Text>
 
         {/* Activity type grid */}
@@ -156,7 +182,12 @@ export function LogActivitySheet({ onClose }: LogActivitySheetProps) {
           </View>
         </View>
 
-        <Button label="Log activity" onPress={handleLog} loading={isPending} />
+        <Button label={editing ? 'Save changes' : 'Log activity'} onPress={handleLog} loading={isPending} />
+        {editing && (
+          <Pressable onPress={handleDelete} disabled={deleting} accessibilityRole="button" style={{ alignItems: 'center', paddingVertical: 4 }}>
+            <Text style={{ color: Colors.error, fontFamily: 'DMSans-Bold', fontSize: 14 }}>{deleting ? 'Deleting…' : 'Delete workout'}</Text>
+          </Pressable>
+        )}
       </BottomSheetScrollView>
     </BottomSheet>
   );

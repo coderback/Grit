@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Query,
   Param,
@@ -15,7 +16,11 @@ import { UtcOffset } from '../common/utc-offset.decorator';
 import { DateQueryDto } from '../common/dto';
 import { localToday } from '../common/day';
 import { FoodService } from './food.service';
-import { CreateFoodLogDto, FoodSearchQueryDto } from './food.dto';
+import {
+  CreateFoodLogDto,
+  FoodSearchQueryDto,
+  UpdateFoodLogDto,
+} from './food.dto';
 
 @Controller()
 @UseGuards(AuthGuard)
@@ -57,12 +62,23 @@ export class FoodController {
     return this.food.getFoodLogsForDate(user.supabaseId, date, offset);
   }
 
+  // ?date= picks the week containing that date; defaults to this week
   @Get('food-logs/week')
   getWeekly(
     @CurrentUser() user: { supabaseId: string },
+    @Query() query: DateQueryDto,
     @UtcOffset() offset: number,
   ) {
-    return this.food.getWeeklySummary(user.supabaseId, offset);
+    return this.food.getWeeklySummary(user.supabaseId, offset, query.date);
+  }
+
+  @Patch('food-logs/:id')
+  update(
+    @CurrentUser() user: { supabaseId: string },
+    @Param('id') id: string,
+    @Body() body: UpdateFoodLogDto,
+  ) {
+    return this.food.updateFoodLog(user.supabaseId, id, body);
   }
 
   @Delete('food-logs/:id')

@@ -15,6 +15,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { syncOnboardingProfile } from '@/lib/onboardingProfile';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { notify } from '@/lib/confirm';
+import { sendPasswordReset } from '@/lib/passwordReset';
 import { Colors } from '@/constants/colors';
 
 export default function LoginScreen() {
@@ -44,6 +46,19 @@ export default function LoginScreen() {
       Alert.alert('Login failed', err.message ?? 'Something went wrong.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!email.trim()) {
+      notify('Enter your email', "Type the email you signed up with, then tap 'Forgot password?' again.");
+      return;
+    }
+    try {
+      await sendPasswordReset(email);
+      notify('Check your email', `If ${email.trim()} has a GRIT account, we've sent a link to set a new password.`);
+    } catch (err: any) {
+      notify("Couldn't send the email", err?.message ?? 'Try again in a minute.');
     }
   }
 
@@ -100,7 +115,9 @@ export default function LoginScreen() {
               autoComplete="current-password"
             />
 
-            <View style={{ height: 4 }} />
+            <Pressable onPress={handleForgotPassword} hitSlop={8} style={{ alignSelf: 'flex-end' }} accessibilityRole="button">
+              <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Medium', fontSize: 13 }}>Forgot password?</Text>
+            </Pressable>
 
             <Button
               label="Log in"

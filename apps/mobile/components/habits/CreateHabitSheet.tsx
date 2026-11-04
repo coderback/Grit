@@ -4,31 +4,41 @@ import {
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { SheetTextInput, sheetKeyboardProps } from '@/components/ui/SheetTextInput';
-import { useHabitPresets, useCreateHabit } from '@/hooks/useHabits';
+import { useHabitPresets, useCreateHabit, useUpdateHabit, type Habit } from '@/hooks/useHabits';
 import { Button } from '@/components/ui/Button';
 import { useHideTabBar } from '@/stores/uiStore';
 import { Colors } from '@/constants/colors';
 
 interface CreateHabitSheetProps {
   onClose: () => void;
+  /** Edit this habit's name and emoji instead of adding a new one. */
+  editing?: Habit;
 }
 
 type Mode = 'presets' | 'custom';
 
-export function CreateHabitSheet({ onClose }: CreateHabitSheetProps) {
+export function CreateHabitSheet({ onClose, editing }: CreateHabitSheetProps) {
   const sheetRef = useRef<BottomSheet>(null);
   useHideTabBar();
   const { data: presets } = useHabitPresets();
-  const { mutateAsync: createHabit, isPending } = useCreateHabit();
+  const { mutateAsync: createHabit, isPending: creating } = useCreateHabit();
+  const { mutateAsync: updateHabit, isPending: updating } = useUpdateHabit();
+  const isPending = creating || updating;
 
-  const [mode, setMode] = useState<Mode>('presets');
-  const [customName, setCustomName] = useState('');
-  const [customEmoji, setCustomEmoji] = useState('✅');
+  const [mode, setMode] = useState<Mode>(editing ? 'custom' : 'presets');
+  const [customName, setCustomName] = useState(editing?.name ?? '');
+  const [customEmoji, setCustomEmoji] = useState(editing?.emoji ?? '✅');
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
 
   async function handleCreate() {
     try {
-      if (mode === 'presets') {
+      if (editing) {
+        if (!customName.trim()) {
+          Alert.alert('Name required', 'Please enter a habit name.');
+          return;
+        }
+        await updateHabit({ id: editing.id, name: customName.trim(), emoji: customEmoji });
+      } else if (mode === 'presets') {
         if (!selectedPreset) {
           Alert.alert('Pick a habit', 'Select one of the presets or switch to custom.');
           return;
@@ -43,7 +53,7 @@ export function CreateHabitSheet({ onClose }: CreateHabitSheetProps) {
       }
       onClose();
     } catch (err: any) {
-      Alert.alert('Could not create habit', err?.response?.data?.message ?? err.message);
+      Alert.alert(editing ? 'Could not save habit' : 'Could not create habit', err?.response?.data?.message ?? err.message);
     }
   }
 
@@ -59,11 +69,11 @@ export function CreateHabitSheet({ onClose }: CreateHabitSheetProps) {
     >
       <BottomSheetScrollView contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 40 }}>
         <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 20 }}>
-          Add a habit
+          {editing ? 'Edit habit' : 'Add a habit'}
         </Text>
 
         {/* Mode toggle */}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        {!editing && <View style={{ flexDirection: 'row', gap: 8 }}>
           {(['presets', 'custom'] as Mode[]).map((m) => (
             <Pressable
               key={m}
@@ -88,7 +98,7 @@ export function CreateHabitSheet({ onClose }: CreateHabitSheetProps) {
               </Text>
             </Pressable>
           ))}
-        </View>
+        </View>}
 
         {mode === 'presets' ? (
           <View style={{ gap: 8 }}>
@@ -170,7 +180,7 @@ export function CreateHabitSheet({ onClose }: CreateHabitSheetProps) {
           </View>
         )}
 
-        <Button label="Add habit" onPress={handleCreate} loading={isPending} />
+        <Button label={editing ? 'Save changes' : 'Add habit'} onPress={handleCreate} loading={isPending} />
       </BottomSheetScrollView>
     </BottomSheet>
   );

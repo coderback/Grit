@@ -10,6 +10,7 @@ import { SocialModule } from './social/social.module';
 import { ChallengesModule } from './challenges/challenges.module';
 import { AIModule } from './ai/ai.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { WorkoutPlanModule } from './workout-plan/workout-plan.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -26,6 +27,7 @@ import { AppService } from './app.service';
     ChallengesModule,
     AIModule,
     NotificationsModule,
+    WorkoutPlanModule,
   ],
   controllers: [AppController],
   providers: [AppService],

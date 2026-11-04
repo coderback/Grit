@@ -1,4 +1,13 @@
-import { Controller, Get, Put, Body, Param, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { UsersService } from './users.service';
@@ -20,6 +29,13 @@ export class UsersController {
     @Body() body: UpdateUserDto,
   ) {
     return this.users.updateUser(user.supabaseId, body);
+  }
+
+  /** Deletes the account and all its data. Required by the App Store. */
+  @Delete('me')
+  @HttpCode(204)
+  async deleteMe(@CurrentUser() user: { supabaseId: string }) {
+    await this.users.deleteAccount(user.supabaseId);
   }
 
   @Get(':id')

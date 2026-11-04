@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsISO8601,
@@ -30,6 +31,27 @@ export const ACTIVITY_LEVELS = [
 ] as const;
 
 export const GENDERS = ['male', 'female', 'other'] as const;
+export const PACES = ['slow', 'moderate', 'aggressive'] as const;
+export const GOAL_FOCUSES = ['high_protein', 'balanced', 'low_carb'] as const;
+export const DIET_TYPES = [
+  'none',
+  'vegetarian',
+  'vegan',
+  'halal_kosher',
+] as const;
+export const AIMS = [
+  'fat_loss',
+  'muscle_gain',
+  'energy',
+  'discipline',
+] as const;
+export const FRICTIONS = [
+  'consistency',
+  'time',
+  'diet',
+  'motivation',
+  'plan',
+] as const;
 
 /** Fields a user may change on their own profile. Anything else is rejected. */
 export class UpdateUserDto {
@@ -81,6 +103,74 @@ export class UpdateUserDto {
       : value,
   )
   dateOfBirth?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(20)
+  @Max(400)
+  goalWeightKg?: number;
+
+  @IsOptional()
+  @IsIn(PACES)
+  pace?: string;
+
+  @IsOptional()
+  @IsIn(GOAL_FOCUSES)
+  goalFocus?: string;
+
+  @IsOptional()
+  @IsIn(DIET_TYPES)
+  dietType?: string;
+
+  @IsOptional()
+  @IsIn(AIMS)
+  aim?: string;
+
+  @IsOptional()
+  @IsIn(FRICTIONS)
+  friction?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(5)
+  @Max(600)
+  activeMinutesGoal?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  earnbackCalories?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  rolloverCalories?: boolean;
+
+  @IsOptional()
+  @IsIn(['kg', 'lb'])
+  weightUnit?: string;
+
+  @IsOptional()
+  @IsIn(['cm', 'ft'])
+  heightUnit?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  notifWorkout?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notifMeal?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notifProgress?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notifStreak?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notifOffTrackOnly?: boolean;
 }
 
 export class SyncUserDto {

@@ -7,6 +7,8 @@ import {
   usePublicProfile, useFollow, useUnfollow, useFollowing,
 } from '@/hooks/useSocialFeed';
 import { useMe } from '@/hooks/useMe';
+import { ErrorNotice } from '@/components/ui/QueryStatus';
+import { ScreenHeader } from '@/components/settings/SettingsUI';
 import { Colors } from '@/constants/colors';
 
 const GOAL_LABELS: Record<string, string> = {
@@ -22,7 +24,7 @@ const GOAL_LABELS: Record<string, string> = {
 export default function ProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: me } = useMe();
-  const { data: profile, isLoading } = usePublicProfile(id);
+  const { data: profile, isLoading, isError, refetch } = usePublicProfile(id);
   const { data: following } = useFollowing();
   const { mutate: follow, isPending: followPending } = useFollow();
   const { mutate: unfollow, isPending: unfollowPending } = useUnfollow();
@@ -36,6 +38,18 @@ export default function ProfileScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (isFollowing) unfollow(id);
     else follow(id);
+  }
+
+  // Without this the spinner below would spin forever on a failed request
+  if (isError && !profile) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark }}>
+        <ScreenHeader title="" />
+        <View style={{ padding: 20 }}>
+          <ErrorNotice what="this profile" onRetry={() => refetch()} />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (isLoading) {

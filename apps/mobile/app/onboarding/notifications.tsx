@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useOnboardingStore } from '../../stores/onboardingStore';
+import { requestNotificationPermission } from '../../lib/reminders';
 
 function ProgressBar({ step, total }: { step: number; total: number }) {
   return (
@@ -117,7 +118,13 @@ export default function NotificationsScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => router.push('/onboarding/reveal')}
+          onPress={async () => {
+            // Ask now, while the user has just chosen to get notifications
+            if (notifWorkout || notifMeal || notifProgress || notifStreak) {
+              await requestNotificationPermission().catch(() => false);
+            }
+            router.push('/onboarding/reveal');
+          }}
           style={({ pressed }) => ({
             backgroundColor: Colors.orange,
             borderRadius: 999,

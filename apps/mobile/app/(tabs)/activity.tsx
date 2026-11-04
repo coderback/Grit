@@ -4,14 +4,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop, G } from 'react-native-svg';
-import { useWeeklySummary } from '@/hooks/useActivityLog';
+import { useWeeklySummary, type ActivityLog } from '@/hooks/useActivityLog';
 import { useFoodWeek } from '@/hooks/useFoodLog';
 import { useHabits, useHabitSummary } from '@/hooks/useHabits';
 import { useMe } from '@/hooks/useMe';
-import { LogActivitySheet } from '@/components/activity/LogActivitySheet';
+import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
+import { ScreenSkeleton } from '@/components/ui/Skeleton';
+import { ACTIVITY_LABELS, LogActivitySheet } from '@/components/activity/LogActivitySheet';
+import { DateNavigator } from '@/components/ui/DateNavigator';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Colors } from '@/constants/colors';
-import { localDateStr } from '@/lib/date';
+import { addDaysStr, dayLabel, localDateStr, weekLabel, weekStartStr } from '@/lib/date';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -77,17 +80,27 @@ function LineChart({
 
 export default function ActivityScreen() {
   const today = localDateStr();
-  const { data: weekly } = useWeeklySummary();
-  const { data: foodWeek } = useFoodWeek();
+  const thisWeek = weekStartStr(today);
+  const [week, setWeek] = useState(thisWeek);
+  const isThisWeek = week === thisWeek;
+  const weekQuery = useWeeklySummary(isThisWeek ? undefined : week);
+  const foodWeekQuery = useFoodWeek(isThisWeek ? undefined : week);
+  const weekly = weekQuery.data;
+  const foodWeek = foodWeekQuery.data;
+  const status = useQueriesStatus(weekQuery, foodWeekQuery);
+  const [editingWorkout, setEditingWorkout] = useState<ActivityLog | null>(null);
   const { data: me } = useMe();
   const { data: habits } = useHabits();
-  const { data: habitSummary } = useHabitSummary(habits ?? []);
+  const { data: habitSummary } = useHabitSummary();
   const [showSheet, setShowSheet] = useState(false);
-  const { refreshing, onRefresh } = usePullToRefresh([['activity-week'], ['food-week'], ['me'], ['habits'], ['habit-summary']]);
+  const { refreshing, onRefresh } = usePullToRefresh([['activity-week'], ['food-week'], ['me'], ['habits'], ['habit-streaks']]);
 
   useFocusEffect(
     React.useCallback(() => {
-      return () => setShowSheet(false);
+      return () => {
+        setShowSheet(false);
+        setEditingWorkout(null);
+      };
     }, [])
   );
 
@@ -96,8 +109,8 @@ export default function ActivityScreen() {
     v: d.activeMinutes,
     today: d.date === today,
   }));
-  // Bars scale to the 60-minute goal, or to the longest day if that's more
-  const barScale = Math.max(60, ...actData.map(d => d.v));
+  // Bars scale to the daily active-minutes goal, or to the longest day if that's more
+  const barScale = Math.max(me?.activeMinutesGoal ?? 60, ...actData.map(d => d.v));
   const totalMins = weekly?.totals.activeMinutes ?? 0;
   const activeDays = actData.filter(d => d.v > 0).length;
 
@@ -135,9 +148,26 @@ export default function ActivityScreen() {
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>
             Analytics
           </Text>
-          <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Medium' }}>This week</Text>
         </View>
 
+        {/* Week picker */}
+        <View style={{ marginBottom: 16 }}>
+          <DateNavigator
+            label={isThisWeek ? 'This week' : weekLabel(week)}
+            onPrev={() => setWeek((w) => addDaysStr(w, -7))}
+            onNext={() => setWeek((w) => addDaysStr(w, 7))}
+            canGoNext={!isThisWeek}
+            onReset={isThisWeek ? undefined : () => setWeek(thisWeek)}
+          />
+        </View>
+
+        {status.isError && !status.isBlocked && <ErrorNotice compact onRetry={status.retry} />}
+        {status.isBlocked ? (
+          <ErrorNotice what="your stats" onRetry={status.retry} />
+        ) : status.isLoading ? (
+          <ScreenSkeleton />
+        ) : (
+        <>
         {/* Calorie trend card */}
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18, marginBottom: 12 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14 }}>
@@ -235,6 +265,40 @@ export default function ActivityScreen() {
           </Pressable>
         </View>
 
+        {/* Workouts logged this week: tap to edit or delete */}
+        <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18, marginBottom: 12, gap: 12 }}>
+          <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 16 }}>Workouts</Text>
+          {(weekly?.logs ?? []).length === 0 ? (
+            <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13 }}>
+              {isThisWeek ? 'Nothing logged yet this week.' : 'No workouts that week.'}
+            </Text>
+          ) : (
+            [...(weekly?.logs ?? [])].reverse().map((log) => (
+              <Pressable
+                key={log.id}
+                onPress={() => setEditingWorkout(log)}
+                accessibilityRole="button"
+                accessibilityLabel={`${ACTIVITY_LABELS[log.activityType] ?? log.activityType}, ${log.durationMin} minutes`}
+                accessibilityHint="Tap to edit"
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.6 : 1 })}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: Colors.text, fontFamily: 'DMSans-Medium', fontSize: 14 }}>
+                    {ACTIVITY_LABELS[log.activityType] ?? log.activityType}
+                  </Text>
+                  <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12, marginTop: 1 }}>
+                    {dayLabel(localDateStr(new Date(log.loggedAt)), today)} · {log.durationMin} min
+                  </Text>
+                </View>
+                <Text style={{ color: Colors.teal, fontFamily: 'JetBrainsMono-Regular', fontSize: 14 }}>
+                  {Math.round(log.caloriesBurned ?? 0)} kcal
+                </Text>
+                <Text style={{ color: Colors.muted, fontSize: 16 }}>›</Text>
+              </Pressable>
+            ))
+          )}
+        </View>
+
         {/* Streak grid */}
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18, marginBottom: 12 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -302,7 +366,7 @@ export default function ActivityScreen() {
               unit: 'kcal vs goal',
               color: Colors.teal,
             },
-            { label: 'Active days', val: String(activeDays), unit: 'this week', color: Colors.blue },
+            { label: 'Active days', val: String(activeDays), unit: isThisWeek ? 'this week' : 'that week', color: Colors.blue },
             { label: 'Habit streak', val: String(streak), unit: 'days', color: Colors.orange },
           ].map(s => (
             <View
@@ -328,10 +392,12 @@ export default function ActivityScreen() {
             </View>
           ))}
         </View>
-
+        </>
+        )}
       </ScrollView>
 
       {showSheet && <LogActivitySheet onClose={() => setShowSheet(false)} />}
+      {editingWorkout && <LogActivitySheet key={editingWorkout.id} editing={editingWorkout} onClose={() => setEditingWorkout(null)} />}
     </SafeAreaView>
   );
 }

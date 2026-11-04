@@ -6,6 +6,8 @@ import * as Haptics from 'expo-haptics';
 import { useFeed, useWeeklyLeaderboard } from '@/hooks/useSocialFeed';
 import { useChallenges, useJoinChallenge } from '@/hooks/useChallenges';
 import { useMe } from '@/hooks/useMe';
+import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
+import { ScreenSkeleton } from '@/components/ui/Skeleton';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { ActivityFeedItem } from '@/components/social/ActivityFeedItem';
 import { Leaderboard } from '@/components/social/Leaderboard';
@@ -42,9 +44,16 @@ export default function SocialScreen() {
     }
   }
 
-  const { data: feedItems, isLoading: feedLoading } = useFeed();
-  const { data: leaderboard } = useWeeklyLeaderboard();
-  const { data: challenges } = useChallenges();
+  const feedQuery = useFeed();
+  const leaderboardQuery = useWeeklyLeaderboard();
+  const challengesQuery = useChallenges();
+  const { data: feedItems, isLoading: feedLoading } = feedQuery;
+  const { data: leaderboard } = leaderboardQuery;
+  const { data: challenges } = challengesQuery;
+  // Only the open tab's data decides whether to show loading or an error
+  const status = useQueriesStatus(
+    activeTab === 'feed' ? feedQuery : activeTab === 'challenges' ? challengesQuery : leaderboardQuery,
+  );
 
   const activeChallenges = (challenges ?? []).filter((c) => !c.isComplete);
   const pastChallenges = (challenges ?? []).filter((c) => c.isComplete);
@@ -114,6 +123,13 @@ export default function SocialScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.orange} />}
         showsVerticalScrollIndicator={false}
       >
+        {status.isError && !status.isBlocked && <ErrorNotice compact onRetry={status.retry} />}
+        {status.isBlocked ? (
+          <ErrorNotice what="this" onRetry={status.retry} />
+        ) : status.isLoading ? (
+          <ScreenSkeleton />
+        ) : (
+        <>
         {/* FEED */}
         {activeTab === 'feed' && (
           feedItems && feedItems.length > 0 ? (
@@ -214,6 +230,8 @@ export default function SocialScreen() {
               </View>
             )}
           </>
+        )}
+        </>
         )}
       </ScrollView>
 

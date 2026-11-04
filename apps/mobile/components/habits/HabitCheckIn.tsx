@@ -7,7 +7,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useLogHabit } from '@/hooks/useHabits';
+import { useLogHabit, useUnlogHabit } from '@/hooks/useHabits';
 import { Colors } from '@/constants/colors';
 import type { Habit } from '@/hooks/useHabits';
 
@@ -18,15 +18,21 @@ interface HabitCheckInProps {
 }
 
 export function HabitCheckIn({ habit, completedToday, streakCount }: HabitCheckInProps) {
-  const { mutate: logHabit, isPending } = useLogHabit();
+  const { mutate: logHabit } = useLogHabit();
+  const { mutate: unlogHabit } = useUnlogHabit();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
+  // Tapping a done habit undoes today's check-in
   const handlePress = useCallback(() => {
-    if (completedToday || isPending) return;
+    if (completedToday) {
+      Haptics.selectionAsync();
+      unlogHabit({ habitId: habit.id });
+      return;
+    }
 
     // Pop animation
     scale.value = withSequence(
@@ -36,13 +42,17 @@ export function HabitCheckIn({ habit, completedToday, streakCount }: HabitCheckI
     );
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    logHabit(habit.id);
-  }, [completedToday, isPending, habit.id, logHabit, scale]);
+    logHabit({ habitId: habit.id });
+  }, [completedToday, habit.id, logHabit, unlogHabit, scale]);
 
   return (
     <Animated.View style={animatedStyle}>
       <Pressable
         onPress={handlePress}
+        accessibilityRole="checkbox"
+        aria-checked={completedToday}
+        accessibilityLabel={habit.name}
+        accessibilityHint={completedToday ? 'Tap to undo today' : 'Tap to check off today'}
         style={({ pressed }) => ({
           flexDirection: 'row',
           alignItems: 'center',
@@ -50,7 +60,7 @@ export function HabitCheckIn({ habit, completedToday, streakCount }: HabitCheckI
           borderRadius: 16,
           padding: 16,
           gap: 14,
-          opacity: pressed && !completedToday ? 0.85 : 1,
+          opacity: pressed ? 0.85 : 1,
           borderWidth: 1.5,
           borderColor: completedToday ? Colors.teal : Colors.border,
         })}

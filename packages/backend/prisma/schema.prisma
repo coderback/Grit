@@ -22,6 +22,28 @@ model User {
   gender        String?
   dateOfBirth   DateTime?
   pushToken     String?
+
+  // Goal details from onboarding, editable in Goals & Targets
+  goalWeightKg      Float?
+  pace              String? // slow | moderate | aggressive
+  goalFocus         String  @default("balanced") // high_protein | balanced | low_carb
+  dietType          String? // none | vegetarian | vegan | halal_kosher
+  aim               String? // fat_loss | muscle_gain | energy | discipline
+  friction          String? // what gets in the way, for the coach
+  activeMinutesGoal Int     @default(60)
+  // Add today's burned calories to the budget / carry unused calories forward
+  earnbackCalories  Boolean @default(false)
+  rolloverCalories  Boolean @default(false)
+
+  weightUnit String @default("kg") // kg | lb
+  heightUnit String @default("cm") // cm | ft
+
+  notifWorkout      Boolean @default(true)
+  notifMeal         Boolean @default(false)
+  notifProgress     Boolean @default(true)
+  notifStreak       Boolean @default(true)
+  notifOffTrackOnly Boolean @default(false)
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -34,6 +56,7 @@ model User {
   challenges   ChallengeParticipant[]
   aiMessages   AIMessage[]
   kudosGiven   Kudos[]
+  workoutPlan  WorkoutPlan?
 
   @@map("users")
 }
@@ -182,4 +205,25 @@ model AIMessage {
 
   @@index([userId, createdAt])
   @@map("ai_messages")
+}
+
+// The coach-generated weekly plan; one per user, replaced when regenerated
+model WorkoutPlan {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  summary     String
+  daysPerWeek Int
+  location    String // home | gym
+  days        Json // 7 days, Monday first: { day, rest, title, activityType, durationMin, exercises: [{ name, detail }] }
+
+  // Caps how often the AI is asked to regenerate it
+  generationDay    String // local YYYY-MM-DD of the latest generation
+  generationsToday Int    @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("workout_plans")
 }
