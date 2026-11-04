@@ -57,5 +57,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // Sign-in links carry a one-time code, exchanged on the device that
+    // started the sign-in, rather than the tokens themselves
+    flowType: 'pkce',
   },
 });

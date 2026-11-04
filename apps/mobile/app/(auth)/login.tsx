@@ -1,29 +1,27 @@
 import React, { useState } from 'react';
 import {
   View,
+  Platform,
   Text,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Pressable,
   Alert,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { api } from '@/lib/api';
-import { useAuthStore } from '@/stores/authStore';
-import { syncOnboardingProfile } from '@/lib/onboardingProfile';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { notify } from '@/lib/confirm';
 import { sendPasswordReset } from '@/lib/passwordReset';
 import { Colors } from '@/constants/colors';
+import { afterSignIn } from '@/lib/postSignIn';
+import { SocialSignIn } from '@/components/auth/SocialSignIn';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setOnboardingComplete } = useAuthStore();
 
   async function handleEmailLogin() {
     if (!email || !password) {
@@ -32,15 +30,11 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      await setOnboardingComplete();
-      // Sync user record with backend (creates if first login)
-      await api.post('/auth/sync');
-      // Save any plan answered before signing up (e.g. pending email confirmation)
-      await syncOnboardingProfile().catch(() => {
-        // Kept on the device and retried at the next login
-      });
+      // Creates the backend user on first login and saves any plan answered
+      // before signing up (e.g. while the email was being confirmed)
+      await afterSignIn(data.session);
       router.replace('/(tabs)/');
     } catch (err: any) {
       Alert.alert('Login failed', err.message ?? 'Something went wrong.');
@@ -126,36 +120,8 @@ export default function LoginScreen() {
             />
           </View>
 
-          {/* Divider */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{ flex: 1, height: 1, backgroundColor: Colors.border }} />
-            <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13 }}>
-              or
-            </Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: Colors.border }} />
-          </View>
-
-          {/* OAuth */}
-          <View style={{ gap: 12 }}>
-            <Button
-              label="Continue with Google"
-              variant="secondary"
-              onPress={() => {
-                // TODO Phase A+: implement Google OAuth via expo-auth-session
-                Alert.alert('Coming soon', 'Google sign-in coming soon.');
-              }}
-            />
-            {Platform.OS === 'ios' && (
-              <Button
-                label="Continue with Apple"
-                variant="secondary"
-                onPress={() => {
-                  // TODO Phase A+: implement Apple Sign-In via expo-apple-authentication
-                  Alert.alert('Coming soon', 'Apple sign-in coming soon.');
-                }}
-              />
-            )}
-          </View>
+          {/* Google and Apple, once switched on in Supabase */}
+          <SocialSignIn />
 
           {/* Sign up link */}
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6 }}>

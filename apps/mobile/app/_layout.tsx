@@ -126,7 +126,7 @@ export default function RootLayout() {
   // screen (which signs in from its link); anything else sends them to one of
   // the first two
   const ready = !isLoading && !onboardingLoading && fontsReady;
-  const publicRoute = segments[0] === 'onboarding' || segments[0] === '(auth)' || segments[0] === 'reset-password';
+  const publicRoute = segments[0] === 'onboarding' || segments[0] === '(auth)' || segments[0] === 'reset-password' || segments[0] === 'auth-callback';
   useEffect(() => {
     if (!ready || session || publicRoute) return;
     router.replace(onboardingComplete ? '/(auth)/login' : '/onboarding');
@@ -153,6 +153,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings/notifications" />
           <Stack.Screen name="settings/account" />
           <Stack.Screen name="reset-password" />
+          <Stack.Screen name="auth-callback" />
           <Stack.Screen name="plan" />
           <Stack.Screen name="friends" />
           <Stack.Screen name="connections" />

@@ -6,6 +6,7 @@ import { Colors } from '../../constants/colors';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { syncOnboardingProfile } from '../../lib/onboardingProfile';
+import { SocialSignIn } from '../../components/auth/SocialSignIn';
 
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
@@ -136,6 +137,9 @@ export default function SignupScreen() {
             {loading ? 'Creating account…' : 'Create account'}
           </Text>
         </Pressable>
+
+        {/* Google and Apple: the answers above are saved after signing in */}
+        <SocialSignIn />
 
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>
