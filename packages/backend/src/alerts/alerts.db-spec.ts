@@ -164,4 +164,112 @@ describe('AlertsService (database)', () => {
     await alerts.sendWeeklyProgress(new Date('2026-11-07T18:05:00Z'));
     expect(await inbox(saturday.id)).toHaveLength(0);
   });
+
+  describe('coach check-ins', () => {
+    // 13:05 UTC on Wednesday 4 November
+    const lunchtime = new Date('2026-11-04T13:05:00Z');
+    const at = (date: string) => new Date(`${date}T12:00:00Z`);
+
+    it('sends the first one that applies, once a week', async () => {
+      const u = await db.user();
+      // Logged food regularly until 4 days ago, and trained until 6 days ago
+      for (const d of [
+        '2026-10-25',
+        '2026-10-27',
+        '2026-10-29',
+        '2026-10-31',
+      ]) {
+        await db.prisma.foodLog.create({
+          data: {
+            userId: u.id,
+            name: 'x',
+            mealType: 'lunch',
+            calories: 500,
+            loggedAt: at(d),
+          },
+        });
+      }
+      for (const d of ['2026-10-24', '2026-10-26', '2026-10-29']) {
+        await db.prisma.activityLog.create({
+          data: {
+            userId: u.id,
+            activityType: 'running',
+            durationMin: 30,
+            loggedAt: at(d),
+          },
+        });
+      }
+
+      await alerts.sendCoachCheckIns(lunchtime);
+      let items = await inbox(u.id);
+      expect(items.map((n) => [n.type, n.title])).toEqual([
+        ['coach_checkin', 'Quick catch-up?'],
+      ]);
+      expect(items[0].data).toEqual({ screen: 'food', rule: 'logging_gap' });
+
+      // The next day: logging gap already sent this week, so the next rule
+      await alerts.sendCoachCheckIns(new Date('2026-11-05T13:05:00Z'));
+      items = await inbox(u.id);
+      expect(
+        items.map((n) => (n.data as { rule: string }).rule).sort(),
+      ).toEqual(['activity_gap', 'logging_gap']);
+      // And again: nothing left to say this week
+      await alerts.sendCoachCheckIns(new Date('2026-11-06T13:05:00Z'));
+      expect(await inbox(u.id)).toHaveLength(2);
+    });
+
+    it('stays quiet on track, when progress alerts are off, and on Sundays', async () => {
+      const fine = await db.user();
+      const off = await db.user();
+      await db.prisma.user.update({
+        where: { id: off.id },
+        data: { notifProgress: false },
+      });
+      for (const u of [fine, off]) {
+        for (const d of [
+          '2026-10-25',
+          '2026-10-27',
+          '2026-10-29',
+          '2026-10-30',
+        ]) {
+          await db.prisma.foodLog.create({
+            data: {
+              userId: u.id,
+              name: 'x',
+              mealType: 'lunch',
+              calories: 500,
+              loggedAt: at(d),
+            },
+          });
+        }
+      }
+      await db.prisma.foodLog.create({
+        data: {
+          userId: fine.id,
+          name: 'x',
+          mealType: 'lunch',
+          calories: 500,
+          loggedAt: at('2026-11-03'),
+        },
+      });
+      await alerts.sendCoachCheckIns(lunchtime);
+      expect(await inbox(fine.id)).toHaveLength(0);
+      expect(await inbox(off.id)).toHaveLength(0);
+
+      const sunday = await db.user();
+      for (const d of ['2026-10-25', '2026-10-27', '2026-10-29']) {
+        await db.prisma.foodLog.create({
+          data: {
+            userId: sunday.id,
+            name: 'x',
+            mealType: 'lunch',
+            calories: 500,
+            loggedAt: at(d),
+          },
+        });
+      }
+      await alerts.sendCoachCheckIns(new Date('2026-11-08T13:05:00Z'));
+      expect(await inbox(sunday.id)).toHaveLength(0);
+    });
+  });
 });

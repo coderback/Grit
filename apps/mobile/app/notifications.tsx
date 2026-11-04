@@ -16,6 +16,7 @@ const ICONS: Record<string, string> = {
   challenge_joined: '🏆',
   streak_at_risk: '🔥',
   weekly_progress: '📊',
+  coach_checkin: '🤖',
   kudos: '👏',
 };
 

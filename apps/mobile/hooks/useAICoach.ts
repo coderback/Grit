@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 // React Native's global fetch can't stream response bodies; Expo's can
 import { fetch } from 'expo/fetch';
 import { api, authHeaders } from '@/lib/api';
@@ -53,6 +53,8 @@ export function useStreamMessage() {
       onChunk: (text: string) => void,
       onDone: () => void,
       onError: (err: string) => void,
+      /** Notes the coach took from this message, to remember next time */
+      onRemembered?: (items: string[]) => void,
     ) => {
       setIsStreaming(true);
 
@@ -101,9 +103,12 @@ export function useStreamMessage() {
             if (!raw) continue;
 
             try {
-              const chunk = JSON.parse(raw) as { type: string; text?: string; error?: string };
+              const chunk = JSON.parse(raw) as { type: string; text?: string; error?: string; items?: string[] };
               if (chunk.type === 'delta' && chunk.text) {
                 onChunk(chunk.text);
+              } else if (chunk.type === 'remembered' && chunk.items?.length) {
+                qc.invalidateQueries({ queryKey: ['coach-memories'] });
+                onRemembered?.(chunk.items);
               } else if (chunk.type === 'done') {
                 onDone();
               } else if (chunk.type === 'error') {
@@ -127,4 +132,42 @@ export function useStreamMessage() {
   );
 
   return { sendMessage, isStreaming };
+}
+
+export interface CoachMemory {
+  id: string;
+  text: string;
+  source: 'chat' | 'user';
+  createdAt: string;
+}
+
+export function useCoachMemories() {
+  return useQuery<CoachMemory[]>({
+    queryKey: ['coach-memories'],
+    queryFn: () => api.get('/ai/memories').then((r) => r.data),
+  });
+}
+
+export function useAddCoachMemory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (text: string) => api.post<CoachMemory>('/ai/memories', { text }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['coach-memories'] }),
+  });
+}
+
+export function useDeleteCoachMemory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/ai/memories/${id}`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['coach-memories'] }),
+  });
+}
+
+export function useClearCoachMemories() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.delete('/ai/memories').then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['coach-memories'] }),
+  });
 }

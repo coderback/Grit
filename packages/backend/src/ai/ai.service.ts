@@ -1,6 +1,7 @@
 import {
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   HttpException,
   HttpStatus,
@@ -22,17 +23,31 @@ import {
   FRICTION_LABELS,
 } from './profile-labels';
 import { macroTargets } from '../common/nutrition';
+import { AdaptiveService } from '../progress/adaptive.service';
+import {
+  MAX_MEMORIES,
+  MEMORY_SCHEMA,
+  cleanMemory,
+  mayHoldFacts,
+  memoryInstructions,
+  planMemoryUpdate,
+  type MemoryUpdate,
+} from './coach-memory';
 
 const DAILY_LIMIT = 10;
+// How long a finished reply waits for the note-taking call before moving on
+const MEMORY_WAIT_MS = 5000;
 
 @Injectable()
 export class AIService {
+  private readonly logger = new Logger(AIService.name);
   private nudgesInFlight = new Map<string, Promise<string>>();
 
   constructor(
     private prisma: PrismaService,
     private openai: OpenAI,
     @Inject(AI_MODEL) private model: string,
+    private adaptive: AdaptiveService,
   ) {}
 
   private async resolveUser(supabaseId: string) {
@@ -46,32 +61,50 @@ export class AIService {
     const today = dayRange(todayDate, offset).start;
     const weekAgo = dayRange(addDays(todayDate, -7), offset).start;
 
-    const [user, todayFood, weekActivity, habits, habitLogs, healthDays] =
-      await Promise.all([
-        this.prisma.user.findUnique({ where: { id: userId } }),
-        this.prisma.foodLog.findMany({
-          where: { userId, loggedAt: { gte: today } },
-        }),
-        this.prisma.activityLog.findMany({
-          where: { userId, loggedAt: { gte: weekAgo } },
-          orderBy: { loggedAt: 'desc' },
-          take: 10,
-        }),
-        this.prisma.habit.findMany({ where: { userId, isActive: true } }),
-        this.prisma.habitLog.findMany({
-          where: { userId, loggedAt: dateMarker(todayDate) },
-        }),
-        // From Apple Health / Health Connect, if connected
-        this.prisma.healthDay.findMany({
-          where: {
-            userId,
-            day: {
-              gte: dateMarker(addDays(todayDate, -1)),
-              lte: dateMarker(todayDate),
-            },
+    const [
+      user,
+      todayFood,
+      weekActivity,
+      habits,
+      habitLogs,
+      healthDays,
+      weekFood,
+      memories,
+    ] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId } }),
+      this.prisma.foodLog.findMany({
+        where: { userId, loggedAt: { gte: today } },
+      }),
+      this.prisma.activityLog.findMany({
+        where: { userId, loggedAt: { gte: weekAgo } },
+        orderBy: { loggedAt: 'desc' },
+        take: 10,
+      }),
+      this.prisma.habit.findMany({ where: { userId, isActive: true } }),
+      this.prisma.habitLog.findMany({
+        where: { userId, loggedAt: dateMarker(todayDate) },
+      }),
+      // From Apple Health / Health Connect, if connected
+      this.prisma.healthDay.findMany({
+        where: {
+          userId,
+          day: {
+            gte: dateMarker(addDays(todayDate, -1)),
+            lte: dateMarker(todayDate),
           },
-        }),
-      ]);
+        },
+      }),
+      // The last 7 full days, for averages
+      this.prisma.foodLog.findMany({
+        where: { userId, loggedAt: { gte: weekAgo, lt: today } },
+        select: { loggedAt: true, calories: true, proteinG: true },
+      }),
+      this.prisma.coachMemory.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'asc' },
+        select: { text: true },
+      }),
+    ]);
 
     const todayCalories = todayFood.reduce((s, f) => s + f.calories, 0);
     const todayProtein = todayFood.reduce((s, f) => s + f.proteinG, 0);
@@ -129,9 +162,49 @@ export class AIService {
         : null,
     ].filter(Boolean);
 
+    // Averages over the days they logged, so unlogged days don't drag them down
+    const byDay = new Map<string, { calories: number; protein: number }>();
+    for (const f of weekFood) {
+      const d = localDateOf(f.loggedAt, offset);
+      const day = byDay.get(d) ?? { calories: 0, protein: 0 };
+      day.calories += f.calories;
+      day.protein += f.proteinG;
+      byDay.set(d, day);
+    }
+    const logged = [...byDay.values()];
+    const avg = (pick: (d: { calories: number; protein: number }) => number) =>
+      Math.round(logged.reduce((t, d) => t + pick(d), 0) / logged.length);
+    const weekLines = logged.length
+      ? [
+          `- Food logged on ${logged.length} of the last 7 days`,
+          `- On those days: ${avg((d) => d.calories)} kcal and ${avg((d) => d.protein)}g protein on average`,
+        ]
+      : ['- No food logged in the last 7 days'];
+
+    const checkIn = user
+      ? await this.adaptive.checkIn(user.supabaseId, offset).catch(() => null)
+      : null;
+    if (checkIn?.estimate) {
+      weekLines.push(
+        `- Estimated daily burn from their logs and weigh-ins: ${checkIn.estimate.tdee} kcal`,
+      );
+    }
+    if (checkIn?.suggestion) {
+      weekLines.push(
+        `- The app is suggesting they change their calorie target to ${checkIn.suggestion.suggested} kcal (they can accept it on the Stats tab)`,
+      );
+    }
+
+    const memoryBlock = memories.length
+      ? `\nWhat you know about them from earlier chats (use it naturally; don't list it back to them):\n${memories.map((m) => `- ${m.text}`).join('\n')}\n`
+      : '';
+
     return `User profile:
 ${profileLines.join('\n')}
-${healthLines.length ? `\nFrom their health app:\n${healthLines.join('\n')}\n` : ''}
+${memoryBlock}${healthLines.length ? `\nFrom their health app:\n${healthLines.join('\n')}\n` : ''}
+Last 7 days:
+${weekLines.join('\n')}
+
 Today's nutrition:
 - Calories: ${Math.round(todayCalories)} / ${user?.calorieGoal} kcal
 - Protein: ${Math.round(todayProtein)}g | Carbs: ${Math.round(todayCarbs)}g | Fat: ${Math.round(todayFat)}g
@@ -192,9 +265,16 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
     supabaseId: string,
     userMessage: string,
     offset: number,
-  ): AsyncGenerator<{ type: string; text?: string }> {
+  ): AsyncGenerator<{ type: string; text?: string; items?: string[] }> {
     const user = await this.resolveUser(supabaseId);
     await this.saveUserMessage(user.id, userMessage, offset);
+    // Note-taking runs alongside the reply; it never holds the reply up
+    const noting = mayHoldFacts(userMessage)
+      ? this.updateMemories(user.id, userMessage).catch((err: Error) => {
+          this.logger.warn(`Coach memory update failed: ${err.message}`);
+          return [] as string[];
+        })
+      : Promise.resolve([] as string[]);
 
     const history = await this.prisma.aIMessage.findMany({
       where: { userId: user.id, content: { not: { startsWith: '[NUDGE]' } } },
@@ -224,6 +304,7 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
       stream: true,
     });
 
+    let finished = false;
     for await (const event of stream) {
       if (event.type === 'response.output_text.delta') {
         fullResponse += event.delta;
@@ -232,7 +313,7 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
         event.type === 'response.completed' ||
         event.type === 'response.incomplete'
       ) {
-        yield { type: 'done' };
+        finished = true;
       } else if (event.type === 'response.failed') {
         throw new Error(event.response.error?.message ?? 'AI response failed');
       } else if (event.type === 'error') {
@@ -245,6 +326,109 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
         data: { userId: user.id, role: 'assistant', content: fullResponse },
       });
     }
+
+    // Tell the app what was noted, if the notes are ready by now
+    const noted = await Promise.race([
+      noting,
+      new Promise<string[]>((r) => setTimeout(() => r([]), MEMORY_WAIT_MS)),
+    ]);
+    if (noted.length) yield { type: 'remembered', items: noted };
+    if (finished) yield { type: 'done' };
+  }
+
+  /**
+   * Asks the model whether the message holds anything worth remembering,
+   * and applies its answer. Returns the notes added.
+   */
+  async updateMemories(userId: string, message: string): Promise<string[]> {
+    const existing = await this.prisma.coachMemory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+    const response = await this.openai.responses.create({
+      model: this.model,
+      instructions: memoryInstructions(existing),
+      input: message,
+      max_output_tokens: 2000,
+      reasoning: { effort: 'low' },
+      store: false,
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'coach_notes',
+          strict: true,
+          schema: MEMORY_SCHEMA as unknown as Record<string, unknown>,
+        },
+      },
+    });
+    const update = JSON.parse(response.output_text) as MemoryUpdate;
+    const plan = planMemoryUpdate(existing, {
+      add: Array.isArray(update.add) ? update.add.map(String) : [],
+      remove: Array.isArray(update.remove) ? update.remove.map(String) : [],
+    });
+    if (!plan.add.length && !plan.remove.length) return [];
+    await this.prisma.$transaction([
+      this.prisma.coachMemory.deleteMany({
+        where: { userId, id: { in: plan.remove } },
+      }),
+      this.prisma.coachMemory.createMany({
+        data: plan.add.map((text) => ({ userId, text, source: 'chat' })),
+      }),
+    ]);
+    return plan.add;
+  }
+
+  async listMemories(supabaseId: string) {
+    const user = await this.resolveUser(supabaseId);
+    return this.prisma.coachMemory.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, text: true, source: true, createdAt: true },
+    });
+  }
+
+  /** A note the user writes themselves; these are never dropped automatically. */
+  async addMemory(supabaseId: string, text: string) {
+    const user = await this.resolveUser(supabaseId);
+    const existing = await this.prisma.coachMemory.findMany({
+      where: { userId: user.id },
+    });
+    const plan = planMemoryUpdate(existing, { add: [text], remove: [] });
+    if (!plan.add.length) {
+      throw new HttpException(
+        existing.length >= MAX_MEMORIES
+          ? 'Your coach is full: delete a note first'
+          : 'Your coach already knows that',
+        HttpStatus.CONFLICT,
+      );
+    }
+    const [, created] = await this.prisma.$transaction([
+      this.prisma.coachMemory.deleteMany({
+        where: { userId: user.id, id: { in: plan.remove } },
+      }),
+      this.prisma.coachMemory.create({
+        data: { userId: user.id, text: cleanMemory(text), source: 'user' },
+        select: { id: true, text: true, source: true, createdAt: true },
+      }),
+    ]);
+    return created;
+  }
+
+  async deleteMemory(supabaseId: string, id: string) {
+    const user = await this.resolveUser(supabaseId);
+    const { count } = await this.prisma.coachMemory.deleteMany({
+      where: { id, userId: user.id },
+    });
+    if (!count) throw new NotFoundException('Note not found');
+    return { ok: true };
+  }
+
+  async clearMemories(supabaseId: string) {
+    const user = await this.resolveUser(supabaseId);
+    const { count } = await this.prisma.coachMemory.deleteMany({
+      where: { userId: user.id },
+    });
+    return { deleted: count };
   }
 
   async getMessages(supabaseId: string) {

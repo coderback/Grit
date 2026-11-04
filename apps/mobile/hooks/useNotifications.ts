@@ -10,7 +10,8 @@ export type NotificationType =
   | 'challenge_joined'
   | 'challenge_ended'
   | 'streak_at_risk'
-  | 'weekly_progress';
+  | 'weekly_progress'
+  | 'coach_checkin';
 
 export interface AppNotification {
   id: string;

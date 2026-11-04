@@ -18,6 +18,9 @@ export function notificationRoute(type: string | undefined, data: Record<string,
       return '/(tabs)/habits';
     case 'weekly_progress':
       return '/(tabs)/activity';
+    case 'coach_checkin':
+      // The screen the check-in is about
+      return data.screen === 'food' ? '/(tabs)/food' : data.screen === 'activity' || data.screen === 'stats' ? '/(tabs)/activity' : '/coach';
     default:
       return '/notifications';
   }

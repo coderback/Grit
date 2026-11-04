@@ -72,6 +72,7 @@ model User {
   followers         Follow[]               @relation("followers")
   challenges        ChallengeParticipant[]
   aiMessages        AIMessage[]
+  coachMemories     CoachMemory[]
   kudosGiven        Kudos[]
   workoutPlan       WorkoutPlan?
   blocking          Block[]                @relation("blocker")
@@ -265,6 +266,23 @@ model AIMessage {
   @@map("ai_messages")
 }
 
+// Lasting facts the coach has learned about the user (an injury, foods they
+// avoid, when they train), from chats or added by hand. Shown and editable
+// in settings.
+model CoachMemory {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  // chat | user
+  source    String   @default("chat")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("coach_memories")
+}
+
 // The coach-generated weekly plan; one per user, replaced when regenerated
 model WorkoutPlan {
   id          String @id @default(cuid())
@@ -306,7 +324,7 @@ model Notification {
   id        String    @id @default(cuid())
   userId    String // who it's for
   // follow | follow_request | follow_accepted | kudos | challenge_joined |
-  // challenge_ended | streak_at_risk | weekly_progress
+  // challenge_ended | streak_at_risk | weekly_progress | coach_checkin
   type      String
   actorId   String? // who caused it, for social alerts
   title     String

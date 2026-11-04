@@ -5,3 +5,9 @@ export class SendMessageDto {
   @Length(1, 2000)
   message: string;
 }
+
+export class AddMemoryDto {
+  @IsString()
+  @Length(3, 160)
+  text: string;
+}
