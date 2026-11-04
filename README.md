@@ -41,13 +41,18 @@ grit/
 | `/(tabs)/` | Home — daily calorie budget, macro progress, today's workout |
 | `/(tabs)/food` | Food log — any day, meal sections, edit entries, barcode scanner |
 | `/(tabs)/habits` | Habit tracker — check-ins, undo, 30-day history and back-fill |
-| `/(tabs)/activity` | Stats — any week, workouts list with edit/delete, trends |
-| `/(tabs)/social` | Challenges feed + leaderboard |
+| `/(tabs)/activity` | Stats — 7D/30D/3M trends for calories, protein, activity and weight, then any week's workouts |
+| `/(tabs)/social` | Feed, challenges and leaderboard |
 | `/(tabs)/profile` | User profile + settings |
 | `/settings/goals` | Goals & Targets — goal, body stats, calories, macros, earnback/rollover |
 | `/settings/notifications` | Daily reminders and alert preferences |
 | `/settings/account` | Units, password reset, log out, delete account |
+| `/settings/privacy` | Private account and blocked people |
 | `/plan` | Weekly workout plan built by the coach |
+| `/friends` | Search people, follow requests, followers and following |
+| `/profile/[id]` | Someone's profile: follow state, this week's stats and recent activity (if allowed) |
+| `/connections` | A user's followers or following |
+| `/notifications` | Inbox of follows, requests, kudos, challenge results and progress alerts |
 | `/reset-password` | Opened from the password reset email |
 | `/coach` | AI coach chat (GPT-6 Luna via Azure AI Foundry) |
 | `/barcode-scanner` | Camera barcode scanner (full-screen modal) |
@@ -100,17 +105,19 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 | Module | Routes |
 |---|---|
 | `auth` | Guard that verifies Supabase access tokens, `POST /auth/sync` |
-| `users` | `GET/PUT/DELETE /users/me` (delete removes the account and its Supabase sign-in), `GET /users/:id` |
-| `food` | `GET/POST /food-logs` (with the day's calorie budget and macro targets), `GET /food-logs/week?date=`, `PATCH/DELETE /food-logs/:id`, Open Food Facts search + barcode proxy |
+| `users` | `GET/PUT/DELETE /users/me` (delete removes the account and its Supabase sign-in) |
+| `food` | `GET/POST /food-logs` (with the day's calorie budget and macro targets), `GET /food-logs/week?date=`, `PATCH/DELETE /food-logs/:id`, Open Food Facts search + barcode proxy, `GET /food/recent`, `GET/POST /food/favorites`, `DELETE /food/favorites/:id` |
 | `activity` | `GET/POST /activity-logs`, `GET /activity-logs/week?date=`, `PATCH/DELETE /activity-logs/:id`, `POST /activity-logs/:id/kudos` |
 | `habits` | `GET/POST/PUT/DELETE /habits`, `POST/DELETE /habits/:id/log?date=`, `GET /habits/streaks`, `GET /habits/:id/streak` |
 | `workout-plan` | `GET /workout-plan`, `POST /workout-plan/generate`, `PUT /workout-plan/days/:day` |
-| `challenges` | `GET/POST /challenges`, join by invite code |
-| `social` | Feed, follow/unfollow, kudos |
+| `challenges` | `GET/POST /challenges` (steps, active minutes or workouts; progress from logged workouts), `GET/DELETE /challenges/:id`, `POST /challenges/join/:code`, `DELETE /challenges/:id/participants/me` |
+| `social` | `GET /feed`, `GET /leaderboard/weekly`, `GET /search/users?q=`, `POST/DELETE /follow/:userId`, `GET /follow-requests`, `POST /follow-requests/:userId/accept`, `DELETE /follow-requests/:userId`, `DELETE /followers/:userId`, `GET /users/:id/{profile,followers,following}`, `GET/POST/DELETE /blocks` |
+| `progress` | `GET/POST /weight`, `DELETE /weight/:id`, `GET /stats/trends?days=7\|30\|90` |
 | `ai` | `POST /ai/message` (streamed), `GET /ai/messages`, `GET /ai/nudge` — AI coach |
-| `notifications` | Push token registration (sending isn't implemented yet) |
+| `notifications` | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/read`, `POST/DELETE /notifications/register` (one row per phone), Expo push sending |
+| `alerts` | Hourly job: challenge results, 8pm streak-at-risk and Sunday 6pm weekly check-in, in each user's local time |
 
-**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · Follow · WorkoutPlan
+**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · Follow · Block · WorkoutPlan · PushDevice · Notification · WeightLog · FavoriteFood
 
 See [`docs/ROADMAP.md`](./docs/ROADMAP.md) for what's done and what's next.
 
@@ -132,6 +139,9 @@ npm run backend
 
 # Or run directly from the backend package
 cd packages/backend && npm run start:dev
+
+# Unit tests, and database tests against DATABASE_URL (a throwaway Postgres)
+cd packages/backend && npm test && npm run test:db
 ```
 
 ### Environment
@@ -140,7 +150,9 @@ cd packages/backend && npm run start:dev
 cp packages/backend/.env.example packages/backend/.env
 ```
 
-See [`packages/backend/.env.example`](./packages/backend/.env.example). The app refuses to boot without `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY`. `SUPABASE_SERVICE_KEY` and the Upstash vars are not read by the code yet.
+See [`packages/backend/.env.example`](./packages/backend/.env.example). The app refuses to boot without `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY`. `SUPABASE_SERVICE_KEY` and the Upstash vars are not read by the code yet. Optional: `EXPO_ACCESS_TOKEN` (if push security is on for the Expo project) and `PUSH_DISABLED=true` (don't send pushes, e.g. locally).
+
+Profile photos go to a public Supabase Storage bucket, `avatars`, which the privacy migration creates along with rules that let each user write only to their own folder.
 
 ---
 

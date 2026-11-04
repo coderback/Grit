@@ -1,7 +1,7 @@
 # GRIT roadmap
 
 Where GRIT is heading, what's done, and the product decisions behind it.
-Last updated October 2026.
+Last updated November 2026.
 
 ## Decisions
 
@@ -38,24 +38,32 @@ display rounding.
   for check-ins and deletes, and toasts when an action fails.
 - Habit streaks load in one request instead of one per habit.
 
-## Phase 2 — Engagement
+## Phase 2 — Engagement ✅
 
-- **Push notifications:** device registration (multiple devices per user),
-  scheduled jobs for streak-at-risk, weekly progress and challenge-ended
-  alerts, kudos and follow alerts, and an in-app notification inbox. The
-  progress and streak preferences saved in Phase 1 take effect here.
-- **Weight tracking:** weight log, chart and progress to goal weight.
-- **Stats:** 7-day / 30-day / 3-month ranges and Calories / Protein /
-  Activity / Weight tabs.
-- **Challenges:** progress from logged workouts, more challenge types,
-  proper endings, leave and delete.
-- **Social:** user search, followers list, friends-only privacy with
-  follow requests and blocking, profile photos.
-- **Recent and favourite foods** for quick re-logging.
+- **Friends-only social:** accounts are private by default; follows of a
+  private account are requests the owner accepts or declines. Only
+  approved followers see activity, weekly stats and follower lists, or
+  can give kudos. Search by name or @username, remove followers, block
+  (removes follows both ways and hides each from the other), profile
+  photos.
+- **Notifications:** an inbox for follows, requests, kudos, challenge
+  joins and results, streak-at-risk (8pm) and the weekly check-in
+  (Sundays 6pm), at each user's local time, with Expo push to every
+  signed-in phone. "Only when off track" applies to the weekly check-in;
+  friends' activity pushes can be turned off.
+- **Weight tracking:** daily weigh-ins, progress to the goal weight.
+- **Stats:** 7-day / 30-day / 3-month trends for calories, protein,
+  activity and weight.
+- **Challenges:** active minutes, workouts or steps, counted from logged
+  workouts (walks, runs and hikes take a step count); results and places
+  when they end; leave and delete.
+- **Recent and favourite foods** for logging again in a tap.
 
 ## Phase 3 — Production readiness
 
-- **Backend:** health check, rate limiting, graceful shutdown, environment
+- **Backend:** drop the old `users.pushToken` column once no server
+  older than Phase 2 is running (kept so the live API doesn't break), a
+  real-device check of push alerts, health check, rate limiting, graceful shutdown, environment
   validation at boot, structured logging and an exception filter, local JWT
   verification instead of a Supabase call per request, missing indexes,
   limits on unbounded lists.
@@ -69,6 +77,8 @@ display rounding.
 - Google and Apple sign-in: enable the providers in Supabase and use the
   Apple Developer account.
 - HealthKit / Health Connect: a development build tested on real devices.
-- Push notifications: an EAS project ID. Crash reporting: a Sentry DSN.
+- Push notifications: an EAS project ID (the app needs one to get push
+  tokens), and an `EXPO_ACCESS_TOKEN` on the server if push security is
+  turned on. Crash reporting: a Sentry DSN.
 - Password reset: add `grit://reset-password` (and the web app's
   `/reset-password` URL) to Supabase Auth's redirect URLs.
