@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Linking,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -142,6 +143,7 @@ const SETTINGS_ROWS = [
   { icon: '🏋️', color: 'teal' as const, label: 'Workout Plan', sub: 'Your weekly plan from the coach', href: '/plan' as const },
   { icon: '👥', color: 'orange' as const, label: 'Friends', sub: 'Find people, requests and followers', href: '/friends' as const },
   { icon: '🔒', color: 'blue' as const, label: 'Privacy', sub: 'Private account and blocked people', href: '/settings/privacy' as const },
+  { icon: '❤️', color: 'error' as const, label: Platform.OS === 'android' ? 'Health Connect' : Platform.OS === 'ios' ? 'Apple Health' : 'Health data', sub: 'Sync workouts, steps, sleep and weight', href: '/settings/health' as const },
   { icon: '🔔', color: 'blue' as const, label: 'Notifications', sub: 'Reminders and alerts', href: '/settings/notifications' as const },
   { icon: '👤', color: 'muted' as const, label: 'Account', sub: 'Appearance, units, password, delete account', href: '/settings/account' as const },
   { icon: '📊', color: 'teal' as const, label: 'My Progress', sub: 'Weekly stats', href: '/(tabs)/activity' as const },

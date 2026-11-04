@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useHealthSync } from '@/hooks/useHealthSync';
 import { Toast } from '@/components/ui/Toast';
 import { Colors, applyColorScheme } from '@/constants/colors';
 import { useThemeStore } from '@/stores/themeStore';
@@ -40,6 +41,8 @@ export default function RootLayout() {
   useEffect(() => setCrashScreen(pathname), [pathname]);
   // Register for push only once signed in; the backend rejects anonymous calls
   usePushNotifications(!!session);
+  // Pulls new workouts, steps, sleep and weigh-ins from the health app, if connected
+  useHealthSync(!!session);
 
   // Theme: the saved choice, or the phone's setting. Colors answers from the
   // current palette, so set it before anything below renders.
@@ -158,6 +161,7 @@ export default function RootLayout() {
           <Stack.Screen name="friends" />
           <Stack.Screen name="connections" />
           <Stack.Screen name="settings/privacy" />
+          <Stack.Screen name="settings/health" />
           <Stack.Screen name="notifications" />
         </Stack>
         <Toast />

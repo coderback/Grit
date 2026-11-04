@@ -46,7 +46,7 @@ export class AIService {
     const today = dayRange(todayDate, offset).start;
     const weekAgo = dayRange(addDays(todayDate, -7), offset).start;
 
-    const [user, todayFood, weekActivity, habits, habitLogs] =
+    const [user, todayFood, weekActivity, habits, habitLogs, healthDays] =
       await Promise.all([
         this.prisma.user.findUnique({ where: { id: userId } }),
         this.prisma.foodLog.findMany({
@@ -60,6 +60,16 @@ export class AIService {
         this.prisma.habit.findMany({ where: { userId, isActive: true } }),
         this.prisma.habitLog.findMany({
           where: { userId, loggedAt: dateMarker(todayDate) },
+        }),
+        // From Apple Health / Health Connect, if connected
+        this.prisma.healthDay.findMany({
+          where: {
+            userId,
+            day: {
+              gte: dateMarker(addDays(todayDate, -1)),
+              lte: dateMarker(todayDate),
+            },
+          },
         }),
       ]);
 
@@ -109,9 +119,19 @@ export class AIService {
       `- Active-minutes goal: ${user?.activeMinutesGoal ?? 60} min/day`,
     ].filter(Boolean);
 
+    const todayHealth = healthDays.find(
+      (d) => d.day.toISOString().slice(0, 10) === todayDate,
+    );
+    const healthLines = [
+      todayHealth?.steps != null ? `- Steps today: ${todayHealth.steps}` : null,
+      todayHealth?.sleepMinutes != null
+        ? `- Sleep last night: ${Math.floor(todayHealth.sleepMinutes / 60)}h ${todayHealth.sleepMinutes % 60}m`
+        : null,
+    ].filter(Boolean);
+
     return `User profile:
 ${profileLines.join('\n')}
-
+${healthLines.length ? `\nFrom their health app:\n${healthLines.join('\n')}\n` : ''}
 Today's nutrition:
 - Calories: ${Math.round(todayCalories)} / ${user?.calorieGoal} kcal
 - Protein: ${Math.round(todayProtein)}g | Carbs: ${Math.round(todayCarbs)}g | Fat: ${Math.round(todayFat)}g

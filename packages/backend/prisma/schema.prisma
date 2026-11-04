@@ -71,6 +71,7 @@ model User {
   pushDevices  PushDevice[]
   weightLogs   WeightLog[]
   favoriteFoods FavoriteFood[]
+  healthDays    HealthDay[]
   notifications     Notification[] @relation("recipient")
   notificationsSent Notification[] @relation("actor")
 
@@ -139,10 +140,13 @@ model ActivityLog {
   source         String   @default("manual")
   loggedAt       DateTime @default(now())
   kudosCount     Int      @default(0)
+  // The health app's ID for an imported workout, so importing again updates it
+  externalId     String?
 
   user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   kudos Kudos[]
 
+  @@unique([userId, externalId])
   @@index([userId, loggedAt])
   @@map("activity_logs")
 }
@@ -349,4 +353,23 @@ model FavoriteFood {
 
   @@unique([userId, key])
   @@map("favorite_foods")
+}
+
+// Daily totals read from Apple Health / Health Connect. Steps count toward
+// step challenges; sleep is context for the coach.
+model HealthDay {
+  id           String   @id @default(cuid())
+  userId       String
+  // The local day, stored as midnight UTC of that date
+  day          DateTime
+  steps        Int?
+  // Asleep time for the night ending on this day
+  sleepMinutes Int?
+  source       String // healthkit | health_connect
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@map("health_days")
 }

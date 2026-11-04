@@ -57,7 +57,11 @@
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_WEIGHT",
+        "android.permission.health.READ_SLEEP"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
@@ -96,7 +100,26 @@
         }
       ],
       "expo-apple-authentication",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "GRIT reads your workouts, steps, sleep and weight so they count toward your goals and challenges, and so your coach can see how you're recovering.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ],
+      "react-native-health-connect",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
