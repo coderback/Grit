@@ -1,19 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { NormalizedFood } from '@/hooks/useFoodLog';
+import type { QuickFood } from '@/lib/quickFoods';
 
-/** A saved portion: the amounts are for the whole portion, not per 100 g. */
-export interface QuickFood {
-  name: string;
-  brand: string | null;
-  barcode: string | null;
-  calories: number;
-  proteinG: number;
-  carbsG: number;
-  fatG: number;
-  servingQty: number;
-  servingUnit: string;
-}
+export type { QuickFood } from '@/lib/quickFoods';
+export { foodKey, portionAsFood, portionLabel } from '@/lib/quickFoods';
 
 export interface RecentFood extends QuickFood {
   key: string;
@@ -25,36 +15,6 @@ export interface RecentFood extends QuickFood {
 export interface FavoriteFood extends QuickFood {
   id: string;
   key: string;
-}
-
-/** Matches the server's: same name and brand, ignoring case and spacing. */
-export function foodKey(name: string, brand?: string | null) {
-  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
-  return `${norm(name)}|${norm(brand ?? '')}`;
-}
-
-/** A saved portion in the shape the log sheet takes. */
-export function portionAsFood(f: QuickFood): NormalizedFood {
-  return {
-    offId: '',
-    portion: true,
-    name: f.name,
-    brand: f.brand,
-    barcode: f.barcode,
-    calories: f.calories,
-    proteinG: f.proteinG,
-    carbsG: f.carbsG,
-    fatG: f.fatG,
-    servingQty: f.servingQty,
-    servingUnit: f.servingUnit,
-    imageUrl: null,
-  };
-}
-
-/** "150 g" or "2 servings" */
-export function portionLabel(f: Pick<QuickFood, 'servingQty' | 'servingUnit'>) {
-  const qty = Math.round(f.servingQty * 10) / 10;
-  return f.servingUnit === 'serving' ? `${qty} ${qty === 1 ? 'serving' : 'servings'}` : `${qty} ${f.servingUnit}`;
 }
 
 export function useRecentFoods() {

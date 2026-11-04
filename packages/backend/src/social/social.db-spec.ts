@@ -244,4 +244,123 @@ describe('SocialService (database)', () => {
     await social.block(ben.supabaseId, ana.id);
     expect(await inbox(ben.id)).toHaveLength(0);
   });
+
+  it('pages the feed without skipping or repeating items that share a time', async () => {
+    const viewer = await db.user();
+    const author = await db.user({ isPrivate: false });
+    await social.follow(viewer.supabaseId, author.id);
+    const at = new Date(Date.now() - 3_600_000);
+    const habit = await db.prisma.habit.create({
+      data: { userId: author.id, name: 'Read' },
+    });
+    for (let i = 0; i < 8; i++) {
+      await db.prisma.activityLog.create({
+        data: {
+          userId: author.id,
+          activityType: 'yoga',
+          durationMin: 10,
+          loggedAt: at,
+        },
+      });
+      await db.prisma.foodLog.create({
+        data: {
+          userId: author.id,
+          name: `Snack ${i}`,
+          mealType: 'snack',
+          calories: 100,
+          loggedAt: at,
+        },
+      });
+    }
+    for (let i = 0; i < 4; i++) {
+      await db.prisma.habitLog.create({
+        data: {
+          habitId: habit.id,
+          userId: author.id,
+          loggedAt: new Date(Date.UTC(2026, 0, 1 + i)),
+          createdAt: at,
+        },
+      });
+    }
+    // Future-dated rows never show
+    await db.prisma.foodLog.create({
+      data: {
+        userId: author.id,
+        name: 'Tomorrow',
+        mealType: 'snack',
+        calories: 1,
+        loggedAt: new Date(Date.now() + 86_400_000),
+      },
+    });
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 10; page++) {
+      const items = await social.getFeed(viewer.supabaseId, cursor, 7);
+      if (items.length === 0) break;
+      seen.push(...items.map((i) => `${i.type}:${i.id}`));
+      cursor = items[items.length - 1].cursor;
+    }
+    expect(seen).toHaveLength(20);
+    expect(new Set(seen).size).toBe(20);
+  });
+
+  it('ranks the weekly leaderboard by active minutes, counting only this week so far', async () => {
+    const me = await db.user();
+    const fast = await db.user({ isPrivate: false });
+    const slow = await db.user({ isPrivate: false });
+    const stranger = await db.user({ isPrivate: false });
+    await social.follow(me.supabaseId, fast.id);
+    await social.follow(me.supabaseId, slow.id);
+    const now = Date.now();
+    await db.prisma.activityLog.createMany({
+      data: [
+        {
+          userId: fast.id,
+          activityType: 'running',
+          durationMin: 50,
+          steps: 6000,
+          loggedAt: new Date(now - 60_000),
+        },
+        {
+          userId: slow.id,
+          activityType: 'walking',
+          durationMin: 20,
+          loggedAt: new Date(now - 60_000),
+        },
+        {
+          userId: me.id,
+          activityType: 'yoga',
+          durationMin: 30,
+          loggedAt: new Date(now - 60_000),
+        },
+        // Not counted: future, last month, and someone I don't follow
+        {
+          userId: slow.id,
+          activityType: 'walking',
+          durationMin: 500,
+          loggedAt: new Date(now + 3_600_000),
+        },
+        {
+          userId: slow.id,
+          activityType: 'walking',
+          durationMin: 500,
+          loggedAt: new Date(now - 30 * 86_400_000),
+        },
+        {
+          userId: stranger.id,
+          activityType: 'running',
+          durationMin: 999,
+          loggedAt: new Date(now - 60_000),
+        },
+      ],
+    });
+    const board = await social.getWeeklyLeaderboard(me.supabaseId, 0);
+    expect(board.map((e) => [e.user.id, e.activeMinutes, e.isMe])).toEqual([
+      [fast.id, 50, false],
+      [me.id, 30, true],
+      [slow.id, 20, false],
+    ]);
+    expect(board[0].steps).toBe(6000);
+  });
 });

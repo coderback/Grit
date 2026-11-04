@@ -15,8 +15,7 @@
  */
 
 import { useCallback } from 'react';
-import { Platform } from 'react-native';
-import { api } from '@/lib/api';
+// The real implementation also needs Platform (react-native) and api (@/lib/api)
 
 // ─── Bare-workflow implementation (uncomment after prebuild) ─────────────────
 // import AppleHealthKit, { HealthKitPermissions, HealthUnit } from 'react-native-health';

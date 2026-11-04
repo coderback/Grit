@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useFeed, useFollowRequests, useWeeklyLeaderboard } from '@/hooks/useSocialFeed';
 import { useChallenges, useJoinChallenge } from '@/hooks/useChallenges';
@@ -16,7 +16,6 @@ import { CreateChallengeSheet } from '@/components/social/CreateChallengeSheet';
 import { Colors } from '@/constants/colors';
 import { InboxBell } from '@/components/ui/InboxBell';
 import { hasEnded } from '@/lib/challenges';
-import { router } from 'expo-router';
 
 type Tab = 'feed' | 'challenges' | 'leaderboard';
 

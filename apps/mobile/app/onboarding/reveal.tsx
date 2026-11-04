@@ -14,13 +14,6 @@ function ProgressBar({ step, total }: { step: number; total: number }) {
   );
 }
 
-const GOAL_LABELS: Record<string, string> = {
-  lose_weight: 'Lose Weight',
-  build_muscle: 'Build Muscle',
-  maintain: 'Maintain',
-  recomp: 'Recomp',
-};
-
 export default function RevealScreen() {
   const store = useOnboardingStore();
 

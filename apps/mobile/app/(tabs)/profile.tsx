@@ -25,7 +25,7 @@ import { confirmAction, notify } from '../../lib/confirm';
 import Constants from 'expo-constants';
 import { Avatar } from '../../components/ui/Avatar';
 import { pickAndUploadAvatar, removeAvatarFile } from '../../lib/avatar';
-import { useHabits, useHabitSummary } from '../../hooks/useHabits';
+import { useHabitSummary } from '../../hooks/useHabits';
 import { useWeeklySummary } from '../../hooks/useActivityLog';
 
 type BackendUser = Me;
@@ -206,7 +206,6 @@ export default function ProfileScreen() {
     { label: 'Phase', value: isLoading ? '—' : labelCase(me?.primaryGoal).split(' ')[0], unit: '', color: Colors.teal },
   ];
 
-  const { data: habits } = useHabits();
   const { data: habitSummary } = useHabitSummary();
   const { refreshing, onRefresh } = usePullToRefresh([['me'], ['habits'], ['habit-streaks'], ['activity-week']]);
   const streak = habitSummary?.maxStreak ?? 0;
