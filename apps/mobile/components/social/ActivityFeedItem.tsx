@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { KudosButton } from './KudosButton';
 import { Colors } from '@/constants/colors';
 import type { FeedItem } from '@/hooks/useSocialFeed';
+import { Avatar } from '@/components/ui/Avatar';
 
 const ACTIVITY_LABELS: Record<string, string> = {
   running: '🏃 Running', cycling: '🚴 Cycling', walking: '🚶 Walking',
@@ -18,21 +19,6 @@ function timeAgo(dateStr: string): string {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
-}
-
-function Avatar({ name, url }: { name: string; url: string | null }) {
-  return (
-    <View style={{
-      width: 38, height: 38, borderRadius: 19,
-      backgroundColor: Colors.surface2,
-      alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1.5, borderColor: Colors.border,
-    }}>
-      <Text style={{ fontFamily: 'DMSans-Bold', color: Colors.orange, fontSize: 16 }}>
-        {name.charAt(0).toUpperCase()}
-      </Text>
-    </View>
-  );
 }
 
 function FeedContent({ item }: { item: FeedItem }) {
@@ -80,9 +66,11 @@ function FeedContent({ item }: { item: FeedItem }) {
 
 interface ActivityFeedItemProps {
   item: FeedItem;
+  /** Off for your own activity, which you can't give kudos to */
+  showKudos?: boolean;
 }
 
-export function ActivityFeedItem({ item }: ActivityFeedItemProps) {
+export function ActivityFeedItem({ item, showKudos = true }: ActivityFeedItemProps) {
   return (
     <View style={{
       backgroundColor: Colors.surface,
@@ -94,7 +82,7 @@ export function ActivityFeedItem({ item }: ActivityFeedItemProps) {
     }}>
       <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
         {/* Avatar */}
-        <Pressable onPress={() => router.push(`/profile/${item.user.id}` as never)}>
+        <Pressable onPress={() => router.push(`/profile/${item.user.id}` as never)} accessibilityRole="button" accessibilityLabel={`${item.user.displayName}'s profile`}>
           <Avatar name={item.user.displayName} url={item.user.avatarUrl} />
         </Pressable>
 
@@ -108,7 +96,7 @@ export function ActivityFeedItem({ item }: ActivityFeedItemProps) {
       </View>
 
       {/* Kudos — only on activity logs */}
-      {item.type === 'activity_log' && (
+      {item.type === 'activity_log' && showKudos && (
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
           <KudosButton
             logId={item.id}

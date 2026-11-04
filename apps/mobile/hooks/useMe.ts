@@ -30,6 +30,10 @@ export interface Me {
   notifProgress: boolean;
   notifStreak: boolean;
   notifOffTrackOnly: boolean;
+  /** Push alerts for follows, requests, kudos and challenges */
+  notifSocial: boolean;
+  /** Followers need approval; only they see your activity */
+  isPrivate: boolean;
 }
 
 /** Fields the signed-in user can change with PUT /users/me. */

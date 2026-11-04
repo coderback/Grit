@@ -54,6 +54,13 @@
           "color": "#FF5C2B",
           "defaultChannel": "default"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "GRIT uses your photos so you can choose a profile picture.",
+          "cameraPermission": false
+        }
       ]
     ],
     "extra": {

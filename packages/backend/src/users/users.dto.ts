@@ -10,6 +10,7 @@ import {
   IsUrl,
   Length,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -60,9 +61,12 @@ export class UpdateUserDto {
   @Length(1, 50)
   displayName?: string;
 
+  // A photo in the app's avatars storage bucket (checked in the service), or
+  // null to remove it
   @IsOptional()
   @IsUrl({ protocols: ['https'], require_protocol: true })
-  avatarUrl?: string;
+  @MaxLength(500)
+  avatarUrl?: string | null;
 
   @IsOptional()
   @IsInt()
@@ -171,6 +175,14 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   notifOffTrackOnly?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notifSocial?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isPrivate?: boolean;
 }
 
 export class SyncUserDto {

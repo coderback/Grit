@@ -8,6 +8,8 @@ import Svg, {
   Circle, Defs, LinearGradient, Stop, Line, Rect, Path,
 } from 'react-native-svg';
 import { NudgeCard } from '@/components/coach/NudgeCard';
+import { InboxBell } from '@/components/ui/InboxBell';
+import { Avatar } from '@/components/ui/Avatar';
 import { useFoodLogsForDate } from '@/hooks/useFoodLog';
 import { useWeeklySummary } from '@/hooks/useActivityLog';
 import { useHabits, useHabitSummary } from '@/hooks/useHabits';
@@ -268,18 +270,28 @@ export default function HomeScreen() {
               {me?.displayName ?? '…'} 👊
             </Text>
           </View>
-          <Pressable
-            onPress={() => router.push('/(tabs)/profile')}
-            style={({ pressed }) => ({
-              width: 40, height: 40, borderRadius: 20,
-              backgroundColor: `${Colors.orange}20`,
-              borderWidth: 1.5, borderColor: `${Colors.orange}40`,
-              alignItems: 'center', justifyContent: 'center',
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Text style={{ fontSize: 18 }}>👤</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <InboxBell />
+            <Pressable
+              onPress={() => router.push('/(tabs)/profile')}
+              accessibilityRole="button"
+              accessibilityLabel="Profile"
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+            >
+              {me?.avatarUrl ? (
+                <Avatar name={me.displayName} url={me.avatarUrl} size={40} ring={`${Colors.orange}40`} />
+              ) : (
+                <View style={{
+                  width: 40, height: 40, borderRadius: 20,
+                  backgroundColor: `${Colors.orange}20`,
+                  borderWidth: 1.5, borderColor: `${Colors.orange}40`,
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Text style={{ fontSize: 18 }}>👤</Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         {/* AI Nudge */}

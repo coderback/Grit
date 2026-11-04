@@ -13,6 +13,7 @@ import { useMe } from '@/hooks/useMe';
 import { ErrorNotice } from '@/components/ui/QueryStatus';
 import { ScreenHeader } from '@/components/settings/SettingsUI';
 import { Colors } from '@/constants/colors';
+import { Avatar } from '@/components/ui/Avatar';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -166,15 +167,7 @@ export default function ChallengeDetailScreen() {
               <Text style={{ fontSize: 18, width: 28, textAlign: 'center' }}>
                 {i < 3 ? MEDALS[i] : `${i + 1}`}
               </Text>
-              <View style={{
-                width: 34, height: 34, borderRadius: 17,
-                backgroundColor: Colors.surface2,
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 14 }}>
-                  {p.user.displayName.charAt(0).toUpperCase()}
-                </Text>
-              </View>
+              <Avatar name={p.user.displayName} url={p.user.avatarUrl} size={34} />
               <Text style={{
                 flex: 1,
                 color: p.userId === me?.id ? Colors.orange : Colors.text,

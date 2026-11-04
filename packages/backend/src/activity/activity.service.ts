@@ -13,6 +13,8 @@ import {
   weekStart,
 } from '../common/day';
 import { ACTIVITY_TYPES, MET } from './activity.constants';
+import { PrivacyService } from '../social/privacy.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import type {
   CreateActivityLogDto,
   UpdateActivityLogDto,
@@ -20,12 +22,16 @@ import type {
 
 @Injectable()
 export class ActivityService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private privacy: PrivacyService,
+    private notifications: NotificationsService,
+  ) {}
 
   private async resolveUser(supabaseId: string) {
     const user = await this.prisma.user.findUnique({
       where: { supabaseId },
-      select: { id: true, weightKg: true },
+      select: { id: true, weightKg: true, displayName: true },
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
@@ -169,7 +175,10 @@ export class ActivityService {
     const log = await this.prisma.activityLog.findUnique({
       where: { id: logId },
     });
-    if (!log) throw new NotFoundException('Activity log not found');
+    // Only people who can see the workout can cheer it
+    if (!log || !(await this.privacy.canView(actor.id, log.userId))) {
+      throw new NotFoundException('Activity log not found');
+    }
     if (log.userId === actor.id) {
       throw new BadRequestException(
         "You can't give kudos to your own activity",
@@ -186,6 +195,15 @@ export class ActivityService {
           data: { kudosCount: { increment: 1 } },
         }),
       ]);
+      const label = log.activityType.replace(/_/g, ' ');
+      this.notifications.notifyQuietly(log.userId, {
+        type: 'kudos',
+        actorId: actor.id,
+        title: 'Kudos 👏',
+        body: `${actor.displayName} gave you kudos for your ${log.durationMin} min ${label}`,
+        data: { userId: actor.id, activityLogId: log.id },
+        dedupeKey: `kudos:${log.id}:${actor.id}`,
+      });
       return updated;
     } catch (err) {
       if (
