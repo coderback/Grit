@@ -163,7 +163,7 @@ export default function LoginScreen() {
               New here?
             </Text>
             <Link href="/onboarding" asChild>
-              <Pressable>
+              <Pressable accessibilityRole="button">
                 <Text
                   style={{
                     color: Colors.orange,

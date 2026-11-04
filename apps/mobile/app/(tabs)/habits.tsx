@@ -166,7 +166,7 @@ export default function HabitsScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6 }}>
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>Habits</Text>
           {canAddMore && (
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setShowCreate(true);
@@ -233,7 +233,7 @@ export default function HabitsScreen() {
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14, textAlign: 'center' }}>
               Start tiny — one habit beats zero.
             </Text>
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={() => setShowCreate(true)}
               style={{ backgroundColor: Colors.orange, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 12, marginTop: 4 }}
             >

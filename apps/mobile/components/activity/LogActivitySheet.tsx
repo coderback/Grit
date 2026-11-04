@@ -124,7 +124,7 @@ export function LogActivitySheet({ onClose, editing, date }: LogActivitySheetPro
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {(types ?? Object.keys(ACTIVITY_LABELS)).map((type) => (
-              <Pressable
+              <Pressable accessibilityRole="button" aria-selected={selectedType === type}
                 key={type}
                 onPress={() => setSelectedType(type)}
                 style={{
@@ -155,7 +155,7 @@ export function LogActivitySheet({ onClose, editing, date }: LogActivitySheetPro
           </Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {[15, 30, 45, 60].map((min) => (
-              <Pressable
+              <Pressable accessibilityRole="button" aria-selected={duration === String(min)}
                 key={min}
                 onPress={() => setDuration(String(min))}
                 style={{

@@ -69,7 +69,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           const color = isFocused ? Colors.orange : Colors.muted;
 
           return (
-            <Pressable
+            <Pressable accessibilityRole="tab" aria-selected={isFocused} accessibilityLabel={label}
               key={route.key}
               onPress={() => {
                 const event = navigation.emit({

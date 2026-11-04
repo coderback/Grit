@@ -20,7 +20,7 @@ export function FoodSearchBar({ onSelect }: FoodSearchBarProps) {
 
   const renderItem = useCallback(
     ({ item }: { item: NormalizedFood }) => (
-      <Pressable
+      <Pressable accessibilityRole="button"
         onPress={() => {
           onSelect(item);
           setQuery('');
@@ -106,7 +106,7 @@ export function FoodSearchBar({ onSelect }: FoodSearchBarProps) {
         />
         {isLoading && <ActivityIndicator size="small" color={Colors.muted} />}
         {query.length > 0 && !isLoading && (
-          <Pressable onPress={() => setQuery('')} hitSlop={8}>
+          <Pressable accessibilityLabel="Clear search" accessibilityRole="button" onPress={() => setQuery('')} hitSlop={8}>
             <Text style={{ color: Colors.muted, fontSize: 16 }}>×</Text>
           </Pressable>
         )}
@@ -145,7 +145,7 @@ export function FoodSearchBar({ onSelect }: FoodSearchBarProps) {
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular' }}>
             No results for "{query}"
           </Text>
-          <Pressable onPress={() => onSelect({ offId: '', name: query, brand: null, barcode: null, calories: 0, proteinG: 0, carbsG: 0, fatG: 0, servingQty: 1, servingUnit: 'serving', imageUrl: null })}>
+          <Pressable accessibilityRole="button" onPress={() => onSelect({ offId: '', name: query, brand: null, barcode: null, calories: 0, proteinG: 0, carbsG: 0, fatG: 0, servingQty: 1, servingUnit: 'serving', imageUrl: null })}>
             <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold' }}>
               Log "{query}" manually →
             </Text>

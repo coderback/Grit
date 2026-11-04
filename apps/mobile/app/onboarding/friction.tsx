@@ -42,7 +42,7 @@ export default function FrictionScreen() {
           {OPTIONS.map((o) => {
             const selected = friction === o.value;
             return (
-              <Pressable
+              <Pressable accessibilityRole="button" aria-selected={selected}
                 key={o.value}
                 onPress={() => set({ friction: o.value })}
                 style={{
@@ -74,7 +74,7 @@ export default function FrictionScreen() {
           })}
         </View>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={() => { if (friction) router.push('/onboarding/nutrition'); }}
           disabled={!friction}
           style={({ pressed }) => ({
@@ -91,7 +91,7 @@ export default function FrictionScreen() {
           </Text>
         </Pressable>
 
-        <Pressable onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>← Back</Text>
         </Pressable>
       </ScrollView>

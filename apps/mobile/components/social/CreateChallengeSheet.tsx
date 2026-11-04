@@ -106,7 +106,7 @@ export function CreateChallengeSheet({ onClose }: CreateChallengeSheetProps) {
           </Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {DURATIONS.map((d) => (
-              <Pressable
+              <Pressable accessibilityRole="button" aria-selected={duration === d}
                 key={d}
                 onPress={() => setDuration(d)}
                 style={{

@@ -122,7 +122,7 @@ export default function ChallengeDetailScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: 60 }}>
         {/* Back */}
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={12}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 15 }}>
             ← Back
           </Text>
@@ -223,7 +223,7 @@ export default function ChallengeDetailScreen() {
 
         {/* Share invite */}
         {!ended && (
-          <Pressable
+          <Pressable accessibilityRole="button"
             onPress={shareInvite}
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,

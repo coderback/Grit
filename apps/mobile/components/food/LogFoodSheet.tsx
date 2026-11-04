@@ -264,7 +264,7 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
             </Text>
             <View style={{ flexDirection: 'row', gap: 6 }}>
               {MEAL_TYPES.map((m) => (
-                <Pressable
+                <Pressable accessibilityRole="button" aria-selected={mealType === m}
                   key={m}
                   onPress={() => setMealType(m)}
                   style={{

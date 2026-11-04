@@ -48,7 +48,7 @@ export default function GoalScreen() {
 
         {/* Header nav */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable
+          <Pressable accessibilityRole="button" accessibilityLabel="Back"
             onPress={() => router.back()}
             style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}
           >
@@ -71,7 +71,7 @@ export default function GoalScreen() {
           {GOALS.map(g => {
             const selected = primaryGoal === g.value;
             return (
-              <Pressable
+              <Pressable accessibilityRole="button" aria-selected={selected}
                 key={g.value}
                 onPress={() => set({ primaryGoal: g.value })}
                 style={{
@@ -146,7 +146,7 @@ export default function GoalScreen() {
           </View>
         )}
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={handleContinue}
           disabled={!isValid}
           style={({ pressed }) => ({

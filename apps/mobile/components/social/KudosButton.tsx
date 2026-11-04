@@ -45,7 +45,9 @@ export function KudosButton({ logId, initialCount, initialGiven }: KudosButtonPr
 
   return (
     <Animated.View style={animatedStyle}>
-      <Pressable
+      <Pressable accessibilityRole="button"
+        accessibilityLabel={given ? `Kudos given${count > 0 ? `, ${count} total` : ''}` : `Give kudos${count > 0 ? `, ${count} so far` : ''}`}
+        aria-pressed={given}
         onPress={handlePress}
         style={{
           flexDirection: 'row',

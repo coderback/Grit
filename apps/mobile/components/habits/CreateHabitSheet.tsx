@@ -75,7 +75,7 @@ export function CreateHabitSheet({ onClose, editing }: CreateHabitSheetProps) {
         {/* Mode toggle */}
         {!editing && <View style={{ flexDirection: 'row', gap: 8 }}>
           {(['presets', 'custom'] as Mode[]).map((m) => (
-            <Pressable
+            <Pressable accessibilityRole="button" aria-selected={mode === m}
               key={m}
               onPress={() => setMode(m)}
               style={{
@@ -103,7 +103,7 @@ export function CreateHabitSheet({ onClose, editing }: CreateHabitSheetProps) {
         {mode === 'presets' ? (
           <View style={{ gap: 8 }}>
             {(presets ?? []).map((p) => (
-              <Pressable
+              <Pressable accessibilityRole="button" aria-selected={selectedPreset === p.key}
                 key={p.key}
                 onPress={() => setSelectedPreset(p.key)}
                 style={{

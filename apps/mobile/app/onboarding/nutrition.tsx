@@ -33,7 +33,7 @@ function SelectGroup<T extends string>({
         {options.map((o) => {
           const isSelected = selected === o.value;
           return (
-            <Pressable
+            <Pressable accessibilityRole="button" aria-selected={isSelected}
               key={o.value}
               onPress={() => onSelect(o.value)}
               style={{
@@ -114,7 +114,7 @@ export default function NutritionScreen() {
           ]}
         />
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={() => { if (isValid) router.push('/onboarding/advanced'); }}
           disabled={!isValid}
           style={({ pressed }) => ({
@@ -131,7 +131,7 @@ export default function NutritionScreen() {
           </Text>
         </Pressable>
 
-        <Pressable onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>← Back</Text>
         </Pressable>
       </ScrollView>

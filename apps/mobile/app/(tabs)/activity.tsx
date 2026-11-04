@@ -259,7 +259,7 @@ export default function ActivityScreen() {
           </View>
 
           {/* Log button */}
-          <Pressable
+          <Pressable accessibilityRole="button"
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowSheet(true);

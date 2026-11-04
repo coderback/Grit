@@ -48,7 +48,7 @@ export default function WelcomeScreen() {
 
         {/* CTA */}
         <View style={{ gap: 12 }}>
-          <Pressable
+          <Pressable accessibilityRole="button"
             onPress={() => router.push('/onboarding/basics')}
             style={({ pressed }) => ({
               backgroundColor: Colors.orange,
@@ -67,7 +67,7 @@ export default function WelcomeScreen() {
               Already have an account?
             </Text>
             <Link href="/(auth)/login" asChild>
-              <Pressable>
+              <Pressable accessibilityRole="button">
                 <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 14 }}>
                   Sign in
                 </Text>

@@ -177,7 +177,7 @@ export default function FoodScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 6 }}>
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>Food</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Pressable
+            <Pressable accessibilityLabel="Scan a barcode" accessibilityRole="button"
               onPress={() => router.push('/barcode-scanner' as never)}
               style={({ pressed }) => ({
                 opacity: pressed ? 0.7 : 1,
@@ -189,7 +189,7 @@ export default function FoodScreen() {
             >
               <Text style={{ fontSize: 18 }}>📷</Text>
             </Pressable>
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={() => openManualEntry()}
               accessibilityLabel="Log food manually"
               style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.orange, alignItems: 'center', justifyContent: 'center' }}
@@ -263,7 +263,7 @@ export default function FoodScreen() {
             const isEmpty = section.data.length === 0;
             return (
               <View key={section.key}>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={() => toggleSection(section.title)}
                   style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2, marginBottom: isOpen ? 8 : 0 }}
                 >
@@ -278,7 +278,7 @@ export default function FoodScreen() {
                     )}
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Pressable onPress={() => openManualEntry(section.key)} hitSlop={8}>
+                    <Pressable accessibilityRole="button" onPress={() => openManualEntry(section.key)} hitSlop={8}>
                       <Text style={{ fontSize: 13, color: Colors.orange, fontFamily: 'DMSans-Bold' }}>+ Add</Text>
                     </Pressable>
                     <Text style={{ color: Colors.muted, fontSize: 12 }}>{isOpen ? '▲' : '▼'}</Text>

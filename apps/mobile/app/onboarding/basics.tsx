@@ -28,7 +28,7 @@ export default function GenderScreen() {
         <ProgressBar step={1} total={11} />
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 28 }}>
-          <Pressable
+          <Pressable accessibilityRole="button" accessibilityLabel="Back"
             onPress={() => router.back()}
             style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}
           >
@@ -49,7 +49,7 @@ export default function GenderScreen() {
           {GENDERS.map(g => {
             const sel = gender === g.v;
             return (
-              <Pressable
+              <Pressable accessibilityRole="button" aria-selected={sel}
                 key={g.v}
                 onPress={() => set({ gender: g.v })}
                 style={{
@@ -71,7 +71,7 @@ export default function GenderScreen() {
 
         <View style={{ flex: 1 }} />
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={() => { if (gender) router.push('/onboarding/age'); }}
           disabled={!gender}
           style={({ pressed }) => ({

@@ -271,7 +271,7 @@ export default function ProfileScreen() {
                 <Text style={{ fontSize: 11, fontFamily: 'DMSans-Bold', color: Colors.orange }}>{streak > 0 ? `🔥 ${streak} day streak` : 'Start a streak today'}</Text>
               </View>
             </View>
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={openEdit}
               style={({ pressed }) => ({
                 backgroundColor: Colors.surface2,
@@ -319,7 +319,7 @@ export default function ProfileScreen() {
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <Text style={{ fontSize: 15, fontFamily: 'DMSans-Bold', color: Colors.text }}>This week</Text>
-            <Pressable onPress={() => router.push('/(tabs)/activity')} hitSlop={8}>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/activity')} hitSlop={8}>
               <Text style={{ fontSize: 12, color: Colors.orange, fontFamily: 'DMSans-Bold' }}>Details →</Text>
             </Pressable>
           </View>
@@ -367,7 +367,7 @@ export default function ProfileScreen() {
         ))}
 
         {/* Log out */}
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={handleLogout}
           style={({ pressed }) => ({
             flexDirection: 'row',

@@ -96,7 +96,7 @@ export default function CoachScreen() {
           borderBottomColor: Colors.border,
           gap: 12,
         }}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Pressable accessibilityLabel="Back" accessibilityRole="button" onPress={() => router.back()} hitSlop={12}>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 15 }}>
               ←
             </Text>
@@ -222,7 +222,7 @@ export default function CoachScreen() {
             blurOnSubmit={false}
             editable={!isStreaming}
           />
-          <Pressable
+          <Pressable accessibilityLabel="Send message" accessibilityRole="button"
             onPress={handleSend}
             disabled={!input.trim() || isStreaming}
             style={({ pressed }) => ({

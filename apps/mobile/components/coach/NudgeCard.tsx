@@ -8,7 +8,7 @@ export function NudgeCard() {
   const { data, isLoading } = useAINudge();
 
   return (
-    <Pressable
+    <Pressable accessibilityRole="button"
       onPress={() => router.push('/coach')}
       style={({ pressed }) => ({
         opacity: pressed ? 0.85 : 1,

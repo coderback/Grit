@@ -94,7 +94,7 @@ export default function SocialScreen() {
             )}
           </Pressable>
           {activeTab === 'challenges' && (
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setShowCreateChallenge(true);
@@ -118,7 +118,7 @@ export default function SocialScreen() {
         {/* Tab switcher */}
         <View style={{ flexDirection: 'row', backgroundColor: Colors.surface2, borderRadius: 999, padding: 3, gap: 2 }}>
           {(['feed', 'challenges', 'leaderboard'] as Tab[]).map(t => (
-            <Pressable
+            <Pressable accessibilityRole="button" aria-selected={activeTab === t}
               key={t}
               onPress={() => setActiveTab(t)}
               style={{
@@ -194,7 +194,7 @@ export default function SocialScreen() {
                   paddingVertical: 10, color: Colors.text, fontFamily: 'DMSans-Regular', fontSize: 14,
                 }}
               />
-              <Pressable
+              <Pressable accessibilityRole="button"
                 onPress={handleJoin}
                 disabled={!inviteCode.trim() || joining}
                 style={{
@@ -233,7 +233,7 @@ export default function SocialScreen() {
                 <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14, textAlign: 'center' }}>
                   Create one or get an invite link from a friend.
                 </Text>
-                <Pressable
+                <Pressable accessibilityRole="button"
                   onPress={() => setShowCreateChallenge(true)}
                   style={{ backgroundColor: Colors.orange, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 12, marginTop: 4 }}
                 >
