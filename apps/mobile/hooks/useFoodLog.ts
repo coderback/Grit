@@ -150,6 +150,7 @@ export function useDeleteFoodLog() {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['food-logs'] });
+      qc.invalidateQueries({ queryKey: ['food-recent'] });
       qc.invalidateQueries({ queryKey: ['food-week'] });
       qc.invalidateQueries({ queryKey: ['trends'] });
     },
@@ -165,6 +166,7 @@ export function useUpdateFoodLog() {
       api.patch<FoodLog>(`/food-logs/${id}`, data).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['food-logs'] });
+      qc.invalidateQueries({ queryKey: ['food-recent'] });
       qc.invalidateQueries({ queryKey: ['food-week'] });
       qc.invalidateQueries({ queryKey: ['trends'] });
     },
