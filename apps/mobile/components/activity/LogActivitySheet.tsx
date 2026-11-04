@@ -1,9 +1,11 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { SheetTextInput, sheetKeyboardProps } from '@/components/ui/SheetTextInput';
 import * as Haptics from 'expo-haptics';
 import { useLogActivity, useActivityTypes } from '@/hooks/useActivityLog';
 import { Button } from '@/components/ui/Button';
+import { useHideTabBar } from '@/stores/uiStore';
 import { Colors } from '@/constants/colors';
 
 // Display labels for activity types
@@ -36,6 +38,7 @@ interface LogActivitySheetProps {
 
 export function LogActivitySheet({ onClose }: LogActivitySheetProps) {
   const sheetRef = useRef<BottomSheet>(null);
+  useHideTabBar();
   const { mutateAsync: logActivity, isPending } = useLogActivity();
   const { data: types } = useActivityTypes();
 
@@ -63,6 +66,7 @@ export function LogActivitySheet({ onClose }: LogActivitySheetProps) {
       snapPoints={['70%']}
       enablePanDownToClose
       onClose={onClose}
+      {...sheetKeyboardProps}
       backgroundStyle={{ backgroundColor: Colors.surface }}
       handleIndicatorStyle={{ backgroundColor: Colors.muted }}
     >
@@ -131,7 +135,7 @@ export function LogActivitySheet({ onClose }: LogActivitySheetProps) {
                 </Text>
               </Pressable>
             ))}
-            <TextInput
+            <SheetTextInput
               style={{
                 flex: 1,
                 backgroundColor: Colors.surface2,

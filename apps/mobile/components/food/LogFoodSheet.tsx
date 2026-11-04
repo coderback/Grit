@@ -2,14 +2,15 @@ import React, { useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   Alert,
 } from 'react-native';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { SheetTextInput, sheetKeyboardProps } from '@/components/ui/SheetTextInput';
 import * as Haptics from 'expo-haptics';
 import { useLogFood, type NormalizedFood } from '@/hooks/useFoodLog';
 import { Button } from '@/components/ui/Button';
+import { useHideTabBar } from '@/stores/uiStore';
 import { Colors } from '@/constants/colors';
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
@@ -34,6 +35,7 @@ interface LogFoodSheetProps {
 
 export function LogFoodSheet({ food, initialMeal, onClose }: LogFoodSheetProps) {
   const sheetRef = useRef<BottomSheet>(null);
+  useHideTabBar();
   const { mutateAsync: logFood, isPending } = useLogFood();
 
   const [mealType, setMealType] = useState<MealType>(initialMeal ?? 'breakfast');
@@ -89,6 +91,7 @@ export function LogFoodSheet({ food, initialMeal, onClose }: LogFoodSheetProps) 
       snapPoints={[isManual ? '75%' : '55%']}
       enablePanDownToClose
       onClose={onClose}
+      {...sheetKeyboardProps}
       backgroundStyle={{ backgroundColor: Colors.surface }}
       handleIndicatorStyle={{ backgroundColor: Colors.muted }}
     >
@@ -96,7 +99,7 @@ export function LogFoodSheet({ food, initialMeal, onClose }: LogFoodSheetProps) 
         {/* Food name */}
         <View>
           {isManual ? (
-            <TextInput
+            <SheetTextInput
               style={fieldStyle}
               value={name}
               onChangeText={setName}
@@ -143,7 +146,7 @@ export function LogFoodSheet({ food, initialMeal, onClose }: LogFoodSheetProps) 
                 <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 11, marginBottom: 4 }}>
                   {label}
                 </Text>
-                <TextInput
+                <SheetTextInput
                   style={fieldStyle}
                   value={manual[key]}
                   onChangeText={(v) => setManual((m) => ({ ...m, [key]: v }))}
@@ -189,7 +192,7 @@ export function LogFoodSheet({ food, initialMeal, onClose }: LogFoodSheetProps) 
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12, marginBottom: 6 }}>
               Servings{!isManual ? ` (${food.servingQty} ${food.servingUnit})` : ''}
             </Text>
-            <TextInput
+            <SheetTextInput
               style={{
                 backgroundColor: Colors.surface2,
                 borderRadius: 16,

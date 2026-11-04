@@ -1,10 +1,12 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { useAuthStore } from '@/stores/authStore';
+import { useUIStore } from '@/stores/uiStore';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -27,11 +29,16 @@ const TAB_LABELS: Record<string, string> = {
 };
 
 function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  // Sit above the home indicator on notched iPhones and gesture-nav Android
+  const insets = useSafeAreaInsets();
+  const sheetOpen = useUIStore((s) => s.openSheets > 0);
+  if (sheetOpen) return null;
+
   return (
     <View
       style={{
         position: 'absolute',
-        bottom: 20,
+        bottom: Math.max(insets.bottom, 12) + 8,
         left: 16,
         right: 16,
       }}

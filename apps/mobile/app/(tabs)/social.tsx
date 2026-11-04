@@ -6,12 +6,12 @@ import * as Haptics from 'expo-haptics';
 import { useFeed, useWeeklyLeaderboard } from '@/hooks/useSocialFeed';
 import { useChallenges, useJoinChallenge } from '@/hooks/useChallenges';
 import { useMe } from '@/hooks/useMe';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { ActivityFeedItem } from '@/components/social/ActivityFeedItem';
 import { Leaderboard } from '@/components/social/Leaderboard';
 import { ChallengeCard } from '@/components/social/ChallengeCard';
 import { CreateChallengeSheet } from '@/components/social/CreateChallengeSheet';
 import { Colors } from '@/constants/colors';
-import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 
 type Tab = 'feed' | 'challenges' | 'leaderboard';
@@ -27,7 +27,6 @@ export default function SocialScreen() {
   );
 
   const { data: me } = useMe();
-  const qc = useQueryClient();
   const { mutateAsync: joinChallenge, isPending: joining } = useJoinChallenge();
   const [inviteCode, setInviteCode] = useState('');
 
@@ -50,11 +49,11 @@ export default function SocialScreen() {
   const activeChallenges = (challenges ?? []).filter((c) => !c.isComplete);
   const pastChallenges = (challenges ?? []).filter((c) => c.isComplete);
 
-  function refresh() {
-    qc.invalidateQueries({ queryKey: ['feed'] });
-    qc.invalidateQueries({ queryKey: ['challenges'] });
-    qc.invalidateQueries({ queryKey: ['leaderboard-weekly'] });
-  }
+  const { refreshing, onRefresh } = usePullToRefresh([
+    ['feed'],
+    ['challenges'],
+    ['leaderboard-weekly'],
+  ]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark }} edges={['top']}>
@@ -112,7 +111,7 @@ export default function SocialScreen() {
 
       <ScrollView
         contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 120 }}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} tintColor={Colors.orange} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.orange} />}
         showsVerticalScrollIndicator={false}
       >
         {/* FEED */}

@@ -4,9 +4,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { addDays, dateMarker, localToday } from '../common/day';
+import { dateMarker, localToday } from '../common/day';
 import { PRESET_HABITS, FREE_TIER_HABIT_LIMIT } from './habits.constants';
 import type { CreateHabitDto, UpdateHabitDto } from './habits.dto';
+import { build30DayGrid, calculateStreak } from './habits.streak';
 
 @Injectable()
 export class HabitsService {
@@ -124,62 +125,27 @@ export class HabitsService {
       throw new NotFoundException('Habit not found');
     }
 
-    // Fetch last 37 days of logs (30 for grid + 7 buffer for grace calc)
+    // The whole history, not just the grid's 30 days, so long streaks keep
+    // counting. Only the dates are loaded, at most one row per day.
     const today = localToday(offset);
-    const since = dateMarker(addDays(today, -37));
-
     const logs = await this.prisma.habitLog.findMany({
-      where: { habitId, userId, loggedAt: { gte: since }, completed: true },
+      where: {
+        habitId,
+        userId,
+        completed: true,
+        loggedAt: { lte: dateMarker(today) },
+      },
       select: { loggedAt: true },
-      orderBy: { loggedAt: 'desc' },
     });
 
     const completedDates = new Set(
       logs.map((l) => l.loggedAt.toISOString().split('T')[0]),
     );
 
-    const streakCount = this.calculateStreak(completedDates, today);
-    const grid = this.build30DayGrid(completedDates, today);
+    const streakCount = calculateStreak(completedDates, today);
+    const grid = build30DayGrid(completedDates, today);
 
     return { habit, streakCount, grid };
-  }
-
-  /**
-   * Consecutive completed days ending today or yesterday. One missed day is
-   * forgiven once, as long as the day before it was completed.
-   */
-  private calculateStreak(completedDates: Set<string>, today: string): number {
-    // Allow streak to start from today OR yesterday
-    let cursor = completedDates.has(today) ? today : addDays(today, -1);
-    if (!completedDates.has(cursor)) return 0;
-
-    let streak = 0;
-    let graceUsed = false;
-
-    while (true) {
-      if (completedDates.has(cursor)) {
-        streak++;
-        cursor = addDays(cursor, -1);
-      } else if (!graceUsed && completedDates.has(addDays(cursor, -1))) {
-        graceUsed = true;
-        cursor = addDays(cursor, -1);
-      } else {
-        break;
-      }
-    }
-
-    return streak;
-  }
-
-  /** Build last 30 days as [{date, completed}] ordered oldest → newest */
-  private build30DayGrid(
-    completedDates: Set<string>,
-    today: string,
-  ): { date: string; completed: boolean }[] {
-    return Array.from({ length: 30 }, (_, i) => {
-      const date = addDays(today, i - 29);
-      return { date, completed: completedDates.has(date) };
-    });
   }
 
   getPresets() {

@@ -8,6 +8,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { IsNotFuture } from '../common/validators';
 
 export const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 
@@ -65,6 +66,7 @@ export class CreateFoodLogDto {
 
   @IsOptional()
   @IsISO8601({ strict: true })
+  @IsNotFuture()
   loggedAt?: string;
 }
 

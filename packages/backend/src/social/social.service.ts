@@ -1,7 +1,8 @@
 import {
+  BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
-  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { dayRange, localToday, weekStart } from '../common/day';
@@ -12,6 +13,8 @@ export interface FeedItem {
   id: string;
   type: FeedItemType;
   loggedAt: Date;
+  // Pass the last item's cursor back to load the items after it
+  cursor: string;
   user: {
     id: string;
     displayName: string;
@@ -19,6 +22,66 @@ export interface FeedItem {
     username: string;
   };
   data: Record<string, unknown>;
+}
+
+const FEED_DAYS = 7;
+
+/**
+ * Feed position: time, then type and id to break ties. Many items share a
+ * timestamp (bulk imports, same-second logs), so time alone would skip some.
+ */
+interface FeedCursor {
+  time: Date;
+  type: FeedItemType;
+  id: string;
+}
+
+export function encodeFeedCursor(c: FeedCursor): string {
+  return `${c.time.toISOString()}|${c.type}|${c.id}`;
+}
+
+export function decodeFeedCursor(raw: string): FeedCursor | null {
+  const [iso, type, id] = raw.split('|');
+  const time = new Date(iso);
+  const types: FeedItemType[] = ['food_log', 'activity_log', 'habit_log'];
+  if (Number.isNaN(time.getTime()) || !types.includes(type as FeedItemType)) {
+    return null;
+  }
+  if (!id) return null;
+  return { time, type: type as FeedItemType, id };
+}
+
+/** Newest first; ties broken by type, then id, both descending. */
+function compareFeed(a: FeedCursor, b: FeedCursor): number {
+  return (
+    b.time.getTime() - a.time.getTime() ||
+    (a.type < b.type ? 1 : a.type > b.type ? -1 : 0) ||
+    (a.id < b.id ? 1 : a.id > b.id ? -1 : 0)
+  );
+}
+
+/**
+ * Prisma filter for one log table: rows in the feed window that sort after
+ * the cursor. `field` is the timestamp the feed orders that table by.
+ */
+function afterCursor(
+  field: 'loggedAt' | 'createdAt',
+  type: FeedItemType,
+  since: Date,
+  now: Date,
+  cursor: FeedCursor | null,
+) {
+  if (!cursor) return { [field]: { gte: since, lte: now } };
+  const older = { [field]: { gte: since, lt: cursor.time } };
+  // Same timestamp: tables whose type sorts before the cursor's were not
+  // reached yet, the cursor's own table continues by id
+  if (type < cursor.type) {
+    return { [field]: { gte: since, lte: cursor.time } };
+  }
+  if (type > cursor.type) return older;
+  return {
+    OR: [older, { [field]: cursor.time, id: { lt: cursor.id } }],
+  };
 }
 
 @Injectable()
@@ -115,11 +178,12 @@ export class SocialService {
 
     if (followedIds.length === 0) return [];
 
-    // Last 7 days, newest first; a cursor pages back to items older than it
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const loggedAt = cursor
-      ? { gte: since, lt: new Date(cursor) }
-      : { gte: since };
+    // Last 7 days, newest first. Nothing dated in the future: those would sit
+    // at the top of everyone's feed.
+    const now = new Date();
+    const since = new Date(now.getTime() - FEED_DAYS * 24 * 60 * 60 * 1000);
+    const after = cursor ? decodeFeedCursor(cursor) : null;
+    if (cursor && !after) throw new BadRequestException('Invalid cursor');
 
     const userSelect = {
       id: true,
@@ -131,37 +195,44 @@ export class SocialService {
     // Fetch from all three log tables in parallel
     const [foodLogs, activityLogs, habitLogs] = await Promise.all([
       this.prisma.foodLog.findMany({
-        where: { userId: { in: followedIds }, loggedAt },
+        where: {
+          userId: { in: followedIds },
+          ...afterCursor('loggedAt', 'food_log', since, now, after),
+        },
         include: { user: { select: userSelect } },
-        orderBy: { loggedAt: 'desc' },
+        orderBy: [{ loggedAt: 'desc' }, { id: 'desc' }],
         take: limit,
       }),
       this.prisma.activityLog.findMany({
-        where: { userId: { in: followedIds }, loggedAt },
+        where: {
+          userId: { in: followedIds },
+          ...afterCursor('loggedAt', 'activity_log', since, now, after),
+        },
         include: {
           user: { select: userSelect },
           // Whether the viewer has already given kudos
           kudos: { where: { userId: user.id }, select: { id: true } },
         },
-        orderBy: { loggedAt: 'desc' },
+        orderBy: [{ loggedAt: 'desc' }, { id: 'desc' }],
         take: limit,
       }),
       this.prisma.habitLog.findMany({
+        // Check-ins are dated by day, so order them by when they happened
         where: {
           userId: { in: followedIds },
-          loggedAt,
           completed: true,
+          ...afterCursor('createdAt', 'habit_log', since, now, after),
         },
         include: {
           user: { select: userSelect },
           habit: { select: { name: true, emoji: true } },
         },
-        orderBy: { loggedAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: limit,
       }),
     ]);
 
-    const items: FeedItem[] = [
+    const items: Omit<FeedItem, 'cursor'>[] = [
       ...foodLogs.map((l) => ({
         id: l.id,
         type: 'food_log' as const,
@@ -191,15 +262,17 @@ export class SocialService {
       ...habitLogs.map((l) => ({
         id: l.id,
         type: 'habit_log' as const,
-        loggedAt: l.loggedAt,
+        loggedAt: l.createdAt,
         user: l.user,
         data: { habitName: l.habit.name, habitEmoji: l.habit.emoji },
       })),
     ];
 
     return items
-      .sort((a, b) => b.loggedAt.getTime() - a.loggedAt.getTime())
-      .slice(0, limit);
+      .map((item) => ({ item, key: { ...item, time: item.loggedAt } }))
+      .sort((a, b) => compareFeed(a.key, b.key))
+      .slice(0, limit)
+      .map(({ item, key }) => ({ ...item, cursor: encodeFeedCursor(key) }));
   }
 
   // ── Weekly leaderboard ────────────────────────────────────────────────────
@@ -215,10 +288,12 @@ export class SocialService {
     const ids = [user.id, ...follows.map((f) => f.followingId)];
 
     const monday = dayRange(weekStart(localToday(offset)), offset).start;
+    // Up to now, so a workout dated later this week doesn't count yet
+    const now = new Date();
 
     const logs = await this.prisma.activityLog.groupBy({
       by: ['userId'],
-      where: { userId: { in: ids }, loggedAt: { gte: monday } },
+      where: { userId: { in: ids }, loggedAt: { gte: monday, lte: now } },
       _sum: { durationMin: true, steps: true },
     });
 

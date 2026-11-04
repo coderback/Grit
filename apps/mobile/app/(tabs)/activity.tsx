@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -9,6 +9,7 @@ import { useFoodWeek } from '@/hooks/useFoodLog';
 import { useHabits, useHabitSummary } from '@/hooks/useHabits';
 import { useMe } from '@/hooks/useMe';
 import { LogActivitySheet } from '@/components/activity/LogActivitySheet';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Colors } from '@/constants/colors';
 import { localDateStr } from '@/lib/date';
 
@@ -82,6 +83,7 @@ export default function ActivityScreen() {
   const { data: habits } = useHabits();
   const { data: habitSummary } = useHabitSummary(habits ?? []);
   const [showSheet, setShowSheet] = useState(false);
+  const { refreshing, onRefresh } = usePullToRefresh([['activity-week'], ['food-week'], ['me'], ['habits'], ['habit-summary']]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -94,6 +96,8 @@ export default function ActivityScreen() {
     v: d.activeMinutes,
     today: d.date === today,
   }));
+  // Bars scale to the 60-minute goal, or to the longest day if that's more
+  const barScale = Math.max(60, ...actData.map(d => d.v));
   const totalMins = weekly?.totals.activeMinutes ?? 0;
   const activeDays = actData.filter(d => d.v > 0).length;
 
@@ -124,7 +128,7 @@ export default function ActivityScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark }} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.orange} />}>
 
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 6 }}>
@@ -188,7 +192,7 @@ export default function ActivityScreen() {
           </View>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end', height: 80 }}>
             {actData.map((d, i) => {
-              const hPct = d.v > 0 ? Math.max(0.08, d.v / 60) : 0.04;
+              const hPct = d.v > 0 ? Math.max(0.08, d.v / barScale) : 0.04;
               const barH = Math.round(hPct * 65);
               return (
                 <View key={i} style={{ flex: 1, alignItems: 'center', gap: 5, height: '100%', justifyContent: 'flex-end' }}>

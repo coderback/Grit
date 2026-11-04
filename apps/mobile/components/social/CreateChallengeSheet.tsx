@@ -1,9 +1,11 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable, Alert } from 'react-native';
+import { View, Text, Pressable, Alert } from 'react-native';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { SheetTextInput, sheetKeyboardProps } from '@/components/ui/SheetTextInput';
 import { router } from 'expo-router';
 import { useCreateChallenge } from '@/hooks/useChallenges';
 import { Button } from '@/components/ui/Button';
+import { useHideTabBar } from '@/stores/uiStore';
 import { Colors } from '@/constants/colors';
 
 const DURATIONS = [3, 7, 14, 30] as const;
@@ -15,6 +17,7 @@ interface CreateChallengeSheetProps {
 
 export function CreateChallengeSheet({ onClose }: CreateChallengeSheetProps) {
   const sheetRef = useRef<BottomSheet>(null);
+  useHideTabBar();
   const { mutateAsync: createChallenge, isPending } = useCreateChallenge();
 
   const [title, setTitle] = useState('');
@@ -42,6 +45,7 @@ export function CreateChallengeSheet({ onClose }: CreateChallengeSheetProps) {
       snapPoints={['70%']}
       enablePanDownToClose
       onClose={onClose}
+      {...sheetKeyboardProps}
       backgroundStyle={{ backgroundColor: Colors.surface }}
       handleIndicatorStyle={{ backgroundColor: Colors.muted }}
     >
@@ -55,7 +59,7 @@ export function CreateChallengeSheet({ onClose }: CreateChallengeSheetProps) {
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12 }}>
             CHALLENGE NAME
           </Text>
-          <TextInput
+          <SheetTextInput
             style={{
               backgroundColor: Colors.surface2,
               borderRadius: 16,

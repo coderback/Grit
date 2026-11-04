@@ -12,4 +12,11 @@ ALTER TABLE "habit_logs" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "challenges" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "challenge_participants" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "ai_messages" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "_prisma_migrations" ENABLE ROW LEVEL SECURITY;
+-- Prisma's shadow database (used by `prisma migrate dev`) has no migrations
+-- table, so only touch it where it exists
+DO $$
+BEGIN
+  IF to_regclass('"_prisma_migrations"') IS NOT NULL THEN
+    ALTER TABLE "_prisma_migrations" ENABLE ROW LEVEL SECURITY;
+  END IF;
+END $$;
