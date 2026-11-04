@@ -69,6 +69,8 @@ model User {
   blocking     Block[]                @relation("blocker")
   blockedBy    Block[]                @relation("blocked")
   pushDevices  PushDevice[]
+  weightLogs   WeightLog[]
+  favoriteFoods FavoriteFood[]
   notifications     Notification[] @relation("recipient")
   notificationsSent Notification[] @relation("actor")
 
@@ -303,4 +305,43 @@ model Notification {
   @@unique([userId, dedupeKey])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+// One weigh-in per day; the latest also updates users.weightKg
+model WeightLog {
+  id        String   @id @default(cuid())
+  userId    String
+  weightKg  Float
+  // The local day, stored as midnight UTC of that date (like habit check-ins)
+  day       DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@map("weight_logs")
+}
+
+// A saved portion for one-tap re-logging: what was eaten, not per 100 g
+model FavoriteFood {
+  id          String   @id @default(cuid())
+  userId      String
+  // lowercased "name|brand", so the same food can't be saved twice
+  key         String
+  name        String
+  brand       String?
+  barcode     String?
+  calories    Float
+  proteinG    Float    @default(0)
+  carbsG      Float    @default(0)
+  fatG        Float    @default(0)
+  servingQty  Float    @default(1)
+  servingUnit String   @default("serving")
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@map("favorite_foods")
 }

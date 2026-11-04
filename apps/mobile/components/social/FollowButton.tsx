@@ -37,7 +37,7 @@ export function FollowButton({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (state === 'none') {
       const { status } = await follow(userId);
-      if (status === 'pending') showToast(`Request sent. ${name} will see it.`);
+      if (status === 'pending') showToast(`Request sent. ${name} will see it.`, 'info');
       return;
     }
     const ok = await confirmAction(

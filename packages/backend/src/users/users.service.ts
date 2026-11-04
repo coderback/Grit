@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { WeightService } from '../progress/weight.service';
 import type { UpdateUserDto } from './users.dto';
 
 /** Usernames are lowercase letters, digits and underscores. */
@@ -21,6 +22,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private weight: WeightService,
   ) {}
 
   /**
@@ -68,7 +70,7 @@ export class UsersService {
     });
   }
 
-  async updateUser(supabaseId: string, data: UpdateUserDto) {
+  async updateUser(supabaseId: string, data: UpdateUserDto, offset = 0) {
     if (data.avatarUrl) this.checkAvatarUrl(supabaseId, data.avatarUrl);
 
     const user = await this.prisma.user.upsert({
@@ -82,6 +84,11 @@ export class UsersService {
         displayName: data.displayName ?? `user_${supabaseId.slice(0, 8)}`,
       },
     });
+
+    // A new weight from onboarding or the profile is also today's weigh-in
+    if (data.weightKg !== undefined) {
+      await this.weight.logForUser(user.id, data.weightKg, offset);
+    }
 
     // Going public approves everyone who was waiting
     if (data.isPrivate === false) {

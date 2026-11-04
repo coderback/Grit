@@ -13,6 +13,7 @@ import { AIModule } from './ai/ai.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { WorkoutPlanModule } from './workout-plan/workout-plan.module';
 import { AlertsModule } from './alerts/alerts.module';
+import { ProgressModule } from './progress/progress.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -32,6 +33,7 @@ import { AppService } from './app.service';
     NotificationsModule,
     WorkoutPlanModule,
     AlertsModule,
+    ProgressModule,
   ],
   controllers: [AppController],
   providers: [AppService],

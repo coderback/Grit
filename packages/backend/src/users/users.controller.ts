@@ -38,8 +38,9 @@ export class UsersController {
   async updateMe(
     @CurrentUser() user: { supabaseId: string },
     @Body() body: UpdateUserDto,
+    @UtcOffset() offset: number,
   ) {
-    return this.users.updateUser(user.supabaseId, body);
+    return this.users.updateUser(user.supabaseId, body, offset);
   }
 
   /** Deletes the account and all its data. Required by the App Store. */
