@@ -30,6 +30,10 @@ export interface Me {
   notifProgress: boolean;
   notifStreak: boolean;
   notifOffTrackOnly: boolean;
+  /** Push alerts for follows, requests, kudos and challenges */
+  notifSocial: boolean;
+  /** Followers need approval; only they see your activity */
+  isPrivate: boolean;
 }
 
 /** Fields the signed-in user can change with PUT /users/me. */
@@ -53,6 +57,9 @@ export function useUpdateMe() {
       // Goals feed the day's budget, macro targets and the coach's context
       qc.invalidateQueries({ queryKey: ['food-logs'] });
       qc.invalidateQueries({ queryKey: ['ai-nudge'] });
+      // A weight change is also today's weigh-in; goals move the chart lines
+      qc.invalidateQueries({ queryKey: ['weight'] });
+      qc.invalidateQueries({ queryKey: ['trends'] });
     },
   });
 }

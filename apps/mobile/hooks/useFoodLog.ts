@@ -49,6 +49,8 @@ export interface NormalizedFood {
   servingQty: number;
   servingUnit: string;
   imageUrl: string | null;
+  /** A saved portion (recent or favourite): amounts are for the whole portion */
+  portion?: boolean;
 }
 
 export function useFoodLogsForDate(date: string) {
@@ -108,8 +110,10 @@ export function useLogFood() {
       loggedAt?: string;
     }) => api.post('/food-logs', data).then((r) => r.data),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['food-recent'] });
       qc.invalidateQueries({ queryKey: ['food-logs'] });
       qc.invalidateQueries({ queryKey: ['food-week'] });
+      qc.invalidateQueries({ queryKey: ['trends'] });
     },
   });
 }
@@ -146,7 +150,9 @@ export function useDeleteFoodLog() {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['food-logs'] });
+      qc.invalidateQueries({ queryKey: ['food-recent'] });
       qc.invalidateQueries({ queryKey: ['food-week'] });
+      qc.invalidateQueries({ queryKey: ['trends'] });
     },
   });
 }
@@ -160,7 +166,9 @@ export function useUpdateFoodLog() {
       api.patch<FoodLog>(`/food-logs/${id}`, data).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['food-logs'] });
+      qc.invalidateQueries({ queryKey: ['food-recent'] });
       qc.invalidateQueries({ queryKey: ['food-week'] });
+      qc.invalidateQueries({ queryKey: ['trends'] });
     },
   });
 }

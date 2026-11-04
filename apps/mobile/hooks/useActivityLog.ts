@@ -51,6 +51,8 @@ function invalidateActivity(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ['leaderboard-weekly'] });
   // Burned calories feed the day's budget when earnback is on
   qc.invalidateQueries({ queryKey: ['food-logs'] });
+  qc.invalidateQueries({ queryKey: ['trends'] });
+  qc.invalidateQueries({ queryKey: ['challenges'] });
 }
 
 export type ActivityUpdate = Partial<Pick<ActivityLog, 'activityType' | 'durationMin' | 'steps'>> & {

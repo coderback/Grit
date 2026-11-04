@@ -15,7 +15,7 @@ import { SheetTextInput, sheetKeyboardProps } from '../../components/ui/SheetTex
 import { Colors } from '../../constants/colors';
 import { useHideTabBar } from '../../stores/uiStore';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
-import { supabase } from '../../lib/supabase';
+import { signOut } from '../../lib/session';
 import { useAuthStore } from '../../stores/authStore';
 import { useMe, useUpdateMe, type Me } from '../../hooks/useMe';
 import { ErrorNotice, useQueriesStatus } from '../../components/ui/QueryStatus';
@@ -23,6 +23,8 @@ import { ScreenSkeleton } from '../../components/ui/Skeleton';
 import { kgToUnit, unitToKg } from '../../lib/units';
 import { confirmAction, notify } from '../../lib/confirm';
 import Constants from 'expo-constants';
+import { Avatar } from '../../components/ui/Avatar';
+import { pickAndUploadAvatar, removeAvatarFile } from '../../lib/avatar';
 import { useHabits, useHabitSummary } from '../../hooks/useHabits';
 import { useWeeklySummary } from '../../hooks/useActivityLog';
 
@@ -49,6 +51,17 @@ function EditSheet({ user, onClose }: { user: BackendUser; onClose: () => void }
   const weightKg = !isNaN(wt) ? unitToKg(wt, unit) : null;
   const weightError = weight.trim() && (weightKg === null || weightKg < 20 || weightKg > 400) ? 'Enter a realistic weight.' : null;
   const nameError = !displayName.trim() ? 'Enter a name.' : null;
+
+  const authUserId = useAuthStore((s) => s.user?.id);
+  function removePhoto() {
+    save(
+      { avatarUrl: null },
+      {
+        onSuccess: () => { if (authUserId) removeAvatarFile(authUserId).catch(() => {}); },
+        onError: () => notify("Couldn't remove your photo", 'Check your connection and try again.'),
+      },
+    );
+  }
 
   function handleSave() {
     if (weightError || nameError) return;
@@ -94,8 +107,13 @@ function EditSheet({ user, onClose }: { user: BackendUser; onClose: () => void }
         {!!weightError && <Text style={errorStyle}>{weightError}</Text>}
       </View>
       <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12, marginTop: -8 }}>
-        Calorie and macro goals are in Goals & Targets.
+        Calorie and macro goals are in Goals & Targets. Tap your photo to change it.
       </Text>
+      {!!user.avatarUrl && (
+        <Pressable onPress={removePhoto} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'flex-start' }}>
+          <Text style={{ color: Colors.error, fontFamily: 'DMSans-Bold', fontSize: 14 }}>Remove photo</Text>
+        </Pressable>
+      )}
       <Pressable
         onPress={handleSave}
         disabled={isPending || !!weightError || !!nameError}
@@ -122,6 +140,8 @@ function EditSheet({ user, onClose }: { user: BackendUser; onClose: () => void }
 const SETTINGS_ROWS = [
   { icon: '🎯', color: Colors.orange, label: 'Goals & Targets', sub: 'Calories, macros and weight goal', href: '/settings/goals' as const },
   { icon: '🏋️', color: Colors.teal, label: 'Workout Plan', sub: 'Your weekly plan from the coach', href: '/plan' as const },
+  { icon: '👥', color: Colors.orange, label: 'Friends', sub: 'Find people, requests and followers', href: '/friends' as const },
+  { icon: '🔒', color: Colors.blue, label: 'Privacy', sub: 'Private account and blocked people', href: '/settings/privacy' as const },
   { icon: '🔔', color: Colors.blue, label: 'Notifications', sub: 'Reminders and alerts', href: '/settings/notifications' as const },
   { icon: '👤', color: Colors.muted, label: 'Account', sub: 'Units, password, delete account', href: '/settings/account' as const },
   { icon: '📊', color: Colors.teal, label: 'My Progress', sub: 'Weekly stats', href: '/(tabs)/activity' as const },
@@ -155,8 +175,24 @@ export default function ProfileScreen() {
 
   async function handleLogout() {
     if (!(await confirmAction({ title: 'Log out', message: 'Are you sure you want to log out?', confirmLabel: 'Log out', destructive: true }))) return;
-    await supabase.auth.signOut();
+    await signOut();
     clearSession();
+  }
+
+  const { mutateAsync: saveMe } = useUpdateMe();
+  const [uploading, setUploading] = useState(false);
+
+  async function changePhoto() {
+    if (!user) return;
+    setUploading(true);
+    try {
+      const url = await pickAndUploadAvatar(user.id);
+      if (url) await saveMe({ avatarUrl: url });
+    } catch (err: any) {
+      notify("Couldn't update your photo", err?.response?.data?.message?.toString() ?? err?.message ?? 'Try again.');
+    } finally {
+      setUploading(false);
+    }
   }
 
   function openEdit() {
@@ -205,17 +241,32 @@ export default function ProfileScreen() {
 
           {/* Avatar row */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-            <View style={{
-              width: 64, height: 64, borderRadius: 32,
-              backgroundColor: 'rgba(255,92,43,0.15)',
-              borderWidth: 2.5, borderColor: 'rgba(255,92,43,0.4)',
-              alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 22 }}>{initials}</Text>
-            </View>
+            <Pressable
+              onPress={changePhoto}
+              disabled={uploading}
+              accessibilityRole="button"
+              accessibilityLabel={me?.avatarUrl ? 'Change profile photo' : 'Add a profile photo'}
+              style={{ position: 'relative' }}
+            >
+              {me?.avatarUrl ? (
+                <Avatar name={displayName} url={me.avatarUrl} size={64} ring="rgba(255,92,43,0.4)" />
+              ) : (
+                <View style={{
+                  width: 64, height: 64, borderRadius: 32,
+                  backgroundColor: 'rgba(255,92,43,0.15)',
+                  borderWidth: 2.5, borderColor: 'rgba(255,92,43,0.4)',
+                  alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 22 }}>{initials}</Text>
+                </View>
+              )}
+              <View style={{ position: 'absolute', right: -2, bottom: -2, width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                {uploading ? <ActivityIndicator size="small" color={Colors.orange} /> : <Text style={{ fontSize: 11 }}>📷</Text>}
+              </View>
+            </Pressable>
             <View style={{ flex: 1 }}>
               <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 20, letterSpacing: -0.3 }}>{displayName}</Text>
-              <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13, marginTop: 2 }}>{email}</Text>
+              <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13, marginTop: 2 }}>{me?.username ? `@${me.username}` : email}</Text>
               <View style={{ backgroundColor: 'rgba(255,92,43,0.15)', borderWidth: 1, borderColor: 'rgba(255,92,43,0.3)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, alignSelf: 'flex-start', marginTop: 6 }}>
                 <Text style={{ fontSize: 11, fontFamily: 'DMSans-Bold', color: Colors.orange }}>{streak > 0 ? `🔥 ${streak} day streak` : 'Start a streak today'}</Text>
               </View>

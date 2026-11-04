@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { Avatar } from '@/components/ui/Avatar';
 import type { LeaderboardEntry } from '@/hooks/useSocialFeed';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -31,16 +32,7 @@ export function Leaderboard({ entries }: LeaderboardProps) {
             {i < 3 ? MEDALS[i] : `${i + 1}`}
           </Text>
 
-          {/* Avatar initials */}
-          <View style={{
-            width: 34, height: 34, borderRadius: 17,
-            backgroundColor: Colors.surface2,
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 14 }}>
-              {entry.user.displayName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          <Avatar name={entry.user.displayName} url={entry.user.avatarUrl} size={34} />
 
           {/* Name */}
           <Text style={{

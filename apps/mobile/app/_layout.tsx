@@ -111,6 +111,10 @@ export default function RootLayout() {
           <Stack.Screen name="settings/account" />
           <Stack.Screen name="reset-password" />
           <Stack.Screen name="plan" />
+          <Stack.Screen name="friends" />
+          <Stack.Screen name="connections" />
+          <Stack.Screen name="settings/privacy" />
+          <Stack.Screen name="notifications" />
         </Stack>
         <Toast />
       </GestureHandlerRootView>

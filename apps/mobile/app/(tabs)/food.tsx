@@ -11,6 +11,8 @@ import {
 } from '@/hooks/useFoodLog';
 import { FoodSearchBar } from '@/components/food/FoodSearchBar';
 import { LogFoodSheet } from '@/components/food/LogFoodSheet';
+import { QuickAddCard } from '@/components/food/QuickAddCard';
+import { portionAsFood } from '@/hooks/useQuickFoods';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Colors } from '@/constants/colors';
 import { addDaysStr, dayLabel, localDateStr } from '@/lib/date';
@@ -100,7 +102,7 @@ export default function FoodScreen() {
   const status = useQueriesStatus(foodQuery);
   const { mutate: deleteLog } = useDeleteFoodLog();
   const { data: me } = useMe();
-  const { refreshing, onRefresh } = usePullToRefresh([['food-logs', date], ['me']]);
+  const { refreshing, onRefresh } = usePullToRefresh([['food-logs', date], ['me'], ['food-recent'], ['food-favorites']]);
   const [editingLog, setEditingLog] = useState<FoodLog | null>(null);
   const [selectedFood, setSelectedFood] = useState<NormalizedFood | null>(null);
   const [selectedMeal, setSelectedMeal] = useState<(typeof MEAL_ORDER)[number] | undefined>();
@@ -245,6 +247,14 @@ export default function FoodScreen() {
 
         {/* Search bar */}
         <FoodSearchBar onSelect={(food) => { setSelectedMeal(undefined); setSelectedFood(food); }} />
+
+        {/* Recent and favourite foods */}
+        <QuickAddCard
+          onPick={(food, meal) => {
+            setSelectedMeal(MEAL_ORDER.includes(meal as never) ? (meal as (typeof MEAL_ORDER)[number]) : undefined);
+            setSelectedFood(portionAsFood(food));
+          }}
+        />
 
         {/* Meal sections */}
         <View style={{ gap: 12, marginTop: 14 }}>

@@ -9,7 +9,7 @@ import { useMe, useUpdateMe, type Me } from '@/hooks/useMe';
 import { requestNotificationPermission, syncLocalReminders } from '@/lib/reminders';
 import { NavRow, ScreenHeader, Section, ToggleRow } from '@/components/settings/SettingsUI';
 
-type Pref = 'notifWorkout' | 'notifMeal' | 'notifProgress' | 'notifStreak' | 'notifOffTrackOnly';
+type Pref = 'notifWorkout' | 'notifMeal' | 'notifProgress' | 'notifStreak' | 'notifOffTrackOnly' | 'notifSocial';
 
 export default function NotificationsScreen() {
   const { data: me } = useMe();
@@ -60,11 +60,15 @@ export default function NotificationsScreen() {
 
         <Section
           title="Progress alerts"
-          footer="These depend on your logged data, so they're sent from GRIT's servers. Your choices are saved now and take effect when server alerts launch."
+          footer="Sent from GRIT's servers at your local time, and kept in your inbox (the bell on Home)."
         >
-          <ToggleRow label="Weekly progress check-in" value={me.notifProgress} onChange={(v) => toggle('notifProgress', v)} />
-          <ToggleRow label="Streak at risk" hint="When a habit streak is about to break" value={me.notifStreak} onChange={(v) => toggle('notifStreak', v)} />
-          <ToggleRow label="Only when I'm off track" hint="Skip alerts on days you're on target" value={me.notifOffTrackOnly} onChange={(v) => toggle('notifOffTrackOnly', v)} />
+          <ToggleRow label="Weekly progress check-in" hint="Sundays at 6pm" value={me.notifProgress} onChange={(v) => toggle('notifProgress', v)} />
+          <ToggleRow label="Only when I'm off track" hint="Skip the weekly check-in on good weeks" value={me.notifOffTrackOnly} disabled={!me.notifProgress} onChange={(v) => toggle('notifOffTrackOnly', v)} />
+          <ToggleRow label="Streak at risk" hint="8pm, if a habit streak hasn't been checked in" value={me.notifStreak} onChange={(v) => toggle('notifStreak', v)} />
+        </Section>
+
+        <Section title="Friends" footer="These always appear in your inbox; this controls the push alert.">
+          <ToggleRow label="Friends' activity" hint="New followers, requests, kudos and challenge updates" value={me.notifSocial} onChange={(v) => toggle('notifSocial', v)} />
         </Section>
       </ScrollView>
     </SafeAreaView>

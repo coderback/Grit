@@ -1,16 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { WeightService } from '../progress/weight.service';
 import type { UpdateUserDto } from './users.dto';
-
-// What other users may see. Health data, push tokens and auth IDs stay private.
-export const PUBLIC_USER_FIELDS = {
-  id: true,
-  username: true,
-  displayName: true,
-  avatarUrl: true,
-  primaryGoal: true,
-  createdAt: true,
-} as const;
 
 /** Usernames are lowercase letters, digits and underscores. */
 function usernameBase(raw: string): string {
@@ -23,7 +19,23 @@ function usernameBase(raw: string): string {
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+    private weight: WeightService,
+  ) {}
+
+  /**
+   * Profile photos must be the user's own upload in the app's avatars
+   * bucket, so nobody can point their photo at an arbitrary URL.
+   */
+  private checkAvatarUrl(supabaseId: string, url: string) {
+    const base = this.config.get<string>('SUPABASE_URL')?.replace(/\/$/, '');
+    const prefix = `${base}/storage/v1/object/public/avatars/${supabaseId}/`;
+    if (!base || !url.startsWith(prefix) || url.includes('..')) {
+      throw new BadRequestException('avatarUrl must be an uploaded photo');
+    }
+  }
 
   async upsertUser(
     supabaseId: string,
@@ -51,17 +63,17 @@ export class UsersService {
     return user;
   }
 
-  async findPublicById(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      select: PUBLIC_USER_FIELDS,
+  setUtcOffset(supabaseId: string, utcOffset: number) {
+    return this.prisma.user.update({
+      where: { supabaseId },
+      data: { utcOffset },
     });
-    if (!user) throw new NotFoundException('User not found');
-    return user;
   }
 
-  async updateUser(supabaseId: string, data: UpdateUserDto) {
-    return this.prisma.user.upsert({
+  async updateUser(supabaseId: string, data: UpdateUserDto, offset = 0) {
+    if (data.avatarUrl) this.checkAvatarUrl(supabaseId, data.avatarUrl);
+
+    const user = await this.prisma.user.upsert({
       where: { supabaseId },
       update: data,
       create: {
@@ -72,6 +84,23 @@ export class UsersService {
         displayName: data.displayName ?? `user_${supabaseId.slice(0, 8)}`,
       },
     });
+
+    // A new weight from onboarding or the profile is also today's weigh-in
+    if (data.weightKg !== undefined) {
+      await this.weight.logForUser(user.id, data.weightKg, offset);
+    }
+
+    // Going public approves everyone who was waiting
+    if (data.isPrivate === false) {
+      await this.prisma.follow.updateMany({
+        where: { followingId: user.id, status: 'pending' },
+        data: { status: 'accepted' },
+      });
+      await this.prisma.notification.deleteMany({
+        where: { userId: user.id, type: 'follow_request' },
+      });
+    }
+    return user;
   }
 
   /**

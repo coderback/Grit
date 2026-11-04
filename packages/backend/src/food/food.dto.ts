@@ -128,3 +128,54 @@ export class FoodSearchQueryDto {
   @Length(0, 100)
   q?: string;
 }
+
+/** A portion saved for one-tap re-logging: a food log without meal or time. */
+export class SaveFavoriteDto {
+  @IsString()
+  @Length(1, 200)
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 200)
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 32)
+  barcode?: string;
+
+  @IsNumber()
+  @Min(0)
+  @Max(20000)
+  calories: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(2000)
+  proteinG?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(2000)
+  carbsG?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(2000)
+  fatG?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100000)
+  servingQty?: number;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 20)
+  servingUnit?: string;
+}

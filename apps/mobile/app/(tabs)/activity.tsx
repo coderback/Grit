@@ -12,6 +12,8 @@ import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
 import { ScreenSkeleton } from '@/components/ui/Skeleton';
 import { ACTIVITY_LABELS, LogActivitySheet } from '@/components/activity/LogActivitySheet';
 import { DateNavigator } from '@/components/ui/DateNavigator';
+import { TrendsCard } from '@/components/stats/TrendsCard';
+import { LogWeightSheet } from '@/components/stats/LogWeightSheet';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Colors } from '@/constants/colors';
 import { addDaysStr, dayLabel, localDateStr, weekLabel, weekStartStr } from '@/lib/date';
@@ -93,12 +95,14 @@ export default function ActivityScreen() {
   const { data: habits } = useHabits();
   const { data: habitSummary } = useHabitSummary();
   const [showSheet, setShowSheet] = useState(false);
-  const { refreshing, onRefresh } = usePullToRefresh([['activity-week'], ['food-week'], ['me'], ['habits'], ['habit-streaks']]);
+  const [showWeight, setShowWeight] = useState(false);
+  const { refreshing, onRefresh } = usePullToRefresh([['activity-week'], ['food-week'], ['me'], ['habits'], ['habit-streaks'], ['trends'], ['weight']]);
 
   useFocusEffect(
     React.useCallback(() => {
       return () => {
         setShowSheet(false);
+        setShowWeight(false);
         setEditingWorkout(null);
       };
     }, [])
@@ -149,6 +153,13 @@ export default function ActivityScreen() {
             Analytics
           </Text>
         </View>
+
+        {/* Longer-range trends and weight */}
+        <TrendsCard unit={me?.weightUnit ?? 'kg'} onLogWeight={() => setShowWeight(true)} />
+
+        <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, paddingHorizontal: 4 }}>
+          Week by week
+        </Text>
 
         {/* Week picker */}
         <View style={{ marginBottom: 16 }}>
@@ -397,6 +408,7 @@ export default function ActivityScreen() {
       </ScrollView>
 
       {showSheet && <LogActivitySheet onClose={() => setShowSheet(false)} />}
+      {showWeight && <LogWeightSheet unit={me?.weightUnit ?? 'kg'} lastKg={me?.weightKg ?? null} onClose={() => setShowWeight(false)} />}
       {editingWorkout && <LogActivitySheet key={editingWorkout.id} editing={editingWorkout} onClose={() => setEditingWorkout(null)} />}
     </SafeAreaView>
   );

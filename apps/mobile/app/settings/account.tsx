@@ -5,7 +5,9 @@ import Constants from 'expo-constants';
 import { Colors } from '@/constants/colors';
 import { showToast } from '@/stores/toastStore';
 import { api } from '@/lib/api';
+import { removeAvatarFile } from '@/lib/avatar';
 import { supabase } from '@/lib/supabase';
+import { signOut } from '@/lib/session';
 import { confirmAction, notify } from '@/lib/confirm';
 import { sendPasswordReset } from '@/lib/passwordReset';
 import { useAuthStore } from '@/stores/authStore';
@@ -31,7 +33,7 @@ export default function AccountScreen() {
   async function handleSignOut() {
     if (!(await confirmAction({ title: 'Log out', message: 'Are you sure you want to log out?', confirmLabel: 'Log out' }))) return;
     // The auth listener in the root layout clears cached data and redirects
-    await supabase.auth.signOut();
+    await signOut();
   }
 
   async function handleDelete() {
@@ -44,6 +46,9 @@ export default function AccountScreen() {
     if (!ok) return;
     setBusy(true);
     try {
+      // While still signed in: storage only lets the owner delete their photo
+      const authId = (await supabase.auth.getUser()).data.user?.id;
+      if (authId && me?.avatarUrl) await removeAvatarFile(authId).catch(() => {});
       await api.delete('/users/me');
       // The sign-in no longer exists, so only clear the local session
       await supabase.auth.signOut({ scope: 'local' });

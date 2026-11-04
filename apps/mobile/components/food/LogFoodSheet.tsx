@@ -9,6 +9,7 @@ import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { SheetTextInput, sheetKeyboardProps } from '@/components/ui/SheetTextInput';
 import * as Haptics from 'expo-haptics';
 import { useLogFood, type NormalizedFood } from '@/hooks/useFoodLog';
+import { foodKey, useFavoriteFoods, useRemoveFavorite, useSaveFavorite } from '@/hooks/useQuickFoods';
 import { Button } from '@/components/ui/Button';
 import { useHideTabBar } from '@/stores/uiStore';
 import { Colors } from '@/constants/colors';
@@ -46,19 +47,49 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
 
   // Foods from the database carry nutrition per 100 g (or ml) plus a serving
   // size; manual entries have neither, so the user types values per serving.
-  const isManual = !food?.offId;
+  // Saved portions (recent or favourite foods) carry amounts for the whole
+  // portion, so servings multiply them directly.
+  const isPortion = !!food?.portion;
+  const isManual = !food?.offId && !isPortion;
   const [name, setName] = useState(food?.name ?? '');
   const [manual, setManual] = useState({ calories: '', proteinG: '', carbsG: '', fatG: '' });
   const num = (v: string) => Math.max(0, parseFloat(v) || 0);
 
   const servings = parseFloat(qty) > 0 ? parseFloat(qty) : 1;
   const amount = servings * (food?.servingQty ?? 100); // grams or ml eaten
-  const per100 = amount / 100;
+  // How much of the food's listed amounts this is
+  const factor = isManual ? servings : isPortion ? servings : amount / 100;
 
-  const adjustedCalories = isManual ? num(manual.calories) * servings : (food?.calories ?? 0) * per100;
-  const adjustedProtein = isManual ? num(manual.proteinG) * servings : (food?.proteinG ?? 0) * per100;
-  const adjustedCarbs = isManual ? num(manual.carbsG) * servings : (food?.carbsG ?? 0) * per100;
-  const adjustedFat = isManual ? num(manual.fatG) * servings : (food?.fatG ?? 0) * per100;
+  const adjustedCalories = isManual ? num(manual.calories) * servings : (food?.calories ?? 0) * factor;
+  const adjustedProtein = isManual ? num(manual.proteinG) * servings : (food?.proteinG ?? 0) * factor;
+  const adjustedCarbs = isManual ? num(manual.carbsG) * servings : (food?.carbsG ?? 0) * factor;
+  const adjustedFat = isManual ? num(manual.fatG) * servings : (food?.fatG ?? 0) * factor;
+
+  // The star saves exactly what would be logged now
+  const { data: favorites } = useFavoriteFoods();
+  const { mutate: saveFavorite, isPending: savingFavorite } = useSaveFavorite();
+  const { mutate: removeFavorite, isPending: removingFavorite } = useRemoveFavorite();
+  const favName = isManual ? name.trim() : food?.name ?? '';
+  const favorite = favorites?.find((f) => f.key === foodKey(favName, food?.brand));
+  function toggleFavorite() {
+    if (!food || !favName) return;
+    Haptics.selectionAsync();
+    if (favorite) {
+      removeFavorite(favorite.id);
+      return;
+    }
+    saveFavorite({
+      name: favName,
+      brand: food.brand,
+      barcode: food.barcode,
+      calories: Math.round(adjustedCalories),
+      proteinG: Math.round(adjustedProtein * 10) / 10,
+      carbsG: Math.round(adjustedCarbs * 10) / 10,
+      fatG: Math.round(adjustedFat * 10) / 10,
+      servingQty: isManual ? servings : amount,
+      servingUnit: isManual ? 'serving' : food.servingUnit,
+    });
+  }
 
   const handleLog = useCallback(async () => {
     if (!food) return;
@@ -101,7 +132,8 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
     >
       <BottomSheetView style={{ padding: 24, gap: 20 }}>
         {/* Food name */}
-        <View>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+        <View style={{ flex: 1 }}>
           {isManual ? (
             <SheetTextInput
               style={fieldStyle}
@@ -135,6 +167,18 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
               {food.brand}
             </Text>
           )}
+        </View>
+          <Pressable
+            onPress={toggleFavorite}
+            disabled={!favName || savingFavorite || removingFavorite}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={favorite ? 'Remove from favourites' : 'Save to favourites'}
+            aria-checked={!!favorite}
+            style={{ opacity: favName ? 1 : 0.4, paddingTop: 2 }}
+          >
+            <Text style={{ fontSize: 22, color: favorite ? Colors.orange : Colors.muted }}>{favorite ? '★' : '☆'}</Text>
+          </Pressable>
         </View>
 
         {/* Manual entry: nutrition per serving */}
@@ -194,7 +238,7 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12, marginBottom: 6 }}>
-              Servings{!isManual ? ` (${food.servingQty} ${food.servingUnit})` : ''}
+              {isPortion ? `Portions (1 = ${Math.round(food.servingQty * 10) / 10} ${food.servingUnit})` : `Servings${!isManual ? ` (${food.servingQty} ${food.servingUnit})` : ''}`}
             </Text>
             <SheetTextInput
               style={{

@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, RefreshControl, TextInput, Alert } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useFeed, useWeeklyLeaderboard } from '@/hooks/useSocialFeed';
+import { useFeed, useFollowRequests, useWeeklyLeaderboard } from '@/hooks/useSocialFeed';
 import { useChallenges, useJoinChallenge } from '@/hooks/useChallenges';
 import { useMe } from '@/hooks/useMe';
 import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
@@ -14,6 +14,8 @@ import { Leaderboard } from '@/components/social/Leaderboard';
 import { ChallengeCard } from '@/components/social/ChallengeCard';
 import { CreateChallengeSheet } from '@/components/social/CreateChallengeSheet';
 import { Colors } from '@/constants/colors';
+import { InboxBell } from '@/components/ui/InboxBell';
+import { hasEnded } from '@/lib/challenges';
 import { router } from 'expo-router';
 
 type Tab = 'feed' | 'challenges' | 'leaderboard';
@@ -45,6 +47,8 @@ export default function SocialScreen() {
   }
 
   const feedQuery = useFeed();
+  const { data: requests } = useFollowRequests();
+  const requestCount = requests?.length ?? 0;
   const leaderboardQuery = useWeeklyLeaderboard();
   const challengesQuery = useChallenges();
   const { data: feedItems, isLoading: feedLoading } = feedQuery;
@@ -55,8 +59,8 @@ export default function SocialScreen() {
     activeTab === 'feed' ? feedQuery : activeTab === 'challenges' ? challengesQuery : leaderboardQuery,
   );
 
-  const activeChallenges = (challenges ?? []).filter((c) => !c.isComplete);
-  const pastChallenges = (challenges ?? []).filter((c) => c.isComplete);
+  const activeChallenges = (challenges ?? []).filter((c) => !hasEnded(c));
+  const pastChallenges = (challenges ?? []).filter((c) => hasEnded(c));
 
   const { refreshing, onRefresh } = usePullToRefresh([
     ['feed'],
@@ -70,6 +74,25 @@ export default function SocialScreen() {
       <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, gap: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>Social</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <InboxBell />
+          <Pressable
+            onPress={() => router.push(requestCount > 0 ? { pathname: '/friends', params: { tab: 'requests' } } : '/friends')}
+            accessibilityRole="button"
+            accessibilityLabel={requestCount > 0 ? `Friends, ${requestCount} follow requests` : 'Find friends'}
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.7 : 1, width: 38, height: 38, borderRadius: 19,
+              backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+              alignItems: 'center', justifyContent: 'center',
+            })}
+          >
+            <Text style={{ fontSize: 17 }}>👥</Text>
+            {requestCount > 0 && (
+              <View style={{ position: 'absolute', top: -3, right: -3, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: Colors.orange, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
+                <Text style={{ color: '#fff', fontFamily: 'DMSans-Bold', fontSize: 10 }}>{requestCount > 9 ? '9+' : requestCount}</Text>
+              </View>
+            )}
+          </Pressable>
           {activeTab === 'challenges' && (
             <Pressable
               onPress={() => {
@@ -89,6 +112,7 @@ export default function SocialScreen() {
               <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 14 }}>+ New</Text>
             </Pressable>
           )}
+          </View>
         </View>
 
         {/* Tab switcher */}
@@ -141,6 +165,13 @@ export default function SocialScreen() {
               <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14, textAlign: 'center' }}>
                 Follow friends to see their activity here.
               </Text>
+              <Pressable
+                onPress={() => router.push('/friends')}
+                accessibilityRole="button"
+                style={{ backgroundColor: Colors.orange, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 12, marginTop: 4 }}
+              >
+                <Text style={{ color: '#fff', fontFamily: 'DMSans-Bold', fontSize: 15 }}>Find friends</Text>
+              </Pressable>
             </View>
           ) : null
         )}
@@ -188,7 +219,7 @@ export default function SocialScreen() {
             {pastChallenges.length > 0 && (
               <View style={{ gap: 12, marginTop: 8 }}>
                 <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-                  Completed
+                  Finished
                 </Text>
                 {pastChallenges.map((c) => (
                   <ChallengeCard key={c.id} challenge={c} myUserId={me?.id} />

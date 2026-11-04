@@ -11,6 +11,8 @@ import { useHideTabBar } from '@/stores/uiStore';
 import { Colors } from '@/constants/colors';
 
 // Display labels for activity types
+const STEP_TYPES = ['walking', 'running', 'hiking'];
+
 export const ACTIVITY_LABELS: Record<string, string> = {
   running: '🏃 Running',
   cycling: '🚴 Cycling',
@@ -53,6 +55,9 @@ export function LogActivitySheet({ onClose, editing, date }: LogActivitySheetPro
 
   const [selectedType, setSelectedType] = useState(editing?.activityType ?? 'running');
   const [duration, setDuration] = useState(String(editing?.durationMin ?? 30));
+  const [steps, setSteps] = useState(editing?.steps ? String(editing.steps) : '');
+  // Step counts only make sense for on-foot workouts; they count toward step challenges
+  const countsSteps = STEP_TYPES.includes(selectedType);
 
   const handleLog = useCallback(async () => {
     const durationMin = parseInt(duration, 10);
@@ -60,19 +65,30 @@ export function LogActivitySheet({ onClose, editing, date }: LogActivitySheetPro
       Alert.alert('Invalid duration', 'Please enter a duration in minutes.');
       return;
     }
+    const stepCount = countsSteps && steps.trim() ? parseInt(steps, 10) : undefined;
+    if (stepCount !== undefined && (!Number.isFinite(stepCount) || stepCount < 0 || stepCount > 300000)) {
+      Alert.alert('Invalid steps', 'Enter a step count up to 300,000, or leave it empty.');
+      return;
+    }
     try {
       if (editing) {
         // Calories are re-estimated on the server when type or duration change
-        await updateActivity({ id: editing.id, activityType: selectedType, durationMin });
+        await updateActivity({
+          id: editing.id,
+          activityType: selectedType,
+          durationMin,
+          // 0 clears a count that no longer applies
+          steps: countsSteps ? stepCount ?? 0 : editing.steps ? 0 : undefined,
+        });
       } else {
-        await logActivity({ activityType: selectedType, durationMin, loggedAt: date ? loggedAtFor(date) : undefined });
+        await logActivity({ activityType: selectedType, durationMin, steps: stepCount, loggedAt: date ? loggedAtFor(date) : undefined });
       }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
     } catch {
       Alert.alert('Error', editing ? 'Could not save the workout. Please try again.' : 'Could not log activity. Please try again.');
     }
-  }, [selectedType, duration, logActivity, updateActivity, editing, date, onClose]);
+  }, [selectedType, duration, steps, countsSteps, logActivity, updateActivity, editing, date, onClose]);
 
   async function handleDelete() {
     if (!editing) return;
@@ -181,6 +197,24 @@ export function LogActivitySheet({ onClose, editing, date }: LogActivitySheetPro
             />
           </View>
         </View>
+
+        {countsSteps && (
+          <View style={{ gap: 8 }}>
+            <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12 }}>STEPS (OPTIONAL)</Text>
+            <SheetTextInput
+              style={{
+                backgroundColor: Colors.surface2, borderRadius: 999, borderWidth: 1.5, borderColor: Colors.border,
+                color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 15, paddingHorizontal: 18, paddingVertical: 10,
+              }}
+              placeholder="e.g. 6500 — counts toward step challenges"
+              placeholderTextColor={Colors.muted}
+              value={steps}
+              onChangeText={(t) => setSteps(t.replace(/[^0-9]/g, ''))}
+              keyboardType="number-pad"
+              accessibilityLabel="Steps"
+            />
+          </View>
+        )}
 
         <Button label={editing ? 'Save changes' : 'Log activity'} onPress={handleLog} loading={isPending} />
         {editing && (

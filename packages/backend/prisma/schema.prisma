@@ -21,6 +21,7 @@ model User {
   activityLevel String?
   gender        String?
   dateOfBirth   DateTime?
+  // Replaced by push_devices; kept until older servers are gone, then dropped
   pushToken     String?
 
   // Goal details from onboarding, editable in Goals & Targets
@@ -44,6 +45,16 @@ model User {
   notifStreak       Boolean @default(true)
   notifOffTrackOnly Boolean @default(false)
 
+  // Push and inbox alerts for follows, requests, kudos and challenges
+  notifSocial       Boolean @default(true)
+
+  // Private accounts approve each follower; only approved followers see activity
+  isPrivate Boolean @default(true)
+
+  // The device's latest UTC offset in minutes, so scheduled alerts arrive at
+  // the right local time
+  utcOffset Int @default(0)
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -57,6 +68,13 @@ model User {
   aiMessages   AIMessage[]
   kudosGiven   Kudos[]
   workoutPlan  WorkoutPlan?
+  blocking     Block[]                @relation("blocker")
+  blockedBy    Block[]                @relation("blocked")
+  pushDevices  PushDevice[]
+  weightLogs   WeightLog[]
+  favoriteFoods FavoriteFood[]
+  notifications     Notification[] @relation("recipient")
+  notificationsSent Notification[] @relation("actor")
 
   @@map("users")
 }
@@ -65,13 +83,31 @@ model Follow {
   id          String   @id @default(cuid())
   followerId  String
   followingId String
+  // pending until a private account approves it
+  status      String   @default("accepted") // pending | accepted
   createdAt   DateTime @default(now())
 
   follower  User @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
   following User @relation("followers", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, followingId])
+  @@index([followingId, status])
   @@map("follows")
+}
+
+// A blocked user can't find, follow or see the blocker, and vice versa
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+  @@map("blocks")
 }
 
 model FoodLog {
@@ -165,14 +201,19 @@ model HabitLog {
 model Challenge {
   id           String   @id @default(cuid())
   title        String
-  type         String   @default("group_steps")
+  // What counts, from workouts logged during the challenge:
+  // steps | active_minutes | workouts
+  type         String   @default("active_minutes")
   goalValue    Int
   durationDays Int
   startDate    DateTime
   endDate      DateTime
   creatorId    String
   inviteCode   String   @unique @default(cuid())
+  // The group reached the goal (it can still be running)
   isComplete   Boolean  @default(false)
+  // Set once the end date has passed and the results were sent
+  endedAt      DateTime?
   createdAt    DateTime @default(now())
 
   participants ChallengeParticipant[]
@@ -184,6 +225,7 @@ model ChallengeParticipant {
   id           String   @id @default(cuid())
   challengeId  String
   userId       String
+  // Recomputed from the user's logged workouts in the challenge window
   currentValue Int      @default(0)
   joinedAt     DateTime @default(now())
 
@@ -226,4 +268,82 @@ model WorkoutPlan {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("workout_plans")
+}
+
+// One row per phone signed in to the account; Expo push tokens
+model PushDevice {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  platform  String // ios | android
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_devices")
+}
+
+// The in-app inbox. Push alerts are sent for these too, if the user allows.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String // who it's for
+  // follow | follow_request | follow_accepted | kudos | challenge_joined |
+  // challenge_ended | streak_at_risk | weekly_progress
+  type      String
+  actorId   String? // who caused it, for social alerts
+  title     String
+  body      String
+  data      Json      @default("{}") // ids to open: userId, challengeId, ...
+  // Stops the same alert being sent twice, e.g. "streak:2026-11-04"
+  dedupeKey String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user  User  @relation("recipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("actor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// One weigh-in per day; the latest also updates users.weightKg
+model WeightLog {
+  id        String   @id @default(cuid())
+  userId    String
+  weightKg  Float
+  // The local day, stored as midnight UTC of that date (like habit check-ins)
+  day       DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@map("weight_logs")
+}
+
+// A saved portion for one-tap re-logging: what was eaten, not per 100 g
+model FavoriteFood {
+  id          String   @id @default(cuid())
+  userId      String
+  // lowercased "name|brand", so the same food can't be saved twice
+  key         String
+  name        String
+  brand       String?
+  barcode     String?
+  calories    Float
+  proteinG    Float    @default(0)
+  carbsG      Float    @default(0)
+  fatG        Float    @default(0)
+  servingQty  Float    @default(1)
+  servingUnit String   @default("serving")
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@map("favorite_foods")
 }

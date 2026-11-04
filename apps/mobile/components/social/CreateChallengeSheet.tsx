@@ -3,13 +3,27 @@ import { View, Text, Pressable, Alert } from 'react-native';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { SheetTextInput, sheetKeyboardProps } from '@/components/ui/SheetTextInput';
 import { router } from 'expo-router';
-import { useCreateChallenge } from '@/hooks/useChallenges';
+import { useCreateChallenge, type ChallengeType } from '@/hooks/useChallenges';
 import { Button } from '@/components/ui/Button';
 import { useHideTabBar } from '@/stores/uiStore';
 import { Colors } from '@/constants/colors';
 
 const DURATIONS = [3, 7, 14, 30] as const;
-const STEP_PRESETS = [50_000, 100_000, 250_000, 500_000];
+
+const TYPES: { value: ChallengeType; label: string; hint: string; presets: number[]; unit: (n: number) => string }[] = [
+  {
+    value: 'active_minutes', label: 'Active minutes', hint: 'Every logged workout counts its minutes.',
+    presets: [300, 600, 1200, 2400], unit: (n) => `${n.toLocaleString()} min`,
+  },
+  {
+    value: 'workouts', label: 'Workouts', hint: 'Each logged workout counts once.',
+    presets: [5, 10, 20, 40], unit: (n) => `${n} workouts`,
+  },
+  {
+    value: 'steps', label: 'Steps', hint: 'Steps entered on logged walks, runs and hikes count.',
+    presets: [50_000, 100_000, 250_000, 500_000], unit: (n) => `${n / 1000}k steps`,
+  },
+];
 
 interface CreateChallengeSheetProps {
   onClose: () => void;
@@ -22,7 +36,14 @@ export function CreateChallengeSheet({ onClose }: CreateChallengeSheetProps) {
 
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState<7 | 3 | 14 | 30>(7);
-  const [goalValue, setGoalValue] = useState(100_000);
+  const [type, setType] = useState<ChallengeType>('active_minutes');
+  const kind = TYPES.find((t) => t.value === type)!;
+  const [goalValue, setGoalValue] = useState(kind.presets[1]);
+
+  function pickType(t: ChallengeType) {
+    setType(t);
+    setGoalValue(TYPES.find((x) => x.value === t)!.presets[1]);
+  }
 
   async function handleCreate() {
     if (!title.trim()) {
@@ -30,7 +51,7 @@ export function CreateChallengeSheet({ onClose }: CreateChallengeSheetProps) {
       return;
     }
     try {
-      const challenge = await createChallenge({ title: title.trim(), goalValue, durationDays: duration });
+      const challenge = await createChallenge({ title: title.trim(), type, goalValue, durationDays: duration });
       onClose();
       // The detail screen has the invite button
       router.push(`/challenge/${challenge.id}`);
@@ -42,7 +63,7 @@ export function CreateChallengeSheet({ onClose }: CreateChallengeSheetProps) {
   return (
     <BottomSheet
       ref={sheetRef}
-      snapPoints={['70%']}
+      snapPoints={['82%']}
       enablePanDownToClose
       onClose={onClose}
       {...sheetKeyboardProps}
@@ -106,16 +127,46 @@ export function CreateChallengeSheet({ onClose }: CreateChallengeSheetProps) {
           </View>
         </View>
 
+        {/* What counts */}
+        <View style={{ gap: 8 }}>
+          <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12 }}>
+            WHAT COUNTS
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {TYPES.map((t) => (
+              <Pressable
+                key={t.value}
+                onPress={() => pickType(t.value)}
+                accessibilityRole="radio"
+                aria-selected={type === t.value}
+                style={{
+                  flex: 1, paddingVertical: 10, borderRadius: 999, alignItems: 'center',
+                  backgroundColor: type === t.value ? Colors.orange : Colors.surface2,
+                  borderWidth: 1.5,
+                  borderColor: type === t.value ? Colors.orange : Colors.border,
+                }}
+              >
+                <Text style={{ color: type === t.value ? '#fff' : Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 13 }}>
+                  {t.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12 }}>{kind.hint}</Text>
+        </View>
+
         {/* Goal */}
         <View style={{ gap: 8 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12 }}>
-            GROUP STEP GOAL
+            GROUP GOAL
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {STEP_PRESETS.map((g) => (
+            {kind.presets.map((g) => (
               <Pressable
                 key={g}
                 onPress={() => setGoalValue(g)}
+                accessibilityRole="radio"
+                aria-selected={goalValue === g}
                 style={{
                   paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
                   backgroundColor: goalValue === g ? Colors.orange : Colors.surface2,
@@ -127,7 +178,7 @@ export function CreateChallengeSheet({ onClose }: CreateChallengeSheetProps) {
                   color: goalValue === g ? '#fff' : Colors.muted,
                   fontFamily: 'DMSans-Medium', fontSize: 13,
                 }}>
-                  {(g / 1000).toFixed(0)}k steps
+                  {kind.unit(g)}
                 </Text>
               </Pressable>
             ))}

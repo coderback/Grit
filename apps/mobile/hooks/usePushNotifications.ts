@@ -1,7 +1,13 @@
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { router } from 'expo-router';
 import { api } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
+import { notificationRoute } from '@/lib/notificationRoute';
+
+// The token this phone registered, so sign-out can remove it
+let registeredToken: string | null = null;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -45,11 +51,49 @@ export function usePushNotifications(enabled: boolean) {
           token,
           platform: Platform.OS,
         });
+        registeredToken = token;
       })
       .catch(() => {
         // Non-critical — push notifications are optional
       });
   }, [enabled]);
+
+  // Tapping an alert opens what it's about; arriving ones refresh the inbox badge
+  useEffect(() => {
+    if (!enabled || Platform.OS === 'web') return;
+    function open(response: Notifications.NotificationResponse) {
+      const data = response.notification.request.content.data ?? {};
+      // Local reminders carry their own type and just open the app
+      if (data.type === 'habit_reminder' || data.type === 'reminder') return;
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      router.push(notificationRoute(data.type as string | undefined, data));
+    }
+    // The app was opened by tapping one
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response) {
+          open(response);
+          Notifications.clearLastNotificationResponseAsync?.();
+        }
+      })
+      .catch(() => {});
+    const tapped = Notifications.addNotificationResponseReceivedListener(open);
+    const received = Notifications.addNotificationReceivedListener(() => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    });
+    return () => {
+      tapped.remove();
+      received.remove();
+    };
+  }, [enabled]);
+}
+
+/** Stops this phone getting the signed-in account's alerts. Call before signing out. */
+export async function unregisterPushDevice() {
+  if (!registeredToken) return;
+  const token = registeredToken;
+  registeredToken = null;
+  await api.delete('/notifications/register', { data: { token } });
 }
 
 /** Schedule a local reminder at 8pm today if not already scheduled */
