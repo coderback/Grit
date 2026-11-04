@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { FoodModule } from './food/food.module';
+import { MealParseModule } from './meal-parse/meal-parse.module';
 import { ActivityModule } from './activity/activity.module';
 import { HabitsModule } from './habits/habits.module';
 import { SocialModule } from './social/social.module';
@@ -40,6 +41,7 @@ import { UserThrottlerGuard } from './observability/throttler.guard';
     AuthModule,
     UsersModule,
     FoodModule,
+    MealParseModule,
     ActivityModule,
     HabitsModule,
     SocialModule,

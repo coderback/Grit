@@ -144,6 +144,7 @@ const SETTINGS_ROWS = [
   { icon: '👥', color: 'orange' as const, label: 'Friends', sub: 'Find people, requests and followers', href: '/friends' as const },
   { icon: '🔒', color: 'blue' as const, label: 'Privacy', sub: 'Private account and blocked people', href: '/settings/privacy' as const },
   { icon: '❤️', color: 'error' as const, label: Platform.OS === 'android' ? 'Health Connect' : Platform.OS === 'ios' ? 'Apple Health' : 'Health data', sub: 'Sync workouts, steps, sleep and weight', href: '/settings/health' as const },
+  { icon: '✨', color: 'orange' as const, label: 'Foods GRIT knows', sub: 'Portions learned from Smart log', href: '/settings/foods' as const },
   { icon: '🔔', color: 'blue' as const, label: 'Notifications', sub: 'Reminders and alerts', href: '/settings/notifications' as const },
   { icon: '👤', color: 'muted' as const, label: 'Account', sub: 'Appearance, units, password, delete account', href: '/settings/account' as const },
   { icon: '📊', color: 'teal' as const, label: 'My Progress', sub: 'Weekly stats', href: '/(tabs)/activity' as const },

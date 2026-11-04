@@ -19,6 +19,7 @@ import { addDaysStr, dayLabel, localDateStr } from '@/lib/date';
 import { confirmAction } from '@/lib/confirm';
 import { DateNavigator } from '@/components/ui/DateNavigator';
 import { EditFoodSheet } from '@/components/food/EditFoodSheet';
+import { SmartLogSheet } from '@/components/food/SmartLogSheet';
 import { useMe } from '@/hooks/useMe';
 import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
 import { ScreenSkeleton } from '@/components/ui/Skeleton';
@@ -104,6 +105,7 @@ export default function FoodScreen() {
   const { data: me } = useMe();
   const { refreshing, onRefresh } = usePullToRefresh([['food-logs', date], ['me'], ['food-recent'], ['food-favorites']]);
   const [editingLog, setEditingLog] = useState<FoodLog | null>(null);
+  const [smartOpen, setSmartOpen] = useState(false);
   const [selectedFood, setSelectedFood] = useState<NormalizedFood | null>(null);
   const [selectedMeal, setSelectedMeal] = useState<(typeof MEAL_ORDER)[number] | undefined>();
 
@@ -177,6 +179,19 @@ export default function FoodScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingTop: 6 }}>
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>Food</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable accessibilityLabel="Smart log: describe or photograph a meal" accessibilityRole="button"
+              onPress={() => setSmartOpen(true)}
+              style={({ pressed }) => ({
+                opacity: pressed ? 0.7 : 1,
+                height: 40, borderRadius: 12, paddingHorizontal: 12,
+                backgroundColor: Colors.surface,
+                borderWidth: 1, borderColor: `${Colors.orange}80`,
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+              })}
+            >
+              <Text style={{ fontSize: 15 }}>✨</Text>
+              <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 13 }}>Smart log</Text>
+            </Pressable>
             <Pressable accessibilityLabel="Scan a barcode" accessibilityRole="button"
               onPress={() => router.push('/barcode-scanner' as never)}
               style={({ pressed }) => ({
@@ -333,6 +348,7 @@ export default function FoodScreen() {
       {selectedFood && (
         <LogFoodSheet food={selectedFood} initialMeal={selectedMeal} date={date} onClose={() => setSelectedFood(null)} />
       )}
+      {smartOpen && <SmartLogSheet date={date} onClose={() => setSmartOpen(false)} />}
       {editingLog && <EditFoodSheet key={editingLog.id} log={editingLog} onClose={() => setEditingLog(null)} />}
     </SafeAreaView>
   );

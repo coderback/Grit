@@ -78,7 +78,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "GRIT uses your camera to scan food barcodes.",
+          "cameraPermission": "GRIT uses your camera to scan food barcodes and photograph meals.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -94,8 +94,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "GRIT uses your photos so you can choose a profile picture.",
-          "cameraPermission": false,
+          "photosPermission": "GRIT uses your photos so you can choose a profile picture or log a meal from a photo.",
+          "cameraPermission": "GRIT uses your camera to photograph meals so it can estimate what's in them.",
           "microphonePermission": false
         }
       ],
