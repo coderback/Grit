@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ChallengesService } from '../challenges/challenges.service';
+import { AdaptiveService } from '../progress/adaptive.service';
 import {
   addDays,
   dateMarker,
@@ -38,6 +39,7 @@ export class AlertsService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private challenges: ChallengesService,
+    private adaptive: AdaptiveService,
   ) {}
 
   @Cron('5 * * * *')
@@ -83,6 +85,7 @@ export class AlertsService {
           utcOffset: true,
           activeMinutesGoal: true,
           notifOffTrackOnly: true,
+          supabaseId: true,
         },
         orderBy: { id: 'asc' },
         take: USER_PAGE,
@@ -179,9 +182,19 @@ export class AlertsService {
       };
       if (user.notifOffTrackOnly && !isOffTrack(stats)) continue;
 
+      // The weekly check-in also carries a target adjustment, if there is one
+      const checkIn = await this.adaptive
+        .checkIn(user.supabaseId, user.utcOffset)
+        .catch(() => null);
+      const alert = weeklyAlert(stats);
+      const s = checkIn?.suggestion;
+      if (s) {
+        alert.body += ` Your coach suggests ${s.change > 0 ? 'raising' : 'lowering'} your target to ${s.suggested.toLocaleString('en-US')} kcal: tap to review.`;
+      }
+
       const delivered = await this.notifications.notify(user.id, {
         type: 'weekly_progress',
-        ...weeklyAlert(stats),
+        ...alert,
         data: { screen: 'stats' },
         dedupeKey: `weekly:${monday}`,
       });

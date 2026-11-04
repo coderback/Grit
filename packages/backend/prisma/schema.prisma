@@ -49,6 +49,10 @@ model User {
   // Private accounts approve each follower; only approved followers see activity
   isPrivate Boolean @default(true)
 
+  // Adaptive targets: when a suggestion was last taken or put off
+  adaptiveAppliedAt   DateTime?
+  adaptiveSnoozedUntil DateTime?
+
   // The device's latest UTC offset in minutes, so scheduled alerts arrive at
   // the right local time
   utcOffset Int @default(0)
