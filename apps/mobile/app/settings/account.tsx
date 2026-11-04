@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { removeAvatarFile } from '@/lib/avatar';
 import { supabase } from '@/lib/supabase';
 import { signOut } from '@/lib/session';
+import { useThemeStore } from '@/stores/themeStore';
 import { confirmAction, notify } from '@/lib/confirm';
 import { sendPasswordReset } from '@/lib/passwordReset';
 import { useAuthStore } from '@/stores/authStore';
@@ -16,6 +17,8 @@ import { ChipGroup, FieldLabel, NavRow, ScreenHeader, Section } from '@/componen
 
 export default function AccountScreen() {
   const { data: me } = useMe();
+  const themePreference = useThemeStore((s) => s.preference);
+  const setThemePreference = useThemeStore((s) => s.setPreference);
   const { mutate: save } = useUpdateMe();
   const email = useAuthStore((s) => s.user?.email);
   const [busy, setBusy] = useState(false);
@@ -64,6 +67,18 @@ export default function AccountScreen() {
       <ScrollView contentContainerStyle={{ padding: 20, gap: 22, paddingBottom: 48 }}>
         <Section title="Signed in as">
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Medium', fontSize: 15 }}>{email ?? '—'}</Text>
+        </Section>
+
+        <Section title="Appearance" footer="System follows your phone's light or dark mode.">
+          <ChipGroup
+            options={[
+              { value: 'system', label: 'System' },
+              { value: 'light', label: 'Light' },
+              { value: 'dark', label: 'Dark' },
+            ]}
+            value={themePreference}
+            onChange={setThemePreference}
+          />
         </Section>
 
         {me && (

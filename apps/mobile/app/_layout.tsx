@@ -1,5 +1,6 @@
 import '../global.css';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { useColorScheme } from 'react-native';
 import { Stack, SplashScreen, router, useSegments, usePathname } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -19,6 +20,8 @@ import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { Toast } from '@/components/ui/Toast';
+import { Colors, applyColorScheme } from '@/constants/colors';
+import { useThemeStore } from '@/stores/themeStore';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { CrashScreen } from '@/components/ui/CrashScreen';
 import { installGlobalCrashHandler, setCrashScreen } from '@/lib/crashReporter';
@@ -37,6 +40,36 @@ export default function RootLayout() {
   useEffect(() => setCrashScreen(pathname), [pathname]);
   // Register for push only once signed in; the backend rejects anonymous calls
   usePushNotifications(!!session);
+
+  // Theme: the saved choice, or the phone's setting. Colors answers from the
+  // current palette, so set it before anything below renders.
+  const systemScheme = useColorScheme();
+  const { preference, loaded: themeLoaded, load: loadTheme } = useThemeStore();
+  useEffect(() => { loadTheme(); }, [loadTheme]);
+  const scheme = preference === 'system' ? (systemScheme === 'light' ? 'light' : 'dark') : preference;
+  applyColorScheme(scheme);
+
+  // Screens are memoised by the navigator, so a theme change redraws them by
+  // remounting the stack (keyed on the scheme), then reopens the screen the
+  // user was on
+  const schemeRef = useRef(scheme);
+  const pathRef = useRef(pathname);
+  const restoreTo = useRef<string | null>(null);
+  if (schemeRef.current !== scheme) {
+    restoreTo.current = pathRef.current;
+    schemeRef.current = scheme;
+  } else if (!restoreTo.current) {
+    pathRef.current = pathname;
+  }
+  useEffect(() => {
+    const path = restoreTo.current;
+    if (!path) return;
+    const timer = setTimeout(() => {
+      restoreTo.current = null;
+      if (path !== '/') router.replace(path as never);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [scheme]);
 
   const [fontsLoaded, fontError] = useFonts({
     'DMSans-Regular': DMSans_400Regular,
@@ -99,15 +132,15 @@ export default function RootLayout() {
     router.replace(onboardingComplete ? '/(auth)/login' : '/onboarding');
   }, [ready, session, publicRoute, onboardingComplete]);
 
-  if (isLoading || onboardingLoading || !fontsReady) {
+  if (isLoading || onboardingLoading || !fontsReady || !themeLoaded) {
     return null;
   }
 
   return (
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }}>
+        <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
+        <Stack key={scheme} screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.dark } }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="onboarding" />

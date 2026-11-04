@@ -17,7 +17,8 @@ import { loggedAtFor } from '@/lib/date';
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 
-const fieldStyle = {
+/** Read during render, so it follows the current theme */
+const fieldStyle = () => ({
   backgroundColor: Colors.surface2,
   borderRadius: 16,
   padding: 12,
@@ -26,7 +27,7 @@ const fieldStyle = {
   fontSize: 16,
   borderWidth: 1.5,
   borderColor: Colors.border,
-} as const;
+} as const);
 type MealType = typeof MEAL_TYPES[number];
 
 interface LogFoodSheetProps {
@@ -136,7 +137,7 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
         <View style={{ flex: 1 }}>
           {isManual ? (
             <SheetTextInput
-              style={fieldStyle}
+              style={fieldStyle()}
               value={name}
               onChangeText={setName}
               placeholder="Food name"
@@ -195,7 +196,7 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
                   {label}
                 </Text>
                 <SheetTextInput
-                  style={fieldStyle}
+                  style={fieldStyle()}
                   value={manual[key]}
                   onChangeText={(v) => setManual((m) => ({ ...m, [key]: v }))}
                   keyboardType="decimal-pad"

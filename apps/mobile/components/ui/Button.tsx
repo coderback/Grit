@@ -72,15 +72,14 @@ const baseText = {
   letterSpacing: 0.2,
 };
 
+// Getters, so each read uses the current theme's colours
 const styles = {
-  primaryBg: { backgroundColor: Colors.orange },
-  secondaryBg: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: Colors.orange,
+  get primaryBg() { return { backgroundColor: Colors.orange }; },
+  get secondaryBg() {
+    return { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.orange };
   },
   ghostBg: { backgroundColor: 'transparent' },
   primaryText: { color: '#fff' },
-  secondaryText: { color: Colors.orange },
-  ghostText: { color: Colors.muted },
+  get secondaryText() { return { color: Colors.orange }; },
+  get ghostText() { return { color: Colors.muted }; },
 };

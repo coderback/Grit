@@ -11,7 +11,8 @@ import { Colors } from '@/constants/colors';
 
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 
-const fieldStyle = {
+/** Read during render, so it follows the current theme */
+const fieldStyle = () => ({
   backgroundColor: Colors.surface2,
   borderRadius: 14,
   padding: 12,
@@ -20,7 +21,7 @@ const fieldStyle = {
   fontSize: 16,
   borderWidth: 1.5,
   borderColor: Colors.border,
-} as const;
+} as const);
 
 const round1 = (n: number) => String(Math.round(n * 10) / 10);
 const parse = (s: string) => (s.trim() === '' ? NaN : Number(s));
@@ -72,7 +73,7 @@ export function EditFoodSheet({ log, onClose }: { log: FoodLog; onClose: () => v
         value={values[key]}
         onChangeText={(t) => setValues((v) => ({ ...v, [key]: t.replace(/[^0-9.]/g, '') }))}
         keyboardType="decimal-pad"
-        style={fieldStyle}
+        style={fieldStyle()}
         accessibilityLabel={label}
       />
     </View>
@@ -96,7 +97,7 @@ export function EditFoodSheet({ log, onClose }: { log: FoodLog; onClose: () => v
           onChangeText={setName}
           placeholder="Food name"
           placeholderTextColor={Colors.muted}
-          style={{ ...fieldStyle, fontFamily: 'DMSans-Regular' }}
+          style={{ ...fieldStyle(), fontFamily: 'DMSans-Regular' }}
           accessibilityLabel="Food name"
         />
 
