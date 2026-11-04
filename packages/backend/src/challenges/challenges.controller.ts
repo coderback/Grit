@@ -2,7 +2,7 @@ import {
   Controller,
   Get,
   Post,
-  Put,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -11,7 +11,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { UtcOffset } from '../common/utc-offset.decorator';
 import { ChallengesService } from './challenges.service';
-import { CreateChallengeDto, UpdateProgressDto } from './challenges.dto';
+import { CreateChallengeDto } from './challenges.dto';
 
 @Controller('challenges')
 @UseGuards(AuthGuard)
@@ -45,12 +45,15 @@ export class ChallengesController {
     return this.challenges.joinByInviteCode(user.supabaseId, code);
   }
 
-  @Put(':id/progress')
-  updateProgress(
-    @CurrentUser() user: { supabaseId: string },
-    @Param('id') id: string,
-    @Body() body: UpdateProgressDto,
-  ) {
-    return this.challenges.updateProgress(user.supabaseId, id, body.steps);
+  /** Progress comes from logged workouts, so there's no endpoint to set it. */
+  @Delete(':id/participants/me')
+  leave(@CurrentUser() user: { supabaseId: string }, @Param('id') id: string) {
+    return this.challenges.leave(user.supabaseId, id);
+  }
+
+  /** Creator only. */
+  @Delete(':id')
+  remove(@CurrentUser() user: { supabaseId: string }, @Param('id') id: string) {
+    return this.challenges.remove(user.supabaseId, id);
   }
 }

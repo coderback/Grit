@@ -15,6 +15,7 @@ import { ChallengeCard } from '@/components/social/ChallengeCard';
 import { CreateChallengeSheet } from '@/components/social/CreateChallengeSheet';
 import { Colors } from '@/constants/colors';
 import { InboxBell } from '@/components/ui/InboxBell';
+import { hasEnded } from '@/lib/challenges';
 import { router } from 'expo-router';
 
 type Tab = 'feed' | 'challenges' | 'leaderboard';
@@ -58,8 +59,8 @@ export default function SocialScreen() {
     activeTab === 'feed' ? feedQuery : activeTab === 'challenges' ? challengesQuery : leaderboardQuery,
   );
 
-  const activeChallenges = (challenges ?? []).filter((c) => !c.isComplete);
-  const pastChallenges = (challenges ?? []).filter((c) => c.isComplete);
+  const activeChallenges = (challenges ?? []).filter((c) => !hasEnded(c));
+  const pastChallenges = (challenges ?? []).filter((c) => hasEnded(c));
 
   const { refreshing, onRefresh } = usePullToRefresh([
     ['feed'],
@@ -218,7 +219,7 @@ export default function SocialScreen() {
             {pastChallenges.length > 0 && (
               <View style={{ gap: 12, marginTop: 8 }}>
                 <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-                  Completed
+                  Finished
                 </Text>
                 {pastChallenges.map((c) => (
                   <ChallengeCard key={c.id} challenge={c} myUserId={me?.id} />

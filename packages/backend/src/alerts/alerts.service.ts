@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ChallengesService } from '../challenges/challenges.service';
 import {
   addDays,
   dateMarker,
@@ -35,6 +36,7 @@ export class AlertsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private challenges: ChallengesService,
   ) {}
 
   @Cron('5 * * * *')
@@ -43,11 +45,12 @@ export class AlertsService {
     this.running = true;
     try {
       const now = new Date();
+      const ended = await this.challenges.finishEnded(now);
       const streaks = await this.sendStreakAlerts(now);
       const weekly = await this.sendWeeklyProgress(now);
       const pruned = await this.notifications.prune();
       this.logger.log(
-        `Alerts: ${streaks} streak, ${weekly} weekly, ${pruned} old removed`,
+        `Alerts: ${ended} challenges ended, ${streaks} streak, ${weekly} weekly, ${pruned} old removed`,
       );
     } catch (err) {
       this.logger.error(`Hourly alerts failed: ${(err as Error).message}`);

@@ -1,10 +1,15 @@
 import { TestDb } from '../test-utils/db';
 import { dateMarker } from '../common/day';
 import { AlertsService } from './alerts.service';
+import { ChallengesService } from '../challenges/challenges.service';
 
 describe('AlertsService (database)', () => {
   const db = new TestDb();
-  const alerts = new AlertsService(db.prisma, db.notifications);
+  const alerts = new AlertsService(
+    db.prisma,
+    db.notifications,
+    new ChallengesService(db.prisma, db.notifications),
+  );
   const inbox = (userId: string) =>
     db.prisma.notification.findMany({ where: { userId } });
 

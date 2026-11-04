@@ -5,6 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import type { Challenge } from '@/hooks/useChallenges';
+import { amount, daysLeftLabel, hasEnded, measureName } from '@/lib/challenges';
 
 interface ChallengeCardProps {
   challenge: Challenge;
@@ -16,10 +17,7 @@ export function ChallengeCard({ challenge, myUserId }: ChallengeCardProps) {
     challenge.participants.reduce((s, p) => s + p.currentValue, 0);
   const pct = Math.min(totalProgress / challenge.goalValue, 1);
 
-  const daysLeft = Math.max(
-    0,
-    Math.ceil((new Date(challenge.endDate).getTime() - Date.now()) / 86400000),
-  );
+  const ended = hasEnded(challenge);
 
   const myEntry = challenge.participants.find((p) => p.userId === myUserId);
 
@@ -49,12 +47,14 @@ export function ChallengeCard({ challenge, myUserId }: ChallengeCardProps) {
             {challenge.isComplete ? '🏆 ' : ''}{challenge.title}
           </Text>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12 }}>
-            {challenge.participants.length} participants · {daysLeft > 0 ? `${daysLeft}d left` : 'Ended'}
+            {challenge.participants.length} {challenge.participants.length === 1 ? 'participant' : 'participants'} · {daysLeftLabel(challenge.endDate)}
           </Text>
         </View>
-        {!challenge.isComplete && (
+        {!ended && (
           <Pressable
             onPress={copyInviteLink}
+            accessibilityRole="button"
+            accessibilityLabel="Copy invite link"
             hitSlop={8}
             style={{
               backgroundColor: Colors.surface2,
@@ -84,10 +84,10 @@ export function ChallengeCard({ challenge, myUserId }: ChallengeCardProps) {
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Text style={{ color: Colors.muted, fontFamily: 'JetBrainsMono-Regular', fontSize: 11 }}>
-            {totalProgress.toLocaleString()} steps
+            {amount(challenge.type, totalProgress)}
           </Text>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 11 }}>
-            goal: {challenge.goalValue.toLocaleString()}
+            goal: {amount(challenge.type, challenge.goalValue)}
           </Text>
         </View>
       </View>
@@ -102,10 +102,10 @@ export function ChallengeCard({ challenge, myUserId }: ChallengeCardProps) {
           justifyContent: 'space-between',
         }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13 }}>
-            My steps
+            My {measureName(challenge.type)}
           </Text>
           <Text style={{ color: Colors.orange, fontFamily: 'JetBrainsMono-Regular', fontSize: 13 }}>
-            {myEntry.currentValue.toLocaleString()}
+            {amount(challenge.type, myEntry.currentValue)}
           </Text>
         </View>
       )}

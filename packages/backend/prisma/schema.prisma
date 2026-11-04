@@ -197,14 +197,19 @@ model HabitLog {
 model Challenge {
   id           String   @id @default(cuid())
   title        String
-  type         String   @default("group_steps")
+  // What counts, from workouts logged during the challenge:
+  // steps | active_minutes | workouts
+  type         String   @default("active_minutes")
   goalValue    Int
   durationDays Int
   startDate    DateTime
   endDate      DateTime
   creatorId    String
   inviteCode   String   @unique @default(cuid())
+  // The group reached the goal (it can still be running)
   isComplete   Boolean  @default(false)
+  // Set once the end date has passed and the results were sent
+  endedAt      DateTime?
   createdAt    DateTime @default(now())
 
   participants ChallengeParticipant[]
@@ -216,6 +221,7 @@ model ChallengeParticipant {
   id           String   @id @default(cuid())
   challengeId  String
   userId       String
+  // Recomputed from the user's logged workouts in the challenge window
   currentValue Int      @default(0)
   joinedAt     DateTime @default(now())
 

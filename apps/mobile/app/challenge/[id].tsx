@@ -8,7 +8,9 @@ import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withDelay,
 } from 'react-native-reanimated';
-import { useChallenge } from '@/hooks/useChallenges';
+import { useChallenge, useDeleteChallenge, useLeaveChallenge } from '@/hooks/useChallenges';
+import { amount, daysLeftLabel, hasEnded } from '@/lib/challenges';
+import { confirmAction } from '@/lib/confirm';
 import { useMe } from '@/hooks/useMe';
 import { ErrorNotice } from '@/components/ui/QueryStatus';
 import { ScreenHeader } from '@/components/settings/SettingsUI';
@@ -17,17 +19,38 @@ import { Avatar } from '@/components/ui/Avatar';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-function formatDaysLeft(endDate: string) {
-  const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / 86400000);
-  if (days < 0) return 'Ended';
-  if (days === 0) return 'Ends today';
-  return `${days}d left`;
-}
-
 export default function ChallengeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: challenge, isLoading, isError, refetch } = useChallenge(id);
   const { data: me } = useMe();
+  const { mutateAsync: leave, isPending: leaving } = useLeaveChallenge();
+  const { mutateAsync: remove, isPending: removing } = useDeleteChallenge();
+
+  async function handleLeave() {
+    if (!challenge) return;
+    const ok = await confirmAction({
+      title: 'Leave challenge?',
+      message: `Your progress leaves ${challenge.title} and you'll need an invite to rejoin.`,
+      confirmLabel: 'Leave',
+      destructive: true,
+    });
+    if (!ok) return;
+    await leave(challenge.id);
+    router.back();
+  }
+
+  async function handleDelete() {
+    if (!challenge) return;
+    const ok = await confirmAction({
+      title: 'Delete challenge?',
+      message: `${challenge.title} will be removed for everyone taking part. This can't be undone.`,
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
+    await remove(challenge.id);
+    router.back();
+  }
 
   const wasComplete = useRef(false);
   const confettiOpacity = useSharedValue(0);
@@ -75,6 +98,7 @@ export default function ChallengeDetailScreen() {
   const totalProgress = challenge.totalProgress ??
     challenge.participants.reduce((s, p) => s + p.currentValue, 0);
   const pct = Math.min(totalProgress / challenge.goalValue, 1);
+  const ended = hasEnded(challenge);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark }} edges={['top']}>
@@ -88,10 +112,10 @@ export default function ChallengeDetailScreen() {
         }, confettiStyle]}>
           <Text style={{ fontSize: 28 }}>🎉</Text>
           <Text style={{ color: '#fff', fontFamily: 'DMSans-Bold', fontSize: 17 }}>
-            Challenge complete!
+            Goal reached!
           </Text>
           <Text style={{ color: 'rgba(255,255,255,0.8)', fontFamily: 'DMSans-Regular', fontSize: 14 }}>
-            You crushed it. GRIT delivered.
+            {ended ? 'You crushed it. GRIT delivered.' : 'The group hit the goal. Keep stacking it up.'}
           </Text>
         </Animated.View>
       )}
@@ -110,7 +134,7 @@ export default function ChallengeDetailScreen() {
             {challenge.title}
           </Text>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>
-            {challenge.participants.length} / 8 participants · {formatDaysLeft(challenge.endDate)}
+            {challenge.participants.length} / 8 participants · {daysLeftLabel(challenge.endDate)}
           </Text>
         </View>
 
@@ -134,10 +158,10 @@ export default function ChallengeDetailScreen() {
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Text style={{ color: Colors.text, fontFamily: 'JetBrainsMono-Regular', fontSize: 14 }}>
-              {totalProgress.toLocaleString()} steps
+              {amount(challenge.type, totalProgress)}
             </Text>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13 }}>
-              goal {challenge.goalValue.toLocaleString()}
+              goal {amount(challenge.type, challenge.goalValue)}
             </Text>
           </View>
         </View>
@@ -148,7 +172,7 @@ export default function ChallengeDetailScreen() {
             color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12,
             textTransform: 'uppercase', letterSpacing: 1,
           }}>
-            Leaderboard · live
+            {ended ? 'Final standings' : 'Leaderboard · live'}
           </Text>
           {challenge.participants.map((p, i) => (
             <View
@@ -177,14 +201,28 @@ export default function ChallengeDetailScreen() {
                 {p.userId === me?.id ? 'You' : p.user.displayName}
               </Text>
               <Text style={{ color: Colors.muted, fontFamily: 'JetBrainsMono-Regular', fontSize: 13 }}>
-                {p.currentValue.toLocaleString()}
+                {amount(challenge.type, p.currentValue)}
               </Text>
             </View>
           ))}
         </View>
 
+        {ended && (
+          <View style={{ backgroundColor: Colors.surface2, borderRadius: 16, padding: 14 }}>
+            <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13, textAlign: 'center' }}>
+              {challenge.isComplete
+                ? 'This challenge has ended, and the group hit the goal.'
+                : `This challenge has ended. The group reached ${Math.floor(pct * 100)}% of the goal.`}
+            </Text>
+          </View>
+        )}
+
+        <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12, textAlign: 'center' }}>
+          Progress comes from workouts logged between the start and end of the challenge.
+        </Text>
+
         {/* Share invite */}
-        {!challenge.isComplete && (
+        {!ended && (
           <Pressable
             onPress={shareInvite}
             style={({ pressed }) => ({
@@ -204,6 +242,15 @@ export default function ChallengeDetailScreen() {
             <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 15 }}>
               Invite friends
             </Text>
+          </Pressable>
+        )}
+        {challenge.isCreator ? (
+          <Pressable onPress={() => handleDelete().catch(() => {})} disabled={removing} accessibilityRole="button" style={{ alignItems: 'center', paddingVertical: 8 }}>
+            <Text style={{ color: Colors.error, fontFamily: 'DMSans-Bold', fontSize: 14 }}>{removing ? 'Deleting…' : 'Delete challenge'}</Text>
+          </Pressable>
+        ) : (
+          <Pressable onPress={() => handleLeave().catch(() => {})} disabled={leaving} accessibilityRole="button" style={{ alignItems: 'center', paddingVertical: 8 }}>
+            <Text style={{ color: Colors.error, fontFamily: 'DMSans-Bold', fontSize: 14 }}>{leaving ? 'Leaving…' : 'Leave challenge'}</Text>
           </Pressable>
         )}
       </ScrollView>

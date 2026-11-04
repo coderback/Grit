@@ -8,17 +8,24 @@ export interface ChallengeParticipant {
   user: { id: string; displayName: string; avatarUrl: string | null; username: string };
 }
 
+export type ChallengeType = 'steps' | 'active_minutes' | 'workouts';
+
 export interface Challenge {
   id: string;
   title: string;
-  type: string;
+  type: ChallengeType | 'group_steps';
   goalValue: number;
   durationDays: number;
   startDate: string;
   endDate: string;
   inviteCode: string;
+  /** The group reached the goal; the challenge may still be running */
   isComplete: boolean;
+  /** Set once the end date passed and results went out */
+  endedAt: string | null;
   createdAt: string;
+  /** Only on the detail endpoint */
+  isCreator?: boolean;
   totalProgress?: number;
   participants: ChallengeParticipant[];
 }
@@ -45,7 +52,7 @@ export function useChallenge(id: string) {
 export function useCreateChallenge() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title: string; goalValue: number; durationDays: number }): Promise<Challenge> =>
+    mutationFn: (data: { title: string; type: ChallengeType; goalValue: number; durationDays: number }): Promise<Challenge> =>
       api.post('/challenges', data).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['challenges'] }),
   });
@@ -60,14 +67,21 @@ export function useJoinChallenge() {
   });
 }
 
-export function useUpdateChallengeProgress() {
+export function useLeaveChallenge() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ challengeId, steps }: { challengeId: string; steps: number }) =>
-      api.put(`/challenges/${challengeId}/progress`, { steps }).then((r) => r.data),
-    onSuccess: (_data, { challengeId }) => {
-      qc.invalidateQueries({ queryKey: ['challenge', challengeId] });
-      qc.invalidateQueries({ queryKey: ['challenges'] });
-    },
+    mutationFn: (challengeId: string) => api.delete(`/challenges/${challengeId}/participants/me`).then((r) => r.data),
+    meta: { errorMessage: "Couldn't leave the challenge. Check your connection." },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['challenges'] }),
+  });
+}
+
+/** Creator only; removes it for everyone. */
+export function useDeleteChallenge() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (challengeId: string) => api.delete(`/challenges/${challengeId}`).then((r) => r.data),
+    meta: { errorMessage: "Couldn't delete the challenge. Check your connection." },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['challenges'] }),
   });
 }
