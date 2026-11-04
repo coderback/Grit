@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install --force --no-audit --no-fund",
+  "buildCommand": "npm run export:demo",
+  "outputDirectory": "demo-dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
