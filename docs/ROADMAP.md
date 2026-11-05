@@ -117,13 +117,20 @@ Chosen from [`MARKET_RESEARCH.md`](./MARKET_RESEARCH.md): the three
 Database: migrations `20261106120000` to `20261106150000` are applied to
 Supabase. All are additive, so earlier servers keep working.
 
-## Phase 5 — Own food database and nutrition ML (planned)
+## Phase 5 — Own food and exercise data, and ML (planned)
 
-See [`PHASE5_PLAN.md`](./PHASE5_PLAN.md): GRIT's own food database built
-from open sources (USDA, Open Food Facts, UK, Canada, France, Finland and
-West African tables), local search and barcodes, micronutrient tracking,
-and models for matching food names, typical portions and estimating
-missing micronutrients, plus label-photo contributions with quality checks.
+See [`PHASE5_PLAN.md`](./PHASE5_PLAN.md). Two tracks:
+
+- **Nutrition:** GRIT's own food database built from open sources (USDA,
+  Open Food Facts, UK, Canada, France, Finland and West African tables),
+  local search and barcodes, micronutrient tracking, models for matching
+  food names, typical portions and estimating missing micronutrients, and
+  label-photo contributions with quality checks.
+- **Fitness:** an exercise library that coach plans are built from (with
+  injury-aware filtering), set-by-set strength logging with PRs, calorie
+  burn from intensity and heart rate calibrated against each person's
+  weight trend, strength levels from OpenPowerlifting, and progression that
+  takes nutrition and sleep into account.
 
 ## Later
 
