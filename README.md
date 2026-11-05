@@ -89,6 +89,8 @@ cp apps/mobile/.env.example apps/mobile/.env
 
 See [`apps/mobile/.env.example`](./apps/mobile/.env.example) for each variable. `EXPO_PUBLIC_API_URL` must point at a backend reachable from the device (not `localhost` on Android or a physical phone).
 
+EAS builds don't read `.env`: they use the project's EAS environment variables (expo.dev → project → Environment variables). Each build profile in `eas.json` names its environment (`development`, `preview` or `production`), so set `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in each. Store builds need an `https://` API URL.
+
 ### Build APK (for device testing)
 
 ```bash
@@ -224,8 +226,6 @@ A cloud instance can't run a simulator. Use it for type-checking and linting, or
 ### Deploying the backend (Railway)
 
 [`packages/backend/railway.toml`](./packages/backend/railway.toml) builds with Nixpacks (`npm run build`) and starts `node dist/main`. Set the root directory to `packages/backend`, add the env vars above in Railway, and run `npx prisma migrate deploy` before or as part of each release. Railway's health check calls `GET /health`, which also checks the database.
-
-**One migration waits for a deploy:** `20261105130000_drop_users_push_token` drops a column that Phase 2 servers read. Apply it only after Railway is running Phase 3 or later.
 
 ### CI
 
