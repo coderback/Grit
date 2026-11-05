@@ -117,6 +117,14 @@ Chosen from [`MARKET_RESEARCH.md`](./MARKET_RESEARCH.md): the three
 Database: migrations `20261106120000` to `20261106150000` are applied to
 Supabase. All are additive, so earlier servers keep working.
 
+## Phase 5 — Own food database and nutrition ML (planned)
+
+See [`PHASE5_PLAN.md`](./PHASE5_PLAN.md): GRIT's own food database built
+from open sources (USDA, Open Food Facts, UK, Canada, France, Finland and
+West African tables), local search and barcodes, micronutrient tracking,
+and models for matching food names, typical portions and estimating
+missing micronutrients, plus label-photo contributions with quality checks.
+
 ## Later
 
 - From the research: Squads (small accountability groups), a GLP-1
