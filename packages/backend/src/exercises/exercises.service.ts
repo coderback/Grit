@@ -65,10 +65,17 @@ export class ExercisesService implements OnModuleInit {
     return rows.length;
   }
 
-  search(q?: string, muscle?: string, equipment?: string, limit = 50) {
+  search(
+    q?: string,
+    muscle?: string,
+    equipment?: string,
+    limit = 50,
+    pattern?: string,
+  ) {
     const terms = q?.trim();
     return this.prisma.exercise.findMany({
       where: {
+        ...(pattern ? { pattern } : {}),
         ...(terms
           ? { name: { contains: terms, mode: 'insensitive' as const } }
           : {}),

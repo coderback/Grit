@@ -11,6 +11,7 @@ import OpenAI from 'openai';
 import { PrismaService } from '../prisma/prisma.service';
 import { AI_MODEL } from '../ai/azure-openai';
 import { assertAiConsent } from '../common/ai-consent';
+import { hasProEdTerm } from '../common/safety';
 import { giveBackParse, takeParse } from '../common/parse-quota';
 import {
   addDays,
@@ -76,6 +77,15 @@ type SetRow = {
   durationSec: number | null;
   warmup: boolean;
 };
+
+/**
+ * A workout's title shows in followers' feeds, so it gets the same check as
+ * display names: a pro-eating-disorder title is dropped.
+ */
+export function cleanTitle(title: string | undefined | null) {
+  const t = title?.trim().slice(0, 60);
+  return t && !hasProEdTerm(t) ? t : null;
+}
 
 /** The plan's training days, in order: session 1 is the first. */
 export function trainingDays<T extends { rest: boolean }>(days: unknown): T[] {
@@ -225,7 +235,7 @@ export class WorkoutsService {
             clientId: dto.clientId,
             activityLogId: log.id,
             planSession: dto.planSession ?? null,
-            title: dto.title?.trim() || null,
+            title: cleanTitle(dto.title),
             startedAt: start,
             endedAt: end,
             setCount: sets.filter((s) => !s.warmup).length,
@@ -383,7 +393,7 @@ export class WorkoutsService {
       await tx.workoutSession.update({
         where: { id },
         data: {
-          title: dto.title !== undefined ? dto.title.trim() || null : undefined,
+          title: dto.title !== undefined ? cleanTitle(dto.title) : undefined,
           startedAt: start,
           endedAt: end,
           ...(sets
@@ -726,20 +736,35 @@ export class WorkoutsService {
     return { sets: await this.named(sets), source: 'ai' as const };
   }
 
-  /** The library exercise a name means: exact, then a common lift, then the shortest match. */
-  private async findByName(raw: string) {
+  /**
+   * The library exercise a name means: exact (ignoring spaces and hyphens,
+   * so "pull-ups" is "Pullups"), then a common lift, then the shortest match.
+   */
+  async findByName(raw: string) {
     const name = raw.trim();
+    const squash = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const variants = [
+      ...new Set([
+        name,
+        name.replace(/[-\s]+/g, ''),
+        name.replace(/\s+/g, '-'),
+      ]),
+    ].filter((v) => v.length >= 2);
     const rows = await this.prisma.exercise.findMany({
-      where: { name: { contains: name, mode: 'insensitive' } },
+      where: {
+        OR: variants.map((v) => ({
+          name: { contains: v, mode: 'insensitive' as const },
+        })),
+      },
       select: { id: true, name: true },
-      take: 40,
+      take: 60,
     });
-    const lower = name.toLowerCase();
+    const target = squash(name);
     const rank = (e: { id: string; name: string }) => {
-      if (e.name.toLowerCase() === lower) return -1000;
+      if (squash(e.name) === target) return -1000;
       const common = COMMON_EXERCISES.indexOf(e.id);
       if (common >= 0) return -500 + common;
-      return (e.name.toLowerCase().startsWith(lower) ? 0 : 100) + e.name.length;
+      return (squash(e.name).startsWith(target) ? 0 : 100) + e.name.length;
     };
     return rows.sort((a, b) => rank(a) - rank(b))[0] ?? null;
   }

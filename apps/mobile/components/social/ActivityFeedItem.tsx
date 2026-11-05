@@ -39,17 +39,25 @@ function FeedContent({ item }: { item: FeedItem }) {
   }
   if (item.type === 'activity_log') {
     const label = ACTIVITY_LABELS[d.activityType as string] ?? `✨ ${d.activityType}`;
+    // Logged set by set: counts only, never the weights
+    const workout = d.workout as { title: string | null; setCount: number; prCount: number } | null | undefined;
     return (
       <View style={{ flex: 1 }}>
         <Text style={{ color: Colors.text, fontFamily: 'DMSans-Medium', fontSize: 14 }}>
           <Text style={{ color: Colors.orange }}>{item.user.displayName}</Text>
-          {' '}completed {label}
+          {' '}completed {workout?.title ? `${label}: ${workout.title}` : label}
         </Text>
         <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12, marginTop: 2 }}>
           {d.durationMin as number} min
+          {workout?.setCount ? ` · ${workout.setCount} sets` : ''}
           {d.caloriesBurned ? ` · ${Math.round(d.caloriesBurned as number)} kcal` : ''}
           {d.steps ? ` · ${(d.steps as number).toLocaleString()} steps` : ''}
         </Text>
+        {!!workout?.prCount && (
+          <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 12, marginTop: 3 }}>
+            🏆 {workout.prCount === 1 ? 'New personal record' : `${workout.prCount} personal records`}
+          </Text>
+        )}
       </View>
     );
   }

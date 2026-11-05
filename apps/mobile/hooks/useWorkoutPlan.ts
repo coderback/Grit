@@ -30,7 +30,28 @@ export interface WorkoutPlan {
   daysPerWeek: number;
   location: 'home' | 'gym';
   days: PlanDay[];
+  /** The training session (1, 2, 3…) that comes next; plans run in order */
+  nextSession: number;
   updatedAt: string;
+}
+
+/** The plan's training days in order, as sessions 1, 2, 3… */
+export function planSessions(plan: WorkoutPlan) {
+  return plan.days.filter((d) => !d.rest).map((day, i) => ({ number: i + 1, day }));
+}
+
+/** The session that's next, whatever day it is. */
+export function nextUp(plan: WorkoutPlan | null | undefined) {
+  if (!plan) return null;
+  const sessions = planSessions(plan);
+  if (!sessions.length) return null;
+  const n = Math.min(Math.max(plan.nextSession ?? 1, 1), sessions.length);
+  return { ...sessions[n - 1], total: sessions.length };
+}
+
+/** Whether the session is set by set (it has library exercises) rather than a run or class. */
+export function isLiftingDay(day: PlanDay) {
+  return day.exercises.some((e) => e.exerciseId) && !['running', 'cycling', 'walking', 'swimming', 'hiking', 'rowing', 'elliptical'].includes(day.activityType);
 }
 
 /** Today's weekday key on the device's clock. */

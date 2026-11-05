@@ -10,7 +10,7 @@ export class ExercisesController {
 
   @Get()
   search(@Query() q: ExerciseSearchDto) {
-    return this.exercises.search(q.q, q.muscle, q.equipment);
+    return this.exercises.search(q.q, q.muscle, q.equipment, 50, q.pattern);
   }
 
   @Get(':id')

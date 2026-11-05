@@ -7,6 +7,7 @@ import {
   volumeKg,
 } from './strength';
 import { matchExercise, parseSpokenSets, readSets } from './say-it';
+import { cleanTitle } from './workouts.service';
 
 describe('estimated one-rep max', () => {
   it('uses Epley up to 10 reps', () => {
@@ -143,5 +144,13 @@ describe('Say it', () => {
     expect(sets('leg press 200 for 10')).toBeNull(); // not in the session
     expect(readSets('for a while')).toBeNull();
     expect(matchExercise('curls', session)).toBeNull();
+  });
+});
+
+describe('workout titles', () => {
+  it('drops pro-eating-disorder titles, which followers would see', () => {
+    expect(cleanTitle('  Push day ')).toBe('Push day');
+    expect(cleanTitle('thinspo legs')).toBeNull();
+    expect(cleanTitle('')).toBeNull();
   });
 });

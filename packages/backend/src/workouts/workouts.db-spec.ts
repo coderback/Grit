@@ -364,4 +364,12 @@ describe('WorkoutsService (database)', () => {
     const row = await db.prisma.user.findUnique({ where: { id: u.id } });
     expect(row?.aiParseCount).toBe(1);
   });
+
+  it('finds exercises by everyday names', async () => {
+    const find = async (n: string) => (await workouts.findByName(n))?.id;
+    expect(await find('Pull-ups')).toBe('Pullups');
+    expect(await find('pull ups')).toBe('Pullups');
+    expect(await find('Leg Press')).toBe('Leg_Press');
+    expect(await find('barbell squat')).toBe('Barbell_Squat');
+  });
 });
