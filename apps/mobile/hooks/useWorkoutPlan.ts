@@ -9,6 +9,8 @@ export const WEEKDAY_NAMES: Record<Weekday, string> = {
 };
 
 export interface PlanExercise {
+  /** The exercise library's id, for plans built from the library */
+  exerciseId?: string;
   name: string;
   detail: string;
 }

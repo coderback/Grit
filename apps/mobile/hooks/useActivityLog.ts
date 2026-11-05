@@ -10,7 +10,11 @@ export interface ActivityLog {
   source: string;
   loggedAt: string;
   kudosCount: number;
+  /** light | moderate | vigorous; picks the calorie estimate */
+  intensity: Intensity | null;
 }
+
+export type Intensity = 'light' | 'moderate' | 'vigorous';
 
 export interface WeekDay {
   date: string;
@@ -56,6 +60,7 @@ function invalidateActivity(qc: ReturnType<typeof useQueryClient>) {
 }
 
 export type ActivityUpdate = Partial<Pick<ActivityLog, 'activityType' | 'durationMin' | 'steps'>> & {
+  intensity?: Intensity;
   caloriesBurned?: number;
 };
 
@@ -84,6 +89,7 @@ export function useLogActivity() {
       durationMin: number;
       caloriesBurned?: number;
       steps?: number;
+      intensity?: Intensity;
       source?: string;
       /** For back-filling an earlier day; omitted for now */
       loggedAt?: string;

@@ -46,6 +46,7 @@ export function normalizePlanDays(raw: unknown): PlanDay[] {
             activityType: day.activityType,
             durationMin: day.durationMin,
             exercises: day.exercises.map((e) => ({
+              ...(e.exerciseId ? { exerciseId: e.exerciseId } : {}),
               name: e.name.trim(),
               detail: e.detail.trim(),
             })),

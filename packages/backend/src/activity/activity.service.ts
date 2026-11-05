@@ -12,7 +12,7 @@ import {
   localToday,
   weekStart,
 } from '../common/day';
-import { ACTIVITY_TYPES, MET } from './activity.constants';
+import { ACTIVITY_TYPES, metFor } from './activity.constants';
 import { PrivacyService } from '../social/privacy.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import type {
@@ -42,8 +42,9 @@ export class ActivityService {
     activityType: string,
     durationMin: number,
     weightKg: number | null,
+    intensity?: string | null,
   ) {
-    const met = MET[activityType] ?? 5.0;
+    const met = metFor(activityType, intensity);
     return Math.round(met * (weightKg ?? 70) * (durationMin / 60));
   }
 
@@ -53,13 +54,19 @@ export class ActivityService {
     // Auto-estimate calories if not provided
     const estimatedCalories =
       dto.caloriesBurned ??
-      this.estimateCalories(dto.activityType, dto.durationMin, user.weightKg);
+      this.estimateCalories(
+        dto.activityType,
+        dto.durationMin,
+        user.weightKg,
+        dto.intensity,
+      );
 
     return this.prisma.activityLog.create({
       data: {
         userId: user.id,
         activityType: dto.activityType,
         durationMin: dto.durationMin,
+        intensity: dto.intensity,
         caloriesBurned: estimatedCalories,
         steps: dto.steps,
         source: dto.source ?? 'manual',
@@ -81,19 +88,28 @@ export class ActivityService {
 
     const activityType = dto.activityType ?? log.activityType;
     const durationMin = dto.durationMin ?? log.durationMin;
+    const intensity = dto.intensity ?? log.intensity;
     const reestimate =
       dto.caloriesBurned === undefined &&
-      (activityType !== log.activityType || durationMin !== log.durationMin);
+      (activityType !== log.activityType ||
+        durationMin !== log.durationMin ||
+        intensity !== log.intensity);
 
     return this.prisma.activityLog.update({
       where: { id },
       data: {
         activityType,
         durationMin,
+        intensity,
         steps: dto.steps,
         loggedAt: dto.loggedAt ? new Date(dto.loggedAt) : undefined,
         caloriesBurned: reestimate
-          ? this.estimateCalories(activityType, durationMin, user.weightKg)
+          ? this.estimateCalories(
+              activityType,
+              durationMin,
+              user.weightKg,
+              intensity,
+            )
           : dto.caloriesBurned,
       },
     });

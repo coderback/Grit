@@ -12,6 +12,7 @@ import OpenAI from 'openai';
 import { PrismaService } from '../prisma/prisma.service';
 import { localToday } from '../common/day';
 import { assertAiConsent } from '../common/ai-consent';
+import { ExercisesService } from '../exercises/exercises.service';
 import { ACTIVITY_TYPES } from '../activity/activity.constants';
 import { AI_MODEL } from '../ai/azure-openai';
 import { AIM_LABELS, FRICTION_LABELS } from '../ai/profile-labels';
@@ -26,49 +27,89 @@ import {
 // Generating costs a model call, so cap it per user per day
 const DAILY_GENERATIONS = 5;
 
-// Strict JSON schema for the model's reply; the result is validated again after
-const PLAN_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['summary', 'days'],
-  properties: {
-    summary: { type: 'string' },
-    days: {
-      type: 'array',
-      items: {
+// Strict JSON schema for the model's reply; the result is validated again
+// after. With a library shortlist, exercises are picked by id from it, so the
+// model can't invent exercises; without one (library not loaded), free text.
+function planSchema(exerciseIds: string[]) {
+  const exercise = exerciseIds.length
+    ? {
         type: 'object',
         additionalProperties: false,
-        required: [
-          'day',
-          'rest',
-          'title',
-          'activityType',
-          'durationMin',
-          'exercises',
-        ],
+        required: ['exerciseId', 'detail'],
         properties: {
-          day: { type: 'string', enum: [...WEEKDAYS] },
-          rest: { type: 'boolean' },
-          title: { type: 'string' },
-          activityType: { type: 'string', enum: [...ACTIVITY_TYPES] },
-          durationMin: { type: 'integer' },
-          exercises: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['name', 'detail'],
-              properties: {
-                name: { type: 'string' },
-                detail: { type: 'string' },
-              },
-            },
+          exerciseId: { type: 'string', enum: exerciseIds },
+          detail: { type: 'string' },
+        },
+      }
+    : {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name', 'detail'],
+        properties: {
+          name: { type: 'string' },
+          detail: { type: 'string' },
+        },
+      };
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required: ['summary', 'days'],
+    properties: {
+      summary: { type: 'string' },
+      days: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: [
+            'day',
+            'rest',
+            'title',
+            'activityType',
+            'durationMin',
+            'exercises',
+          ],
+          properties: {
+            day: { type: 'string', enum: [...WEEKDAYS] },
+            rest: { type: 'boolean' },
+            title: { type: 'string' },
+            activityType: { type: 'string', enum: [...ACTIVITY_TYPES] },
+            durationMin: { type: 'integer' },
+            exercises: { type: 'array', items: exercise },
           },
         },
       },
     },
-  },
-} as const;
+  };
+}
+
+/**
+ * Replaces library ids in the model's days with the exercises' names, and
+ * drops any id that isn't on the shortlist.
+ */
+export function namePlanExercises(
+  days: unknown,
+  library: Map<string, { name: string }>,
+): unknown {
+  if (!Array.isArray(days) || !library.size) return days;
+  return days.map((d: { exercises?: unknown }) => ({
+    ...d,
+    exercises: Array.isArray(d.exercises)
+      ? d.exercises
+          .map((e: { exerciseId?: string; detail?: string }) => {
+            const ex = e.exerciseId ? library.get(e.exerciseId) : undefined;
+            return ex
+              ? {
+                  exerciseId: e.exerciseId,
+                  name: ex.name.slice(0, 80),
+                  detail: e.detail ?? '',
+                }
+              : null;
+          })
+          .filter(Boolean)
+      : d.exercises,
+  }));
+}
 
 const GOAL_LABELS: Record<string, string> = {
   lose_weight: 'lose weight',
@@ -92,6 +133,7 @@ export class WorkoutPlanService {
     private prisma: PrismaService,
     private openai: OpenAI,
     @Inject(AI_MODEL) private model: string,
+    private exercises: ExercisesService,
   ) {}
 
   private async resolveUser(supabaseId: string) {
@@ -128,6 +170,19 @@ export class WorkoutPlanService {
       defaultDaysPerWeek(user.activityLevel);
     const location = dto.location ?? existing?.location ?? 'home';
 
+    // The exercises the plan may use: suited to where they train, their
+    // level and any injury in the coach's notes
+    const notes = await this.prisma.coachMemory.findMany({
+      where: { userId: user.id },
+      select: { text: true },
+    });
+    const library = await this.exercises.shortlist({
+      location,
+      activityLevel: user.activityLevel,
+      notes: notes.map((n) => n.text),
+    });
+    const byId = new Map(library.map((e) => [e.id, e]));
+
     const profile = [
       `Goal: ${GOAL_LABELS[user.primaryGoal] ?? user.primaryGoal}${user.aim ? ` (main aim: ${AIM_LABELS[user.aim] ?? user.aim})` : ''}`,
       `Current activity level: ${ACTIVITY_LEVEL_LABELS[user.activityLevel ?? ''] ?? 'unknown'}`,
@@ -149,7 +204,14 @@ Rules:
 - Training happens ${location === 'gym' ? 'at a gym with standard equipment' : 'at home with no equipment beyond a mat'}.
 - Keep each session close to the active-minutes goal, never over 90 minutes. Match the level: a sedentary beginner gets gentle, short sessions.
 - Address the obstacle: short efficient sessions for "not enough time", the same simple routine on fixed days for consistency, variety for low motivation, clear progression for "no clear plan".
-- Each training day has a short title, an activityType from the allowed list that best describes it, a durationMin, and 3 to 8 exercises. Each exercise has a name and a short detail like "3 × 12", "20 min easy pace" or "4 × 30 s on / 30 s off".
+- Each training day has a short title, an activityType from the allowed list that best describes it, a durationMin, and 3 to 8 exercises. ${library.length ? 'Each exercise is an exerciseId from the exercise list below' : 'Each exercise has a name'} and a short detail like "3 × 12", "20 min easy pace" or "4 × 30 s on / 30 s off".${
+      library.length
+        ? `
+
+Exercise list (use only these; they already suit the user's equipment, level and injuries):
+${library.map((e) => `- ${e.id}: ${e.name} (${e.equipment.join('/')}${e.pattern ? `, ${e.pattern.replace(/_/g, ' ')}` : ''})`).join('\n')}`
+        : ''
+    }
 - Rest days: rest true, title "Rest" (or "Active recovery" with a light walk or stretch), activityType "other", durationMin 0, no exercises.
 - summary: one or two encouraging sentences describing the week's structure, addressed to the user.`;
 
@@ -172,7 +234,10 @@ Rules:
             type: 'json_schema',
             name: 'workout_plan',
             strict: true,
-            schema: PLAN_SCHEMA as unknown as Record<string, unknown>,
+            schema: planSchema(library.map((e) => e.id)) as unknown as Record<
+              string,
+              unknown
+            >,
           },
         },
       });
@@ -186,7 +251,7 @@ Rules:
 
     let days;
     try {
-      days = normalizePlanDays(parsed.days);
+      days = normalizePlanDays(namePlanExercises(parsed.days, byId));
     } catch (err) {
       this.logger.warn(
         `Plan from the model was invalid: ${(err as Error).message}`,

@@ -28,6 +28,12 @@ export type Weekday = (typeof WEEKDAYS)[number];
 export const PLAN_LOCATIONS = ['home', 'gym'] as const;
 
 export class PlanExerciseDto {
+  // The exercise library's id, when the exercise came from it
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  exerciseId?: string;
+
   @IsString()
   @Length(1, 80)
   name: string;
