@@ -117,22 +117,49 @@ Chosen from [`MARKET_RESEARCH.md`](./MARKET_RESEARCH.md): the three
 Database: migrations `20261106120000` to `20261106150000` are applied to
 Supabase. All are additive, so earlier servers keep working.
 
-## Phases 5–9 (planned)
+## Phase 5 — Quick wins and safety ✅
+
+- **Trust and safety** ([`TRUST_AND_SAFETY.md`](./TRUST_AND_SAFETY.md)):
+  - AI features ask first, naming Microsoft's Azure OpenAI, and the server
+    refuses them without consent;
+  - the coach is labelled as an AI and refuses diagnosis, medication advice
+    and under-eating;
+  - GRIT is 18+, with a "Before you start" check for users who skipped
+    onboarding;
+  - calorie floors by sex (1,500 kcal for men, 1,200 otherwise) and a cap
+    on planned loss of 1% of body weight a week;
+  - an eating-disorder question that turns off weight-loss goals;
+  - pro-eating-disorder names refused;
+  - four separate data permissions, all off by default;
+  - an SDK audit, with no ad or analytics SDKs.
+- **Smart log accuracy:** each item shows its source and confidence;
+  protein or fat that's out of range for the food is marked "check this";
+  and the app asks "Cooked in oil or butter?" instead of guessing.
+- **Caffeine and alcohol** on logs, from labels and Smart log, with drink
+  shortcuts and daily totals; the coach sees them.
+- **Search and correction data:** food searches record what was picked,
+  with the phone's country and language, and edited numbers mark a log as
+  corrected.
+- **Exercise library:**
+  - 876 exercises with movement patterns and injury tags;
+  - coach plans built only from a shortlist that suits where the user
+    trains, their level and their coach notes;
+  - a library screen;
+  - calories by intensity (easy, moderate, hard).
+
+**After deploying Phase 5:** existing users see the "Before you start"
+check once (age and the wellbeing question), and the AI consent sheet the
+first time they use an AI feature. The Azure steps in `TRUST_AND_SAFETY.md`
+section 2, and the store declarations in section 4, are for the account
+owner.
+
+## Phases 6–9 (planned)
 
 See [`PLAN_PHASES_5_TO_9.md`](./PLAN_PHASES_5_TO_9.md), shaped by the
 research in
 [`reports/GRIT health fitness nutrition moat.md`](../reports/GRIT%20health%20fitness%20nutrition%20moat.md).
 Ordered from easiest to hardest, each phase is released on its own:
 
-- **Phase 5 — Quick wins and safety (about 3 weeks):**
-  - a trust and safety baseline: no third-party SDKs on health screens, AI
-    consent naming Microsoft, the EU AI disclosure, an 18+ gate, calorie
-    floors;
-  - Smart log confidence badges, a cooking-oil question, and protein and fat
-    checks;
-  - caffeine and alcohol tracking, and recording of searches and corrections;
-  - an exercise library that coach plans are built from, with injury-aware
-    filtering and calories by intensity.
 - **Phase 6 — Strength logging and health data (about 5 weeks):**
   - set-by-set logging with PRs, supersets, calculators, voice and offline
     logging, and plans that run by session order;

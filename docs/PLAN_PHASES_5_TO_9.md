@@ -6,7 +6,7 @@ each one sets up the data or infrastructure the next needs.
 
 | Phase | Name | Kind of work | Weeks (one developer) |
 |---|---|---|---|
-| **5** | Quick wins and safety | App and backend changes on what GRIT already has; no new infrastructure | about 3 |
+| **5** ✅ | Quick wins and safety | App and backend changes on what GRIT already has; no new infrastructure | about 3 |
 | **6** | Strength logging and health data | Large app features and native health permissions; product work, no research | about 5 |
 | **7** | GRIT's own food database | Data pipelines, bulk imports, search performance, a Supabase upgrade | about 4 |
 | **8** | Data quality and regional foods | Contributions, moderation, merging duplicates, curating regional data | about 3 |
@@ -87,7 +87,7 @@ change is measured against a real baseline.
 
 ---
 
-# Phase 5 — Quick wins and safety (about 3 weeks)
+# Phase 5 — Quick wins and safety (about 3 weeks) ✅ done
 
 **Difficulty: low.** Everything here extends code GRIT already has. No new
 infrastructure, no native modules, no research.

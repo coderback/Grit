@@ -29,6 +29,7 @@ grit/
 | `/onboarding/age` | Age (scroll picker) |
 | `/onboarding/body` | Height + weight |
 | `/onboarding/activity` | Activity level selection |
+| `/onboarding/wellbeing` | One private question about eating disorders; "yes" turns off weight-loss goals |
 | `/onboarding/goal` | Primary goal + desired weight |
 | `/onboarding/pace` | Pace selection with live calorie preview |
 | `/onboarding/friction` | Biggest obstacle (used for AI coach context) |
@@ -47,12 +48,14 @@ grit/
 | `/settings/goals` | Goals & Targets — goal, body stats, calories, macros, earnback/rollover |
 | `/settings/notifications` | Daily reminders and alert preferences |
 | `/settings/account` | Appearance (system, light, dark), units, password reset, log out, delete account |
-| `/settings/privacy` | Private account and blocked people |
+| `/settings/privacy` | Private account, AI features, data-use permissions, the wellbeing answer, blocked people |
+| `/welcome-check` | Age and the wellbeing question, for users who skipped onboarding (Google or Apple sign-in); GRIT is 18+ |
+| `/exercises` | Exercise library: search, filter by equipment, pictures and instructions |
 | `/settings/health` | Apple Health / Health Connect: connect, sync now, what was imported |
 | `/settings/foods` | Foods GRIT knows: portions learned from Smart log |
 | `/settings/coach-memory` | What your coach knows: notes from chats, add or delete |
 | `/auth-callback` | Finishes Google or Apple sign-in |
-| `/plan` | Weekly workout plan built by the coach |
+| `/plan` | Weekly workout plan built by the coach from the exercise library |
 | `/friends` | Search people, follow requests, followers and following |
 | `/profile/[id]` | Someone's profile: follow state, this week's stats and recent activity (if allowed) |
 | `/connections` | A user's followers or following |
@@ -111,13 +114,14 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 | Module | Routes |
 |---|---|
 | `auth` | Guard that verifies Supabase access tokens, `POST /auth/sync` |
-| `users` | `GET/PUT/DELETE /users/me` (delete removes the account and its Supabase sign-in) |
-| `food` | `GET/POST /food-logs` (with the day's calorie budget and macro targets), `GET /food-logs/week?date=`, `PATCH/DELETE /food-logs/:id`, Open Food Facts search + barcode proxy, `GET /food/recent`, `GET/POST /food/favorites`, `DELETE /food/favorites/:id` |
+| `users` | `GET/PUT/DELETE /users/me` (delete removes the account and its Supabase sign-in), `POST/DELETE /users/me/ai-consent`; safety rules (18+, calorie floors, no weight-loss goals after a "yes", no pro-eating-disorder names) |
+| `food` | `GET/POST /food-logs` (with the day's calorie budget and macro targets), `GET /food-logs/week?date=`, `PATCH/DELETE /food-logs/:id`, Open Food Facts search + barcode proxy, `GET /food/recent`, `GET/POST /food/favorites`, `DELETE /food/favorites/:id`, `POST /food/search-events`; caffeine and alcohol per log |
 | `meal-parse` | `POST /food/parse` (text and/or photo → items), `POST /food/parse/log`, `GET /food/memories`, `DELETE /food/memories/:id` |
 | `health` | `POST /health/import` (workouts, daily steps and sleep, weigh-ins from Apple Health / Health Connect), `GET /health/recent` |
 | `activity` | `GET/POST /activity-logs`, `GET /activity-logs/week?date=`, `PATCH/DELETE /activity-logs/:id`, `POST /activity-logs/:id/kudos` |
 | `habits` | `GET/POST/PUT/DELETE /habits`, `POST/DELETE /habits/:id/log?date=`, `GET /habits/streaks`, `GET /habits/:id/streak` |
-| `workout-plan` | `GET /workout-plan`, `POST /workout-plan/generate`, `PUT /workout-plan/days/:day` |
+| `workout-plan` | `GET /workout-plan`, `POST /workout-plan/generate` (exercises chosen from the library, avoiding injuries in coach notes), `PUT /workout-plan/days/:day` |
+| `exercises` | `GET /exercises?q=&muscle=&equipment=`, `GET /exercises/:id`; 876 exercises from free-exercise-db (public domain, bundled in `packages/backend/data/`), loaded on first start |
 | `challenges` | `GET/POST /challenges` (steps, active minutes or workouts; progress from logged workouts), `GET/DELETE /challenges/:id`, `POST /challenges/join/:code`, `DELETE /challenges/:id/participants/me` |
 | `social` | `GET /feed`, `GET /leaderboard/weekly`, `GET /search/users?q=`, `POST/DELETE /follow/:userId`, `GET /follow-requests`, `POST /follow-requests/:userId/accept`, `DELETE /follow-requests/:userId`, `DELETE /followers/:userId`, `GET /users/:id/{profile,followers,following}`, `GET/POST/DELETE /blocks` |
 | `progress` | `GET/POST /weight`, `DELETE /weight/:id`, `GET /stats/trends?days=7\|30\|90`, `GET /targets/adaptive`, `POST /targets/adaptive/apply`, `POST /targets/adaptive/snooze` |
@@ -126,9 +130,11 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 | `app` | `GET /health`, `POST /client-errors` (crash reports from the app, no sign-in, throttled) |
 | `alerts` | Hourly job: challenge results, 1pm coach check-ins, 8pm streak-at-risk and Sunday 6pm weekly check-in (with any target suggestion), in each user's local time |
 
-**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · CoachMemory · Follow · Block · WorkoutPlan · PushDevice · Notification · WeightLog · FavoriteFood · FoodMemory · HealthDay
+**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · CoachMemory · Follow · Block · WorkoutPlan · PushDevice · Notification · WeightLog · FavoriteFood · FoodMemory · HealthDay · SearchEvent · Exercise
 
 See [`docs/ROADMAP.md`](./docs/ROADMAP.md) for what's done and what's next.
+
+AI features (Smart log, the coach, plan building) need the user's consent first and return `403 { code: "ai_consent_required" }` without it; see [`docs/TRUST_AND_SAFETY.md`](./docs/TRUST_AND_SAFETY.md).
 
 Requests send an `x-utc-offset` header (minutes ahead of UTC) so days and weeks follow the user's local time. Row level security is enabled on every table; only the API reads and writes them.
 
