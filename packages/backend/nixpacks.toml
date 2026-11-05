@@ -1,0 +1,5 @@
+# Railway builds this folder on its own, so it doesn't see the root
+# package.json. supabase-js needs Node 22+ (it uses the built-in WebSocket),
+# and crashes at startup on Node 20.
+[variables]
+NIXPACKS_NODE_VERSION = "22"
