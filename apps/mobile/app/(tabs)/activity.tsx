@@ -13,6 +13,7 @@ import { ScreenSkeleton } from '@/components/ui/Skeleton';
 import { ACTIVITY_LABELS, LogActivitySheet } from '@/components/activity/LogActivitySheet';
 import { DateNavigator } from '@/components/ui/DateNavigator';
 import { TrendsCard } from '@/components/stats/TrendsCard';
+import { AdaptiveCard } from '@/components/stats/AdaptiveCard';
 import { LogWeightSheet } from '@/components/stats/LogWeightSheet';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Colors } from '@/constants/colors';
@@ -96,7 +97,7 @@ export default function ActivityScreen() {
   const { data: habitSummary } = useHabitSummary();
   const [showSheet, setShowSheet] = useState(false);
   const [showWeight, setShowWeight] = useState(false);
-  const { refreshing, onRefresh } = usePullToRefresh([['activity-week'], ['food-week'], ['me'], ['habits'], ['habit-streaks'], ['trends'], ['weight']]);
+  const { refreshing, onRefresh } = usePullToRefresh([['activity-week'], ['food-week'], ['me'], ['habits'], ['habit-streaks'], ['trends'], ['weight'], ['adaptive']]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -153,6 +154,9 @@ export default function ActivityScreen() {
             Analytics
           </Text>
         </View>
+
+        {/* What you actually burn, and a suggested target */}
+        <AdaptiveCard unit={me?.weightUnit ?? 'kg'} />
 
         {/* Longer-range trends and weight */}
         <TrendsCard unit={me?.weightUnit ?? 'kg'} onLogWeight={() => setShowWeight(true)} />

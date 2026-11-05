@@ -14,6 +14,13 @@ import { UtcOffset } from '../common/utc-offset.decorator';
 import { LogWeightDto, RangeQueryDto, WeightQueryDto } from './progress.dto';
 import { TrendsService } from './trends.service';
 import { WeightService } from './weight.service';
+import { AdaptiveService } from './adaptive.service';
+import { IsInt } from 'class-validator';
+
+class ApplyTargetDto {
+  @IsInt()
+  calorieGoal: number;
+}
 
 type Me = { supabaseId: string };
 
@@ -23,7 +30,24 @@ export class ProgressController {
   constructor(
     private weight: WeightService,
     private trends: TrendsService,
+    private adaptive: AdaptiveService,
   ) {}
+
+  /** Estimated burn from intake and weight trend, and a suggested target. */
+  @Get('targets/adaptive')
+  checkIn(@CurrentUser() user: Me, @UtcOffset() offset: number) {
+    return this.adaptive.checkIn(user.supabaseId, offset);
+  }
+
+  @Post('targets/adaptive/apply')
+  apply(@CurrentUser() user: Me, @Body() body: ApplyTargetDto) {
+    return this.adaptive.apply(user.supabaseId, body.calorieGoal);
+  }
+
+  @Post('targets/adaptive/snooze')
+  snooze(@CurrentUser() user: Me) {
+    return this.adaptive.snooze(user.supabaseId);
+  }
 
   /** Weigh-ins for the last 30, 90 (default) or 365 days. */
   @Get('weight')

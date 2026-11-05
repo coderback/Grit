@@ -6,7 +6,7 @@
     "scheme": "grit",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -57,7 +57,11 @@
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_WEIGHT",
+        "android.permission.health.READ_SLEEP"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
@@ -74,7 +78,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "GRIT uses your camera to scan food barcodes.",
+          "cameraPermission": "GRIT uses your camera to scan food barcodes and photograph meals.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -90,9 +94,30 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "GRIT uses your photos so you can choose a profile picture.",
-          "cameraPermission": false,
+          "photosPermission": "GRIT uses your photos so you can choose a profile picture or log a meal from a photo.",
+          "cameraPermission": "GRIT uses your camera to photograph meals so it can estimate what's in them.",
           "microphonePermission": false
+        }
+      ],
+      "expo-apple-authentication",
+      "expo-web-browser",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "GRIT reads your workouts, steps, sleep and weight so they count toward your goals and challenges, and so your coach can see how you're recovering.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ],
+      "react-native-health-connect",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 26
+          }
         }
       ]
     ],

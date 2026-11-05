@@ -44,35 +44,46 @@ model User {
   notifOffTrackOnly Boolean @default(false)
 
   // Push and inbox alerts for follows, requests, kudos and challenges
-  notifSocial       Boolean @default(true)
+  notifSocial Boolean @default(true)
 
   // Private accounts approve each follower; only approved followers see activity
   isPrivate Boolean @default(true)
+
+  // Meal descriptions/photos read by the AI today (a daily cap)
+  aiParseDay   String?
+  aiParseCount Int     @default(0)
+
+  // Adaptive targets: when a suggestion was last taken or put off
+  adaptiveAppliedAt    DateTime?
+  adaptiveSnoozedUntil DateTime?
 
   // The device's latest UTC offset in minutes, so scheduled alerts arrive at
   // the right local time
   utcOffset Int @default(0)
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  foodLogs     FoodLog[]
-  activityLogs ActivityLog[]
-  habitLogs    HabitLog[]
-  habits       Habit[]
-  following    Follow[]               @relation("following")
-  followers    Follow[]               @relation("followers")
-  challenges   ChallengeParticipant[]
-  aiMessages   AIMessage[]
-  kudosGiven   Kudos[]
-  workoutPlan  WorkoutPlan?
-  blocking     Block[]                @relation("blocker")
-  blockedBy    Block[]                @relation("blocked")
-  pushDevices  PushDevice[]
-  weightLogs   WeightLog[]
-  favoriteFoods FavoriteFood[]
-  notifications     Notification[] @relation("recipient")
-  notificationsSent Notification[] @relation("actor")
+  foodLogs          FoodLog[]
+  activityLogs      ActivityLog[]
+  habitLogs         HabitLog[]
+  habits            Habit[]
+  following         Follow[]               @relation("following")
+  followers         Follow[]               @relation("followers")
+  challenges        ChallengeParticipant[]
+  aiMessages        AIMessage[]
+  coachMemories     CoachMemory[]
+  kudosGiven        Kudos[]
+  workoutPlan       WorkoutPlan?
+  blocking          Block[]                @relation("blocker")
+  blockedBy         Block[]                @relation("blocked")
+  pushDevices       PushDevice[]
+  weightLogs        WeightLog[]
+  favoriteFoods     FavoriteFood[]
+  healthDays        HealthDay[]
+  foodMemories      FoodMemory[]
+  notifications     Notification[]         @relation("recipient")
+  notificationsSent Notification[]         @relation("actor")
 
   @@map("users")
 }
@@ -139,10 +150,13 @@ model ActivityLog {
   source         String   @default("manual")
   loggedAt       DateTime @default(now())
   kudosCount     Int      @default(0)
+  // The health app's ID for an imported workout, so importing again updates it
+  externalId     String?
 
   user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   kudos Kudos[]
 
+  @@unique([userId, externalId])
   @@index([userId, loggedAt])
   @@map("activity_logs")
 }
@@ -199,22 +213,22 @@ model HabitLog {
 }
 
 model Challenge {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   title        String
   // What counts, from workouts logged during the challenge:
   // steps | active_minutes | workouts
-  type         String   @default("active_minutes")
+  type         String    @default("active_minutes")
   goalValue    Int
   durationDays Int
   startDate    DateTime
   endDate      DateTime
   creatorId    String
-  inviteCode   String   @unique @default(cuid())
+  inviteCode   String    @unique @default(cuid())
   // The group reached the goal (it can still be running)
-  isComplete   Boolean  @default(false)
+  isComplete   Boolean   @default(false)
   // Set once the end date has passed and the results were sent
   endedAt      DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   participants ChallengeParticipant[]
 
@@ -252,10 +266,27 @@ model AIMessage {
   @@map("ai_messages")
 }
 
+// Lasting facts the coach has learned about the user (an injury, foods they
+// avoid, when they train), from chats or added by hand. Shown and editable
+// in settings.
+model CoachMemory {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  // chat | user
+  source    String   @default("chat")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("coach_memories")
+}
+
 // The coach-generated weekly plan; one per user, replaced when regenerated
 model WorkoutPlan {
-  id          String   @id @default(cuid())
-  userId      String   @unique
+  id          String @id @default(cuid())
+  userId      String @unique
   summary     String
   daysPerWeek Int
   location    String // home | gym
@@ -293,7 +324,7 @@ model Notification {
   id        String    @id @default(cuid())
   userId    String // who it's for
   // follow | follow_request | follow_accepted | kudos | challenge_joined |
-  // challenge_ended | streak_at_risk | weekly_progress
+  // challenge_ended | streak_at_risk | weekly_progress | coach_checkin
   type      String
   actorId   String? // who caused it, for social alerts
   title     String
@@ -349,4 +380,46 @@ model FavoriteFood {
 
   @@unique([userId, key])
   @@map("favorite_foods")
+}
+
+// Daily totals read from Apple Health / Health Connect. Steps count toward
+// step challenges; sleep is context for the coach.
+model HealthDay {
+  id           String   @id @default(cuid())
+  userId       String
+  // The local day, stored as midnight UTC of that date
+  day          DateTime
+  steps        Int?
+  // Asleep time for the night ending on this day
+  sleepMinutes Int?
+  source       String // healthkit | health_connect
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@map("health_days")
+}
+
+// What someone actually ate when they confirmed an AI-read meal: their
+// nutrition per 100 g and usual portion for a food, used before any
+// estimate the next time they mention it
+model FoodMemory {
+  id             String   @id @default(cuid())
+  userId         String
+  // lowercased, single-spaced name
+  key            String
+  name           String
+  kcalPer100g    Float
+  proteinPer100g Float
+  carbsPer100g   Float
+  fatPer100g     Float
+  usualGrams     Float
+  uses           Int      @default(1)
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@map("food_memories")
 }

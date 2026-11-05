@@ -84,8 +84,52 @@ display rounding.
   the old `users.pushToken` column, which Phase 2 servers still read, so
   only apply it once Railway runs this version.
 
+## Phase 4 — Moat features and platform ✅
+
+Chosen from [`MARKET_RESEARCH.md`](./MARKET_RESEARCH.md): the three
+"build first" features, plus the platform work that was asked for.
+
+- **Light theme.** Follows the phone's setting, or pick Light or Dark
+  under Account → Appearance.
+- **Google and Apple sign-in** on the login and sign-up screens (native
+  Apple sign-in on iPhone, a browser sign-in everywhere else). The buttons
+  only appear for providers that are switched on in Supabase.
+- **Apple Health / Health Connect sync.** Workouts, steps, sleep and
+  weigh-ins come in automatically (Settings → Apple Health / Health
+  Connect). Imports never duplicate, steps count toward step challenges,
+  and the coach sees steps and sleep.
+- **Adaptive calorie targets.** From logged intake and the weigh-in
+  trend, GRIT estimates what you actually burn and suggests a new target
+  on Stats and in the Sunday check-in. You can use it, change it or snooze
+  it. Changes are capped at ±200 kcal a week, with a 1,200 kcal floor and
+  a settling period after each change.
+- **✨ Smart log.** Type, dictate or photograph a meal. GRIT splits it
+  into items with portions, including hidden oil, butter and sauces.
+  Nutrition comes first from your own past confirmations, then the food
+  database for branded items, then a checked estimate, and each item shows
+  its source. You review every item before logging. Confirmed foods and
+  portions are remembered ("Foods GRIT knows" in Profile), so logging gets
+  faster with use. Capped at 30 readings a day.
+- **Coach memory.** The coach notes lasting facts from chats (injuries,
+  foods avoided, when you can train), replaces notes that go out of date,
+  and uses them in every reply. It also sees your week's averages and the
+  adaptive estimate. Notes appear in the chat as they're taken and can be
+  viewed, added and deleted under "What your coach knows".
+- **Proactive check-ins.** At 1pm local time the coach checks for a
+  logging gap, a run of missed workouts, low protein, or a weight plateau
+  while cutting, and sends the first that applies. Each kind goes at most
+  once a week, never on Sundays, and only with progress alerts on.
+
+Database: migrations `20261106120000` to `20261106150000` are applied to
+Supabase. All are additive, so earlier servers keep working.
+
 ## Later
 
+- From the research: Squads (small accountability groups), a GLP-1
+  mode, and strength tracking with progressive overload linked to
+  nutrition.
+- Let the coach propose changes to the workout plan and habits for the
+  user to approve, as it already does for calorie targets.
 - A real-device check of push alerts, photo picking and the keyboard in
   sheets.
 - Fuzzy user search (a `pg_trgm` index) once there are many users.
@@ -94,9 +138,15 @@ display rounding.
 
 ## Needs the account owner
 
-- Google and Apple sign-in: enable the providers in Supabase and use the
-  Apple Developer account.
-- HealthKit / Health Connect: a development build tested on real devices.
+- Google and Apple sign-in: enable the Google and Apple providers in
+  Supabase Auth. Add `grit://auth-callback` and the web app's
+  `/auth-callback` URL to the redirect URLs. Apple needs a Services ID and
+  key from the Apple Developer account; Google needs an OAuth client.
+  Until then the buttons stay hidden.
+- HealthKit / Health Connect and Smart log's camera: these need a
+  development build (`eas build --profile development`) on real devices,
+  since Expo Go has no HealthKit or Health Connect. Check the permission
+  prompts, a first sync, and a photo reading.
 - Push notifications: the app already has an EAS project ID; set
   `EXPO_ACCESS_TOKEN` on the server if push security is turned on for
   the Expo project. Crash reports go to the backend logs; add Sentry

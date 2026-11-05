@@ -1,6 +1,6 @@
 # GRIT
 
-A full-stack fitness and nutrition tracking app for people serious about body composition. GRIT combines macro tracking, habit building, activity logging, social challenges, and an AI coach into a single opinionated dark-mode mobile experience.
+A full-stack fitness and nutrition tracking app for people serious about body composition. GRIT combines macro tracking, habit building, activity logging, social challenges, and an AI coach into a single opinionated mobile experience, in dark or light.
 
 ---
 
@@ -36,18 +36,22 @@ grit/
 | `/onboarding/advanced` | Earnback calories toggle, rollover toggle |
 | `/onboarding/notifications` | Notification preferences |
 | `/onboarding/reveal` | Personalised TDEE + macro plan reveal |
-| `/onboarding/signup` | Account creation (email + password) |
-| `/(auth)/login` | Returning user login |
+| `/onboarding/signup` | Account creation (email + password, or Google / Apple) |
+| `/(auth)/login` | Returning user login (email, Google or Apple) |
 | `/(tabs)/` | Home — daily calorie budget, macro progress, today's workout |
-| `/(tabs)/food` | Food log — any day, meal sections, edit entries, barcode scanner |
+| `/(tabs)/food` | Food log — any day, meal sections, edit entries, barcode scanner, ✨ Smart log (describe or photograph a meal) |
 | `/(tabs)/habits` | Habit tracker — check-ins, undo, 30-day history and back-fill |
-| `/(tabs)/activity` | Stats — 7D/30D/3M trends for calories, protein, activity and weight, then any week's workouts |
+| `/(tabs)/activity` | Stats — adaptive calorie target, 7D/30D/3M trends for calories, protein, activity and weight, then any week's workouts |
 | `/(tabs)/social` | Feed, challenges and leaderboard |
 | `/(tabs)/profile` | User profile + settings |
 | `/settings/goals` | Goals & Targets — goal, body stats, calories, macros, earnback/rollover |
 | `/settings/notifications` | Daily reminders and alert preferences |
-| `/settings/account` | Units, password reset, log out, delete account |
+| `/settings/account` | Appearance (system, light, dark), units, password reset, log out, delete account |
 | `/settings/privacy` | Private account and blocked people |
+| `/settings/health` | Apple Health / Health Connect: connect, sync now, what was imported |
+| `/settings/foods` | Foods GRIT knows: portions learned from Smart log |
+| `/settings/coach-memory` | What your coach knows: notes from chats, add or delete |
+| `/auth-callback` | Finishes Google or Apple sign-in |
 | `/plan` | Weekly workout plan built by the coach |
 | `/friends` | Search people, follow requests, followers and following |
 | `/profile/[id]` | Someone's profile: follow state, this week's stats and recent activity (if allowed) |
@@ -107,18 +111,20 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 | `auth` | Guard that verifies Supabase access tokens, `POST /auth/sync` |
 | `users` | `GET/PUT/DELETE /users/me` (delete removes the account and its Supabase sign-in) |
 | `food` | `GET/POST /food-logs` (with the day's calorie budget and macro targets), `GET /food-logs/week?date=`, `PATCH/DELETE /food-logs/:id`, Open Food Facts search + barcode proxy, `GET /food/recent`, `GET/POST /food/favorites`, `DELETE /food/favorites/:id` |
+| `meal-parse` | `POST /food/parse` (text and/or photo → items), `POST /food/parse/log`, `GET /food/memories`, `DELETE /food/memories/:id` |
+| `health` | `POST /health/import` (workouts, daily steps and sleep, weigh-ins from Apple Health / Health Connect), `GET /health/recent` |
 | `activity` | `GET/POST /activity-logs`, `GET /activity-logs/week?date=`, `PATCH/DELETE /activity-logs/:id`, `POST /activity-logs/:id/kudos` |
 | `habits` | `GET/POST/PUT/DELETE /habits`, `POST/DELETE /habits/:id/log?date=`, `GET /habits/streaks`, `GET /habits/:id/streak` |
 | `workout-plan` | `GET /workout-plan`, `POST /workout-plan/generate`, `PUT /workout-plan/days/:day` |
 | `challenges` | `GET/POST /challenges` (steps, active minutes or workouts; progress from logged workouts), `GET/DELETE /challenges/:id`, `POST /challenges/join/:code`, `DELETE /challenges/:id/participants/me` |
 | `social` | `GET /feed`, `GET /leaderboard/weekly`, `GET /search/users?q=`, `POST/DELETE /follow/:userId`, `GET /follow-requests`, `POST /follow-requests/:userId/accept`, `DELETE /follow-requests/:userId`, `DELETE /followers/:userId`, `GET /users/:id/{profile,followers,following}`, `GET/POST/DELETE /blocks` |
-| `progress` | `GET/POST /weight`, `DELETE /weight/:id`, `GET /stats/trends?days=7\|30\|90` |
-| `ai` | `POST /ai/message` (streamed), `GET /ai/messages`, `GET /ai/nudge` — AI coach |
+| `progress` | `GET/POST /weight`, `DELETE /weight/:id`, `GET /stats/trends?days=7\|30\|90`, `GET /targets/adaptive`, `POST /targets/adaptive/apply`, `POST /targets/adaptive/snooze` |
+| `ai` | `POST /ai/message` (streamed), `GET /ai/messages`, `GET /ai/nudge`, `GET/POST/DELETE /ai/memories`, `DELETE /ai/memories/:id` — AI coach and its notes |
 | `notifications` | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/read`, `POST/DELETE /notifications/register` (one row per phone), Expo push sending |
 | `app` | `GET /health`, `POST /client-errors` (crash reports from the app, no sign-in, throttled) |
-| `alerts` | Hourly job: challenge results, 8pm streak-at-risk and Sunday 6pm weekly check-in, in each user's local time |
+| `alerts` | Hourly job: challenge results, 1pm coach check-ins, 8pm streak-at-risk and Sunday 6pm weekly check-in (with any target suggestion), in each user's local time |
 
-**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · Follow · Block · WorkoutPlan · PushDevice · Notification · WeightLog · FavoriteFood
+**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · CoachMemory · Follow · Block · WorkoutPlan · PushDevice · Notification · WeightLog · FavoriteFood · FoodMemory · HealthDay
 
 See [`docs/ROADMAP.md`](./docs/ROADMAP.md) for what's done and what's next.
 

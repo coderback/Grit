@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { FoodModule } from './food/food.module';
+import { MealParseModule } from './meal-parse/meal-parse.module';
 import { ActivityModule } from './activity/activity.module';
 import { HabitsModule } from './habits/habits.module';
 import { SocialModule } from './social/social.module';
@@ -16,6 +17,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { WorkoutPlanModule } from './workout-plan/workout-plan.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { ProgressModule } from './progress/progress.module';
+import { HealthModule } from './health/health.module';
 import { AppController } from './app.controller';
 import { validateEnv } from './config/env';
 import { AllExceptionsFilter } from './observability/all-exceptions.filter';
@@ -39,6 +41,7 @@ import { UserThrottlerGuard } from './observability/throttler.guard';
     AuthModule,
     UsersModule,
     FoodModule,
+    MealParseModule,
     ActivityModule,
     HabitsModule,
     SocialModule,
@@ -48,6 +51,7 @@ import { UserThrottlerGuard } from './observability/throttler.guard';
     WorkoutPlanModule,
     AlertsModule,
     ProgressModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [

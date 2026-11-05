@@ -8,7 +8,7 @@ import {
 import type { Challenge } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { dayRange, localToday } from '../common/day';
+import { dayRange, localDateOf, localToday } from '../common/day';
 import type { CreateChallengeDto } from './challenges.dto';
 import {
   GOAL_LIMITS,
@@ -82,6 +82,75 @@ export class ChallengesService {
   }
 
   /**
+   * Steps each user took between two instants. Per local day it takes the
+   * larger of the phone's step count (synced from the health app) and the
+   * steps entered on workouts, so a walk logged by hand isn't counted twice.
+   */
+  private async stepTotals(userIds: string[], from: Date, until: Date) {
+    const [users, logs, days] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, utcOffset: true },
+      }),
+      this.prisma.activityLog.findMany({
+        where: {
+          userId: { in: userIds },
+          loggedAt: { gte: from, lt: until },
+          steps: { gt: 0 },
+        },
+        select: { userId: true, loggedAt: true, steps: true },
+      }),
+      this.prisma.healthDay.findMany({
+        where: {
+          userId: { in: userIds },
+          steps: { not: null },
+          // Whole days that overlap the window, in any time zone
+          day: {
+            gte: new Date(from.getTime() - 86_400_000),
+            lt: new Date(until.getTime() + 86_400_000),
+          },
+        },
+        select: { userId: true, day: true, steps: true },
+      }),
+    ]);
+    const offsets = new Map(users.map((u) => [u.id, u.utcOffset]));
+    const perDay = new Map<
+      string,
+      Map<string, { logged: number; phone: number }>
+    >();
+    const slot = (userId: string, date: string) => {
+      const days =
+        perDay.get(userId) ??
+        new Map<string, { logged: number; phone: number }>();
+      perDay.set(userId, days);
+      const entry = days.get(date) ?? { logged: 0, phone: 0 };
+      days.set(date, entry);
+      return entry;
+    };
+    for (const l of logs) {
+      slot(
+        l.userId,
+        localDateOf(l.loggedAt, offsets.get(l.userId) ?? 0),
+      ).logged += l.steps ?? 0;
+    }
+    for (const d of days) {
+      // Only days that fall inside the challenge in the user's own time zone
+      const date = d.day.toISOString().slice(0, 10);
+      const { start } = dayRange(date, offsets.get(d.userId) ?? 0);
+      if (start < new Date(from.getTime() - 1) || start >= until) continue;
+      slot(d.userId, date).phone = d.steps ?? 0;
+    }
+    const totals = new Map<string, number>();
+    for (const [userId, dates] of perDay) {
+      let total = 0;
+      for (const { logged, phone } of dates.values())
+        total += Math.max(logged, phone);
+      totals.set(userId, total);
+    }
+    return totals;
+  }
+
+  /**
    * Recomputes every participant's score from the workouts they logged
    * between the start and the end (or now), and marks the goal reached.
    * Finished challenges are left as they ended.
@@ -104,12 +173,20 @@ export class ChallengesService {
         _count: { _all: true },
       });
       const byUser = new Map(sums.map((s) => [s.userId, s]));
+      const steps =
+        c.type === 'steps' || c.type === 'group_steps'
+          ? await this.stepTotals(
+              participants.map((p) => p.userId),
+              c.startDate,
+              until,
+            )
+          : null;
 
       let total = 0;
       for (const p of participants) {
         const s = byUser.get(p.userId);
         const value = scoreFor(c.type, {
-          steps: s?._sum.steps ?? 0,
+          steps: steps?.get(p.userId) ?? s?._sum.steps ?? 0,
           minutes: s?._sum.durationMin ?? 0,
           workouts: s?._count._all ?? 0,
         });

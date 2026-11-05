@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Linking,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -138,14 +139,17 @@ function EditSheet({ user, onClose }: { user: BackendUser; onClose: () => void }
 }
 
 const SETTINGS_ROWS = [
-  { icon: '🎯', color: Colors.orange, label: 'Goals & Targets', sub: 'Calories, macros and weight goal', href: '/settings/goals' as const },
-  { icon: '🏋️', color: Colors.teal, label: 'Workout Plan', sub: 'Your weekly plan from the coach', href: '/plan' as const },
-  { icon: '👥', color: Colors.orange, label: 'Friends', sub: 'Find people, requests and followers', href: '/friends' as const },
-  { icon: '🔒', color: Colors.blue, label: 'Privacy', sub: 'Private account and blocked people', href: '/settings/privacy' as const },
-  { icon: '🔔', color: Colors.blue, label: 'Notifications', sub: 'Reminders and alerts', href: '/settings/notifications' as const },
-  { icon: '👤', color: Colors.muted, label: 'Account', sub: 'Units, password, delete account', href: '/settings/account' as const },
-  { icon: '📊', color: Colors.teal, label: 'My Progress', sub: 'Weekly stats', href: '/(tabs)/activity' as const },
-  { icon: '💬', color: Colors.muted, label: 'Help & Feedback', sub: 'Email support', href: null },
+  { icon: '🎯', color: 'orange' as const, label: 'Goals & Targets', sub: 'Calories, macros and weight goal', href: '/settings/goals' as const },
+  { icon: '🏋️', color: 'teal' as const, label: 'Workout Plan', sub: 'Your weekly plan from the coach', href: '/plan' as const },
+  { icon: '👥', color: 'orange' as const, label: 'Friends', sub: 'Find people, requests and followers', href: '/friends' as const },
+  { icon: '🔒', color: 'blue' as const, label: 'Privacy', sub: 'Private account and blocked people', href: '/settings/privacy' as const },
+  { icon: '❤️', color: 'error' as const, label: Platform.OS === 'android' ? 'Health Connect' : Platform.OS === 'ios' ? 'Apple Health' : 'Health data', sub: 'Sync workouts, steps, sleep and weight', href: '/settings/health' as const },
+  { icon: '🧠', color: 'teal' as const, label: 'What your coach knows', sub: 'Notes from your chats', href: '/settings/coach-memory' as const },
+  { icon: '✨', color: 'orange' as const, label: 'Foods GRIT knows', sub: 'Portions learned from Smart log', href: '/settings/foods' as const },
+  { icon: '🔔', color: 'blue' as const, label: 'Notifications', sub: 'Reminders and alerts', href: '/settings/notifications' as const },
+  { icon: '👤', color: 'muted' as const, label: 'Account', sub: 'Appearance, units, password, delete account', href: '/settings/account' as const },
+  { icon: '📊', color: 'teal' as const, label: 'My Progress', sub: 'Weekly stats', href: '/(tabs)/activity' as const },
+  { icon: '💬', color: 'muted' as const, label: 'Help & Feedback', sub: 'Email support', href: null },
 ];
 
 export default function ProfileScreen() {
@@ -354,7 +358,7 @@ export default function ProfileScreen() {
               gap: 14,
             })}
           >
-            <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: `${row.color}18`, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: `${Colors[row.color]}18`, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Text style={{ fontSize: 20 }}>{row.icon}</Text>
             </View>
             <View style={{ flex: 1 }}>

@@ -55,6 +55,7 @@ function invalidateWeight(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ['weight'] });
   qc.invalidateQueries({ queryKey: ['trends'] });
   qc.invalidateQueries({ queryKey: ['me'] });
+  qc.invalidateQueries({ queryKey: ['adaptive'] });
 }
 
 export function useLogWeight() {

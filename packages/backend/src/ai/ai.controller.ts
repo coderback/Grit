@@ -1,9 +1,18 @@
-import { Controller, Post, Get, Body, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Delete,
+  Body,
+  Param,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { AIService } from './ai.service';
-import { SendMessageDto } from './ai.dto';
+import { AddMemoryDto, SendMessageDto } from './ai.dto';
 import { UtcOffset } from '../common/utc-offset.decorator';
 
 @Controller('ai')
@@ -53,5 +62,33 @@ export class AIController {
   ) {
     const nudge = await this.ai.getNudge(user.supabaseId, offset);
     return { nudge };
+  }
+
+  // ── What the coach remembers ──────────────────────────────────────────────
+
+  @Get('memories')
+  memories(@CurrentUser() user: { supabaseId: string }) {
+    return this.ai.listMemories(user.supabaseId);
+  }
+
+  @Post('memories')
+  addMemory(
+    @CurrentUser() user: { supabaseId: string },
+    @Body() body: AddMemoryDto,
+  ) {
+    return this.ai.addMemory(user.supabaseId, body.text);
+  }
+
+  @Delete('memories/:id')
+  deleteMemory(
+    @CurrentUser() user: { supabaseId: string },
+    @Param('id') id: string,
+  ) {
+    return this.ai.deleteMemory(user.supabaseId, id);
+  }
+
+  @Delete('memories')
+  clearMemories(@CurrentUser() user: { supabaseId: string }) {
+    return this.ai.clearMemories(user.supabaseId);
   }
 }

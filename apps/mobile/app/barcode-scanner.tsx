@@ -9,6 +9,7 @@ import { LogFoodSheet } from '@/components/food/LogFoodSheet';
 import { Colors } from '@/constants/colors';
 
 export default function BarcodeScannerScreen() {
+  const styles = makeStyles();
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [showSheet, setShowSheet] = useState(false);
@@ -154,7 +155,8 @@ const CORNER_SIZE = 24;
 const CORNER_THICKNESS = 3;
 const CORNER_COLOR = Colors.orange;
 
-const styles = StyleSheet.create({
+// Built during render, so it follows the current theme
+const makeStyles = () => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark },
   overlay: {
     flex: 1,

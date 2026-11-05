@@ -11,7 +11,8 @@ import { Colors } from '@/constants/colors';
 
 const MAX_EXERCISES = 12;
 
-const inputStyle = {
+/** Read during render, so it follows the current theme */
+const inputStyle = () => ({
   backgroundColor: Colors.surface2,
   borderRadius: 12,
   borderWidth: 1,
@@ -21,7 +22,7 @@ const inputStyle = {
   color: Colors.text,
   fontFamily: 'DMSans-Regular',
   fontSize: 14,
-} as const;
+} as const);
 
 /** Edit one day of the plan by hand: rest or train, title, type, length and exercises. */
 export function EditPlanDaySheet({ day, onClose }: { day: PlanDay; onClose: () => void }) {
@@ -81,7 +82,7 @@ export function EditPlanDaySheet({ day, onClose }: { day: PlanDay; onClose: () =
           <Switch value={rest} onValueChange={setRest} accessibilityLabel="Rest day" trackColor={{ false: Colors.surface3, true: Colors.orange }} thumbColor="#fff" />
         </View>
 
-        <SheetTextInput value={title} onChangeText={setTitle} placeholder={rest ? 'Rest' : 'e.g. Upper body'} placeholderTextColor={Colors.muted} maxLength={60} style={inputStyle} accessibilityLabel="Title" />
+        <SheetTextInput value={title} onChangeText={setTitle} placeholder={rest ? 'Rest' : 'e.g. Upper body'} placeholderTextColor={Colors.muted} maxLength={60} style={inputStyle()} accessibilityLabel="Title" />
 
         {!rest && (
           <>
@@ -101,15 +102,15 @@ export function EditPlanDaySheet({ day, onClose }: { day: PlanDay; onClose: () =
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ color: Colors.text, fontFamily: 'DMSans-Medium', fontSize: 14 }}>Minutes</Text>
-              <SheetTextInput value={duration} onChangeText={(t) => setDuration(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" maxLength={3} style={{ ...inputStyle, width: 80, fontFamily: 'JetBrainsMono-Regular' }} accessibilityLabel="Minutes" />
+              <SheetTextInput value={duration} onChangeText={(t) => setDuration(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" maxLength={3} style={{ ...inputStyle(), width: 80, fontFamily: 'JetBrainsMono-Regular' }} accessibilityLabel="Minutes" />
             </View>
 
             <View style={{ gap: 10 }}>
               <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Exercises</Text>
               {exercises.map((e, i) => (
                 <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                  <SheetTextInput value={e.name} onChangeText={(t) => setExercise(i, { name: t })} placeholder="Exercise" placeholderTextColor={Colors.muted} maxLength={80} style={{ ...inputStyle, flex: 2 }} accessibilityLabel={`Exercise ${i + 1}`} />
-                  <SheetTextInput value={e.detail} onChangeText={(t) => setExercise(i, { detail: t })} placeholder="3 × 12" placeholderTextColor={Colors.muted} maxLength={60} style={{ ...inputStyle, flex: 1 }} accessibilityLabel={`Sets for exercise ${i + 1}`} />
+                  <SheetTextInput value={e.name} onChangeText={(t) => setExercise(i, { name: t })} placeholder="Exercise" placeholderTextColor={Colors.muted} maxLength={80} style={{ ...inputStyle(), flex: 2 }} accessibilityLabel={`Exercise ${i + 1}`} />
+                  <SheetTextInput value={e.detail} onChangeText={(t) => setExercise(i, { detail: t })} placeholder="3 × 12" placeholderTextColor={Colors.muted} maxLength={60} style={{ ...inputStyle(), flex: 1 }} accessibilityLabel={`Sets for exercise ${i + 1}`} />
                   <Pressable onPress={() => setExercises((list) => list.filter((_, j) => j !== i))} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove exercise ${i + 1}`}>
                     <Text style={{ color: Colors.muted, fontSize: 18 }}>✕</Text>
                   </Pressable>

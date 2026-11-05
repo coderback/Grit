@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ChallengesService } from '../challenges/challenges.service';
+import { AdaptiveService } from '../progress/adaptive.service';
 import {
   addDays,
   dateMarker,
@@ -11,6 +12,8 @@ import {
   weekStart,
 } from '../common/day';
 import { calculateStreak } from '../habits/habits.streak';
+import { macroTargets } from '../common/nutrition';
+import { checkInsFor } from './coach-checkins';
 import {
   isOffTrack,
   offsetRangesAtLocalHour,
@@ -21,6 +24,7 @@ import {
 
 export const STREAK_ALERT_HOUR = 20; // 8pm local
 export const WEEKLY_ALERT_HOUR = 18; // 6pm local, on Sundays
+export const COACH_CHECKIN_HOUR = 13; // 1pm local, not on Sundays
 const MIN_STREAK = 2;
 const USER_PAGE = 500;
 
@@ -38,6 +42,7 @@ export class AlertsService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private challenges: ChallengesService,
+    private adaptive: AdaptiveService,
   ) {}
 
   @Cron('5 * * * *')
@@ -49,9 +54,10 @@ export class AlertsService {
       const ended = await this.challenges.finishEnded(now);
       const streaks = await this.sendStreakAlerts(now);
       const weekly = await this.sendWeeklyProgress(now);
+      const coach = await this.sendCoachCheckIns(now);
       const pruned = await this.notifications.prune();
       this.logger.log(
-        `Alerts: ${ended} challenges ended, ${streaks} streak, ${weekly} weekly, ${pruned} old removed`,
+        `Alerts: ${ended} challenges ended, ${streaks} streak, ${weekly} weekly, ${coach} coach, ${pruned} old removed`,
       );
     } catch (err) {
       this.logger.error(`Hourly alerts failed: ${(err as Error).message}`);
@@ -83,6 +89,7 @@ export class AlertsService {
           utcOffset: true,
           activeMinutesGoal: true,
           notifOffTrackOnly: true,
+          supabaseId: true,
         },
         orderBy: { id: 'asc' },
         take: USER_PAGE,
@@ -179,13 +186,114 @@ export class AlertsService {
       };
       if (user.notifOffTrackOnly && !isOffTrack(stats)) continue;
 
+      // The weekly check-in also carries a target adjustment, if there is one
+      const checkIn = await this.adaptive
+        .checkIn(user.supabaseId, user.utcOffset)
+        .catch(() => null);
+      const alert = weeklyAlert(stats);
+      const s = checkIn?.suggestion;
+      if (s) {
+        alert.body += ` Your coach suggests ${s.change > 0 ? 'raising' : 'lowering'} your target to ${s.suggested.toLocaleString('en-US')} kcal: tap to review.`;
+      }
+
       const delivered = await this.notifications.notify(user.id, {
         type: 'weekly_progress',
-        ...weeklyAlert(stats),
+        ...alert,
         data: { screen: 'stats' },
         dedupeKey: `weekly:${monday}`,
       });
       if (delivered) sent++;
+    }
+    return sent;
+  }
+
+  /**
+   * 1pm: one check-in from the coach, if a pattern calls for one. Each kind
+   * is sent at most once a week; Sundays are left to the weekly summary.
+   */
+  async sendCoachCheckIns(now: Date): Promise<number> {
+    const users = this.usersAtLocalHour(
+      now,
+      COACH_CHECKIN_HOUR,
+      'notifProgress',
+    );
+    let sent = 0;
+    for await (const user of users) {
+      const offset = user.utcOffset;
+      const today = localDateOf(now, offset);
+      if (new Date(`${today}T00:00:00Z`).getUTCDay() === 0) continue;
+
+      const since14 = dayRange(addDays(today, -14), offset).start;
+      const todayStart = dayRange(today, offset).start;
+      const weekAgo = dayRange(addDays(today, -7), offset).start;
+      const [profile, food, activity, weights] = await Promise.all([
+        this.prisma.user.findUnique({
+          where: { id: user.id },
+          select: {
+            calorieGoal: true,
+            goalFocus: true,
+            dietType: true,
+            primaryGoal: true,
+          },
+        }),
+        this.prisma.foodLog.findMany({
+          where: { userId: user.id, loggedAt: { gte: since14, lte: now } },
+          select: { loggedAt: true, proteinG: true },
+        }),
+        this.prisma.activityLog.findMany({
+          where: { userId: user.id, loggedAt: { gte: since14, lte: now } },
+          select: { loggedAt: true },
+        }),
+        this.prisma.weightLog.findMany({
+          where: {
+            userId: user.id,
+            day: { gte: dateMarker(addDays(today, -21)) },
+          },
+          select: { day: true, weightKg: true },
+        }),
+      ]);
+      if (!profile) continue;
+
+      // Protein per logged day over the last 7 full days
+      const protein = new Map<string, number>();
+      for (const f of food) {
+        if (f.loggedAt < weekAgo || f.loggedAt >= todayStart) continue;
+        const d = localDateOf(f.loggedAt, offset);
+        protein.set(d, (protein.get(d) ?? 0) + f.proteinG);
+      }
+
+      const checkIns = checkInsFor({
+        today,
+        foodDays: food.map((f) => localDateOf(f.loggedAt, offset)),
+        proteinByDay: [...protein].map(([date, proteinG]) => ({
+          date,
+          proteinG,
+        })),
+        proteinTarget: macroTargets(profile.calorieGoal, profile.goalFocus)
+          .proteinG,
+        dietType: profile.dietType,
+        workoutDays: activity.map((a) => localDateOf(a.loggedAt, offset)),
+        weights: weights.map((w) => ({
+          date: w.day.toISOString().slice(0, 10),
+          weightKg: w.weightKg,
+        })),
+        primaryGoal: profile.primaryGoal,
+      });
+
+      // The first one not already sent this week
+      for (const c of checkIns) {
+        const delivered = await this.notifications.notify(user.id, {
+          type: 'coach_checkin',
+          title: c.title,
+          body: c.body,
+          data: { screen: c.screen, rule: c.rule },
+          dedupeKey: `coach:${c.rule}:${weekStart(today)}`,
+        });
+        if (delivered) {
+          sent++;
+          break;
+        }
+      }
     }
     return sent;
   }

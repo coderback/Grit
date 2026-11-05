@@ -13,7 +13,8 @@ import { Colors } from '@/constants/colors';
 
 interface LocalMessage {
   id: string;
-  role: 'user' | 'assistant';
+  /** note: what the coach just took down to remember */
+  role: 'user' | 'assistant' | 'note';
   content: string;
 }
 
@@ -25,6 +26,7 @@ export default function CoachScreen() {
   const [localMessages, setLocalMessages] = useState<LocalMessage[]>([]);
   const [streamingContent, setStreamingContent] = useState('');
   const scrollRef = useRef<ScrollView>(null);
+  const pendingNote = useRef<string | null>(null);
 
   // Sync history into local messages once loaded
   useEffect(() => {
@@ -56,13 +58,16 @@ export default function CoachScreen() {
         scrollToBottom();
       },
       () => {
+        // Any note the coach took shows under its reply
+        const note = pendingNote.current;
+        pendingNote.current = null;
         setStreamingContent((prev) => {
-          if (prev) {
-            setLocalMessages((msgs) => [
-              ...msgs,
-              { id: `local-a-${Date.now()}`, role: 'assistant', content: prev },
-            ]);
-          }
+          const now = Date.now();
+          setLocalMessages((msgs) => [
+            ...msgs,
+            ...(prev ? [{ id: `local-a-${now}`, role: 'assistant' as const, content: prev }] : []),
+            ...(note ? [{ id: `local-n-${now}`, role: 'note' as const, content: note }] : []),
+          ]);
           return '';
         });
         scrollToBottom();
@@ -72,6 +77,9 @@ export default function CoachScreen() {
           ...msgs,
           { id: `local-err-${Date.now()}`, role: 'assistant', content: `Sorry, something went wrong: ${err}` },
         ]);
+      },
+      (items) => {
+        pendingNote.current = items.join(' · ');
       },
     );
   }
@@ -116,6 +124,15 @@ export default function CoachScreen() {
               10 messages / day
             </Text>
           </View>
+          <Pressable
+            onPress={() => router.push('/settings/coach-memory')}
+            accessibilityRole="button"
+            accessibilityLabel="What your coach remembers"
+            hitSlop={8}
+            style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Text style={{ fontSize: 16 }}>🧠</Text>
+          </Pressable>
         </View>
 
         {/* Messages */}
@@ -147,7 +164,23 @@ export default function CoachScreen() {
               </Text>
             </View>
           ) : (
-            displayMessages.map((msg) => <ChatBubble key={msg.id} message={msg} />)
+            displayMessages.map((msg) =>
+              msg.role === 'note' ? (
+                <Pressable
+                  key={msg.id}
+                  onPress={() => router.push('/settings/coach-memory')}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Coach noted: ${msg.content}. Manage what your coach remembers`}
+                  style={{ alignSelf: 'center', marginBottom: 12, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: Colors.surface2, maxWidth: '90%' }}
+                >
+                  <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12, textAlign: 'center' }}>
+                    🧠 Noted: {msg.content}
+                  </Text>
+                </Pressable>
+              ) : (
+                <ChatBubble key={msg.id} message={{ ...msg, role: msg.role }} />
+              ),
+            )
           )}
 
           {/* Live streaming bubble */}

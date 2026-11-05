@@ -24,13 +24,14 @@ const GOAL_LABELS: Record<string, string> = {
   just_track: 'Just tracking',
 };
 
-const card = {
+/** Read during render, so it follows the current theme */
+const card = () => ({
   backgroundColor: Colors.surface,
   borderRadius: 20,
   padding: 16,
   borderWidth: 1,
   borderColor: Colors.border,
-} as const;
+} as const);
 
 export default function ProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -104,7 +105,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.dark }} edges={['top']}>
       <ScreenHeader title="" right={menu} />
       {menuOpen && (
-        <View style={{ position: 'absolute', top: 100, right: 20, zIndex: 10, ...card, padding: 6, minWidth: 200 }}>
+        <View style={{ position: 'absolute', top: 100, right: 20, zIndex: 10, ...card(), padding: 6, minWidth: 200 }}>
           {rel?.followsYou === 'accepted' && (
             <Pressable onPress={handleRemoveFollower} accessibilityRole="button" style={{ padding: 12 }}>
               <Text style={{ color: Colors.text, fontFamily: 'DMSans-Medium', fontSize: 15 }}>Remove follower</Text>
@@ -137,7 +138,7 @@ export default function ProfileScreen() {
         </View>
 
         {rel?.blocked ? (
-          <View style={{ ...card, alignItems: 'center', gap: 12 }}>
+          <View style={{ ...card(), alignItems: 'center', gap: 12 }}>
             <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 16 }}>You blocked {name}</Text>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13, textAlign: 'center' }}>
               Unblock them to see their profile again. You'll need to follow each other again.
@@ -154,7 +155,7 @@ export default function ProfileScreen() {
         ) : (
           <>
             {/* Counts */}
-            <View style={{ ...card, flexDirection: 'row', justifyContent: 'space-around' }}>
+            <View style={{ ...card(), flexDirection: 'row', justifyContent: 'space-around' }}>
               {([
                 { label: 'Followers', value: profile._count.followers, which: 'followers' },
                 { label: 'Following', value: profile._count.following, which: 'following' },
@@ -175,7 +176,7 @@ export default function ProfileScreen() {
 
             {/* They asked to follow you */}
             {rel?.followsYou === 'pending' && (
-              <View style={{ ...card, gap: 12, borderColor: `${Colors.orange}60` }}>
+              <View style={{ ...card(), gap: 12, borderColor: `${Colors.orange}60` }}>
                 <Text style={{ color: Colors.text, fontFamily: 'DMSans-Medium', fontSize: 14 }}>{name} wants to follow you.</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Pressable onPress={() => accept(profile.id)} disabled={accepting} accessibilityRole="button" style={{ flex: 1, backgroundColor: Colors.orange, borderRadius: 999, paddingVertical: 10, alignItems: 'center' }}>
@@ -199,7 +200,7 @@ export default function ProfileScreen() {
             )}
 
             {!profile.canView ? (
-              <View style={{ ...card, alignItems: 'center', gap: 8, paddingVertical: 28 }}>
+              <View style={{ ...card(), alignItems: 'center', gap: 8, paddingVertical: 28 }}>
                 <Text style={{ fontSize: 32 }}>🔒</Text>
                 <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 16 }}>This account is private</Text>
                 <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 13, textAlign: 'center' }}>
@@ -211,7 +212,7 @@ export default function ProfileScreen() {
             ) : (
               <>
                 {profile.week && (
-                  <View style={{ ...card, flexDirection: 'row', justifyContent: 'space-around' }}>
+                  <View style={{ ...card(), flexDirection: 'row', justifyContent: 'space-around' }}>
                     {[
                       { label: 'Active min', value: profile.week.activeMinutes },
                       { label: 'Workouts', value: profile.week.workouts },

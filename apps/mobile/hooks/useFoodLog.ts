@@ -114,6 +114,7 @@ export function useLogFood() {
       qc.invalidateQueries({ queryKey: ['food-logs'] });
       qc.invalidateQueries({ queryKey: ['food-week'] });
       qc.invalidateQueries({ queryKey: ['trends'] });
+      qc.invalidateQueries({ queryKey: ['adaptive'] });
     },
   });
 }
@@ -153,6 +154,7 @@ export function useDeleteFoodLog() {
       qc.invalidateQueries({ queryKey: ['food-recent'] });
       qc.invalidateQueries({ queryKey: ['food-week'] });
       qc.invalidateQueries({ queryKey: ['trends'] });
+      qc.invalidateQueries({ queryKey: ['adaptive'] });
     },
   });
 }
@@ -169,6 +171,7 @@ export function useUpdateFoodLog() {
       qc.invalidateQueries({ queryKey: ['food-recent'] });
       qc.invalidateQueries({ queryKey: ['food-week'] });
       qc.invalidateQueries({ queryKey: ['trends'] });
+      qc.invalidateQueries({ queryKey: ['adaptive'] });
     },
   });
 }

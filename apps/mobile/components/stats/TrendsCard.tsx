@@ -14,11 +14,11 @@ const RANGES: { value: TrendRange; label: string }[] = [
   { value: 30, label: '30D' },
   { value: 90, label: '3M' },
 ];
-const METRICS: { value: Metric; label: string; color: string }[] = [
-  { value: 'calories', label: 'Calories', color: Colors.orange },
-  { value: 'protein', label: 'Protein', color: Colors.blue },
-  { value: 'activity', label: 'Activity', color: Colors.teal },
-  { value: 'weight', label: 'Weight', color: Colors.orange },
+const METRICS: { value: Metric; label: string; color: 'orange' | 'blue' | 'teal' }[] = [
+  { value: 'calories', label: 'Calories', color: 'orange' },
+  { value: 'protein', label: 'Protein', color: 'blue' },
+  { value: 'activity', label: 'Activity', color: 'teal' },
+  { value: 'weight', label: 'Weight', color: 'orange' },
 ];
 
 const CHART_H = 120;
@@ -142,7 +142,7 @@ export function TrendsCard({ unit, onLogWeight }: { unit: WeightUnit; onLogWeigh
   const { data, isLoading, isError, refetch } = useTrends(range);
   const weight = useWeightHistory(range === 90 ? 90 : 30);
   const { mutate: deleteWeight } = useDeleteWeight();
-  const color = METRICS.find((m) => m.value === metric)!.color;
+  const color = Colors[METRICS.find((m) => m.value === metric)!.color];
   const weekly = range === 90;
 
   const view = useMemo(() => {

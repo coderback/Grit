@@ -14,6 +14,10 @@ async function bootstrap() {
   // rate limits apply per caller rather than to the proxy
   app.set('trust proxy', 1);
 
+  // Meal photos are sent as base64 JSON, so allow a few MB (Express's
+  // default is 100 kB)
+  app.useBodyParser('json', { limit: '5mb' });
+
   // CORS only matters for the web build. CORS_ORIGINS (comma-separated)
   // narrows it; unset, any origin is allowed as before.
   const origins = process.env.CORS_ORIGINS?.split(',')
