@@ -39,7 +39,7 @@ grit/
 | `/onboarding/reveal` | Personalised TDEE + macro plan reveal |
 | `/onboarding/signup` | Account creation (email + password, or Google / Apple) |
 | `/(auth)/login` | Returning user login (email, Google or Apple) |
-| `/(tabs)/` | Home — daily calorie budget, macro progress, today's workout |
+| `/(tabs)/` | Home — daily calorie budget, macro progress, the plan's next session (or the workout in progress) |
 | `/(tabs)/food` | Food log — any day, meal sections, edit entries, barcode scanner, ✨ Smart log (describe or photograph a meal) |
 | `/(tabs)/habits` | Habit tracker — check-ins, undo, 30-day history and back-fill |
 | `/(tabs)/activity` | Stats — adaptive calorie target, 7D/30D/3M trends for calories, protein, activity and weight, then any week's workouts |
@@ -51,11 +51,14 @@ grit/
 | `/settings/privacy` | Private account, AI features, data-use permissions, the wellbeing answer, blocked people |
 | `/welcome-check` | Age and the wellbeing question, for users who skipped onboarding (Google or Apple sign-in); GRIT is 18+ |
 | `/exercises` | Exercise library: search, filter by equipment, pictures and instructions |
-| `/settings/health` | Apple Health / Health Connect: connect, sync now, what was imported |
+| `/settings/health` | Apple Health / Health Connect: connect, sync now, why each kind of data is read, cycle data (its own consent), writing meals back, recovery metrics |
+| `/workout` | The workout in progress: sets filled with today's targets, last time one tap away, rest timers, supersets, plate and warm-up calculators, swaps, PRs, Say it; works offline |
+| `/workouts/[id]` | A saved workout's sets and PRs; delete it |
+| `/exercise-history/[id]` | One exercise's estimated 1RM or top weight over time, records and sessions |
 | `/settings/foods` | Foods GRIT knows: portions learned from Smart log |
 | `/settings/coach-memory` | What your coach knows: notes from chats, add or delete |
 | `/auth-callback` | Finishes Google or Apple sign-in |
-| `/plan` | Weekly workout plan built by the coach from the exercise library |
+| `/plan` | Weekly workout plan built by the coach from the exercise library; sessions run in order ("Next up · Session 2") |
 | `/friends` | Search people, follow requests, followers and following |
 | `/profile/[id]` | Someone's profile: follow state, this week's stats and recent activity (if allowed) |
 | `/connections` | A user's followers or following |
@@ -117,11 +120,12 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 | `users` | `GET/PUT/DELETE /users/me` (delete removes the account and its Supabase sign-in), `POST/DELETE /users/me/ai-consent`; safety rules (18+, calorie floors, no weight-loss goals after a "yes", no pro-eating-disorder names) |
 | `food` | `GET/POST /food-logs` (with the day's calorie budget and macro targets), `GET /food-logs/week?date=`, `PATCH/DELETE /food-logs/:id`, Open Food Facts search + barcode proxy, `GET /food/recent`, `GET/POST /food/favorites`, `DELETE /food/favorites/:id`, `POST /food/search-events`; caffeine and alcohol per log |
 | `meal-parse` | `POST /food/parse` (text and/or photo → items), `POST /food/parse/log`, `GET /food/memories`, `DELETE /food/memories/:id` |
-| `health` | `POST /health/import` (workouts, daily steps and sleep, weigh-ins from Apple Health / Health Connect), `GET /health/recent` |
+| `health` | `POST /health/import` (workouts with heart rate and distance, daily steps and sleep, weigh-ins, and recovery and cycle metrics from Apple Health / Health Connect; workout calories from heart rate when the device gives none), `GET /health/recent` (with recovery metrics against their 30-day average), `GET /health/cycle` |
+| `workouts` | `POST /workouts` (a finished workout, saved once per `clientId`), `GET /workouts`, `GET/PUT/DELETE /workouts/:id`, `POST /workouts/prepare` (last time, records and the progression rules' targets), `POST /workouts/parse` (Say it), `GET /workouts/exercises/:id/history` |
 | `activity` | `GET/POST /activity-logs`, `GET /activity-logs/week?date=`, `PATCH/DELETE /activity-logs/:id`, `POST /activity-logs/:id/kudos` |
 | `habits` | `GET/POST/PUT/DELETE /habits`, `POST/DELETE /habits/:id/log?date=`, `GET /habits/streaks`, `GET /habits/:id/streak` |
 | `workout-plan` | `GET /workout-plan`, `POST /workout-plan/generate` (exercises chosen from the library, avoiding injuries in coach notes), `PUT /workout-plan/days/:day` |
-| `exercises` | `GET /exercises?q=&muscle=&equipment=`, `GET /exercises/:id`; 876 exercises from free-exercise-db (public domain, bundled in `packages/backend/data/`), loaded on first start |
+| `exercises` | `GET /exercises?q=&muscle=&equipment=&pattern=`, `GET /exercises/:id`; 876 exercises from free-exercise-db (public domain, bundled in `packages/backend/data/`), loaded on first start |
 | `challenges` | `GET/POST /challenges` (steps, active minutes or workouts; progress from logged workouts), `GET/DELETE /challenges/:id`, `POST /challenges/join/:code`, `DELETE /challenges/:id/participants/me` |
 | `social` | `GET /feed`, `GET /leaderboard/weekly`, `GET /search/users?q=`, `POST/DELETE /follow/:userId`, `GET /follow-requests`, `POST /follow-requests/:userId/accept`, `DELETE /follow-requests/:userId`, `DELETE /followers/:userId`, `GET /users/:id/{profile,followers,following}`, `GET/POST/DELETE /blocks` |
 | `progress` | `GET/POST /weight`, `DELETE /weight/:id`, `GET /stats/trends?days=7\|30\|90`, `GET /targets/adaptive`, `POST /targets/adaptive/apply`, `POST /targets/adaptive/snooze` |
@@ -130,7 +134,7 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 | `app` | `GET /health`, `POST /client-errors` (crash reports from the app, no sign-in, throttled) |
 | `alerts` | Hourly job: challenge results, 1pm coach check-ins, 8pm streak-at-risk and Sunday 6pm weekly check-in (with any target suggestion), in each user's local time |
 
-**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · CoachMemory · Follow · Block · WorkoutPlan · PushDevice · Notification · WeightLog · FavoriteFood · FoodMemory · HealthDay · SearchEvent · Exercise
+**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · CoachMemory · Follow · Block · WorkoutPlan · PushDevice · Notification · WeightLog · FavoriteFood · FoodMemory · HealthDay · HealthMetric · SearchEvent · Exercise · WorkoutSession · WorkoutSet
 
 See [`docs/ROADMAP.md`](./docs/ROADMAP.md) for what's done and what's next.
 

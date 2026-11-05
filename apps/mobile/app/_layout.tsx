@@ -2,7 +2,8 @@ import '../global.css';
 import React, { useEffect, useRef } from 'react';
 import { useColorScheme } from 'react-native';
 import { Stack, SplashScreen, router, useSegments, usePathname } from 'expo-router';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -17,6 +18,7 @@ import {
 
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
+import { flushPendingWorkouts, persistOptions, queryPersister } from '@/lib/workoutSync';
 import { useAuthStore } from '@/stores/authStore';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useHealthSync } from '@/hooks/useHealthSync';
@@ -101,15 +103,27 @@ export default function RootLayout() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      // Drop the previous user's cached data on sign-out (including after a 401)
-      if (event === 'SIGNED_OUT') queryClient.clear();
+      // Drop the previous user's cached data on sign-out (including after a
+      // 401). Finished workouts waiting to sync stay, marked with whose they
+      // are, and are only sent when that user signs back in.
+      if (event === 'SIGNED_OUT') {
+        queryClient.clear();
+        queryPersister.removeClient();
+      }
+      if (event === 'SIGNED_IN') flushPendingWorkouts();
       if (mounted) setSession(session);
+    });
+
+    // Back online: send any finished workouts that were waiting
+    const offOnline = onlineManager.subscribe((online) => {
+      if (online) flushPendingWorkouts();
     });
 
     return () => {
       mounted = false;
       clearTimeout(fallback);
       subscription.unsubscribe();
+      offOnline();
     };
   }, [setSession, loadOnboardingState]);
 
@@ -142,7 +156,8 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
+    // Keeps workouts waiting for a connection (and the plan) across restarts
+    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions} onSuccess={flushPendingWorkouts}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
         <Stack key={scheme} screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.dark } }}>
@@ -166,6 +181,9 @@ export default function RootLayout() {
           <Stack.Screen name="settings/health" />
           <Stack.Screen name="notifications" />
           <Stack.Screen name="exercises" />
+          <Stack.Screen name="workout" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="workouts/[id]" />
+          <Stack.Screen name="exercise-history/[id]" />
           <Stack.Screen name="welcome-check" options={{ gestureEnabled: false }} />
         </Stack>
         <Toast />
@@ -173,6 +191,6 @@ export default function RootLayout() {
         <AiConsentSheet />
         {session && <ProfileGate />}
       </GestureHandlerRootView>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }

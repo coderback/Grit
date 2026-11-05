@@ -7,7 +7,7 @@ each one sets up the data or infrastructure the next needs.
 | Phase | Name | Kind of work | Weeks (one developer) |
 |---|---|---|---|
 | **5** ✅ | Quick wins and safety | App and backend changes on what GRIT already has; no new infrastructure | about 3 |
-| **6** | Strength logging and health data | Large app features and native health permissions; product work, no research | about 5 |
+| **6** ✅ | Strength logging and health data | Large app features and native health permissions; product work, no research | about 5 |
 | **7** | GRIT's own food database | Data pipelines, bulk imports, search performance, a Supabase upgrade | about 4 |
 | **8** | Data quality and regional foods | Contributions, moderation, merging duplicates, curating regional data | about 3 |
 | **9** | ML and research | Test sets, models and statistics; research-heavy and needs real usage data | about 5 |
@@ -234,7 +234,32 @@ model Exercise {
 
 ---
 
-# Phase 6 — Strength logging and health data (about 5 weeks)
+# Phase 6 — Strength logging and health data (about 5 weeks) ✅ done
+
+**As built** (details in [ROADMAP.md](./ROADMAP.md)): everything below,
+with these differences:
+- **Offline:** the workout in progress lives in a store saved on the phone,
+  and the finished workout is sent whole. The upload is a persisted React
+  Query mutation, so it waits for a connection and survives a restart; the
+  backend saves it once per `clientId`, so a resend never duplicates.
+- **Schema:** `WorkoutSession` also stores `clientId`, a title and summary
+  counts (sets, volume, PRs) for the feed; `WorkoutSet` adds `userId` (for
+  per-exercise history), `durationSec` (timed sets) and the PR it set;
+  `WorkoutPlan.nextSession` holds the session order; `ActivityLog` adds
+  `calorieMethod` (device, heart_rate, met or manual), which measures
+  "burn estimates with heart rate"; `User.consentCycleData` is cycle data's
+  own consent.
+- **Swaps** keep history by borrowing from the same movement on the same
+  equipment (weights on different equipment aren't comparable).
+- **Deloads** last one session, then double progression climbs back, so no
+  increase is ever more than 5%.
+- **Heart-rate calories** apply when the device gives no calories of its
+  own, and only from 90 to 200 bpm, the equation's range.
+- **Health Connect background read** isn't requested: GRIT syncs while
+  open, and Play rejects unused permissions. The history permission is
+  requested, and the first sync reads two months.
+- **Water** isn't written back: GRIT doesn't record water amounts yet.
+
 
 **Difficulty: medium.** Large app features and native health permissions,
 but no research. Needs a development build on real phones for the health

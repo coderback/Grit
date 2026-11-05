@@ -42,7 +42,7 @@ Read the person's latest message. Return:
 - add: new lasting facts worth remembering for future coaching: injuries or health conditions, foods they avoid, dislike or are allergic to, foods they love, their schedule or when they can train, equipment they have, how they like to be coached, life context (shift work, new baby, training for an event). Write each as a short third-person note under 15 words, e.g. "Has a sore left knee; avoid jumping" or "Trains before work, around 6am".
 - remove: ids of notes the message makes wrong or out of date (e.g. the knee has healed). If a fact changed, remove the old note and add the new one.
 
-Don't note today's numbers, meals or workouts (the app tracks those), passing moods, questions, or anything already in the notes. Most messages contain nothing new: then return empty lists.`;
+Don't note today's numbers, meals or workouts (the app tracks those), passing moods, questions, or anything already in the notes. Never note anything about periods, menstrual cycles, ovulation or fertility. Most messages contain nothing new: then return empty lists.`;
 }
 
 const key = (text: string) =>
@@ -75,7 +75,7 @@ export function planMemoryUpdate(
   for (const raw of update.add) {
     const text = cleanMemory(raw);
     const k = key(text);
-    if (k.length < 3 || seen.has(k)) continue;
+    if (k.length < 3 || seen.has(k) || isCycleNote(text)) continue;
     seen.add(k);
     add.push(text);
   }
@@ -95,6 +95,16 @@ export function planMemoryUpdate(
     if (over > 0) add.splice(add.length - over, over);
   }
   return { remove: [...remove], add };
+}
+
+// Cycle data is never kept in coach memory, even if the model proposes it
+// ("period" alone is too common: "short rest periods")
+const CYCLE_WORDS =
+  /\bmenstrua\w*|\bmenses\b|\bovulat\w*|\bfertility\b|\bpms\b|\bpmdd\b|\bluteal\b|\bfollicular\b|\bcycle days?\b|\btime of the month\b|\b(?:painful|heavy|irregular|light) periods?\b|\bperiods? (?:pain|cramps|symptoms)\b|\b(?:on|during|before|after) (?:her|their|my|his) period\b|\bperiod cramps\b/i;
+
+/** A note about someone's menstrual cycle, which coach memory never keeps. */
+export function isCycleNote(text: string) {
+  return CYCLE_WORDS.test(text);
 }
 
 /** Worth asking the model about: more than a couple of words. */

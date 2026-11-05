@@ -1,5 +1,5 @@
 import { localDateStr } from '@/lib/date';
-import type { HealthData, SleepInterval, WeightSample } from './types';
+import type { HealthData, MetricSample, SleepInterval, WeightSample } from './types';
 
 // Apple Health workout activity types (HKWorkoutActivityType) → GRIT's
 const APPLE_TYPES: Record<number, string> = {
@@ -71,6 +71,78 @@ export function latestWeightPerDay(samples: WeightSample[]): { date: string; wei
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// How a day's readings become one value: HRV and breathing rate are
+// averaged over the day's readings (Apple takes several overnight); for the
+// rest the day's latest counts, and for flow the heaviest
+const COMBINE: Record<MetricSample['metric'], 'mean' | 'latest' | 'max'> = {
+  hrv: 'mean',
+  respiratory_rate: 'mean',
+  resting_hr: 'latest',
+  sleep_temp_deviation: 'latest',
+  vo2max: 'latest',
+  menstrual_flow: 'max',
+};
+
+export interface DailyMetric {
+  date: string;
+  metric: MetricSample['metric'];
+  type?: 'sdnn' | 'rmssd';
+  value: number;
+  device?: string;
+}
+
+/** One value per metric (and HRV type) per local day. */
+export function dailyMetrics(samples: MetricSample[]): DailyMetric[] {
+  const groups = new Map<string, MetricSample[]>();
+  for (const s of samples) {
+    if (!Number.isFinite(s.value)) continue;
+    const k = `${localDateStr(s.at)}|${s.metric}|${s.type ?? ''}`;
+    groups.set(k, [...(groups.get(k) ?? []), s]);
+  }
+  const out: DailyMetric[] = [];
+  for (const [k, list] of groups) {
+    const [date, metric] = k.split('|') as [string, MetricSample['metric']];
+    const sorted = [...list].sort((a, b) => a.at.getTime() - b.at.getTime());
+    const latest = sorted[sorted.length - 1];
+    const how = COMBINE[metric];
+    const value =
+      how === 'mean' ? sorted.reduce((t, s) => t + s.value, 0) / sorted.length : how === 'max' ? Math.max(...sorted.map((s) => s.value)) : latest.value;
+    out.push({
+      date,
+      metric,
+      ...(latest.type ? { type: latest.type } : {}),
+      value: Math.round(value * 100) / 100,
+      ...(latest.device ? { device: latest.device.slice(0, 80) } : {}),
+    });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date) || a.metric.localeCompare(b.metric));
+}
+
+/**
+ * Apple records sleeping wrist temperature as a reading, not a deviation:
+ * each night against the average of the nights before it (at least 5, up to
+ * 30), as the Health app shows it. Nights before there's a baseline are left out.
+ */
+export function temperatureDeviations(nights: { at: Date; celsius: number; device?: string }[]): MetricSample[] {
+  const sorted = [...nights].filter((n) => n.celsius > 25 && n.celsius < 45).sort((a, b) => a.at.getTime() - b.at.getTime());
+  const out: MetricSample[] = [];
+  sorted.forEach((n, i) => {
+    const before = sorted.slice(Math.max(0, i - 30), i);
+    if (before.length < 5) return;
+    const baseline = before.reduce((t, b) => t + b.celsius, 0) / before.length;
+    out.push({ metric: 'sleep_temp_deviation', at: n.at, value: Math.round((n.celsius - baseline) * 100) / 100, device: n.device });
+  });
+  return out;
+}
+
+/** Metres from a HealthKit quantity in any length unit. */
+export function toMetres(q: { quantity: number; unit: string } | undefined) {
+  if (!q || !Number.isFinite(q.quantity)) return undefined;
+  const per: Record<string, number> = { m: 1, km: 1000, mi: 1609.344, ft: 0.3048, yd: 0.9144, cm: 0.01 };
+  const f = per[q.unit];
+  return f ? Math.round(q.quantity * f) : undefined;
+}
+
 /** The backend's import body for what was read. */
 export function toImportPayload(source: 'healthkit' | 'health_connect', data: HealthData, now = new Date()) {
   const workouts = data.workouts
@@ -81,6 +153,8 @@ export function toImportPayload(source: 'healthkit' | 'health_connect', data: He
       startedAt: w.start.toISOString(),
       durationMin: Math.min(1440, Math.max(1, Math.round((w.end.getTime() - w.start.getTime()) / 60_000))),
       ...(w.kcal && w.kcal > 0 ? { caloriesBurned: Math.min(20000, Math.round(w.kcal)) } : {}),
+      ...(w.avgHeartRate && w.avgHeartRate >= 30 && w.avgHeartRate <= 230 ? { avgHeartRate: Math.round(w.avgHeartRate) } : {}),
+      ...(w.distanceM && w.distanceM > 0 ? { distanceM: Math.min(1_000_000, Math.round(w.distanceM)) } : {}),
     }))
     .slice(-300);
 
@@ -97,5 +171,6 @@ export function toImportPayload(source: 'healthkit' | 'health_connect', data: He
     workouts,
     days: [...days.values()].filter((d) => d.date <= today).sort((a, b) => a.date.localeCompare(b.date)).slice(-62),
     weights: latestWeightPerDay(data.weights).filter((w) => w.date <= today).slice(-62),
+    metrics: dailyMetrics(data.metrics ?? []).filter((m) => m.date <= today).slice(-600),
   };
 }

@@ -19,7 +19,10 @@ import { useMe } from '@/hooks/useMe';
 import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
 import { ScreenSkeleton } from '@/components/ui/Skeleton';
 import { calcMacros } from '@/lib/tdee';
-import { todayWeekday, useWorkoutPlan } from '@/hooks/useWorkoutPlan';
+import { isLiftingDay, nextUp, useWorkoutPlan } from '@/hooks/useWorkoutPlan';
+import { useStartWorkout } from '@/hooks/useStartWorkout';
+import { useWorkoutStore } from '@/stores/workoutStore';
+import { useAuthStore } from '@/stores/authStore';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 
@@ -132,44 +135,57 @@ function MacroBar({ value, goal, color }: { value: number; goal: number; color: 
   );
 }
 
-/** Today's day of the coach's plan, or an invitation to get one. */
+/** The plan's next session (or the workout in progress), or an invitation to get a plan. */
 function TodayWorkoutCard() {
   const { data: plan, isLoading } = useWorkoutPlan();
-  if (isLoading) return null;
-  const today = plan?.days.find((d) => d.day === todayWeekday());
+  const userId = useAuthStore((s) => s.session?.user.id);
+  const active = useWorkoutStore((s) => (s.active?.ownerId === userId ? s.active : null));
+  const startWorkout = useStartWorkout();
+  if (isLoading && !active) return null;
+  const next = nextUp(plan);
+  const lifting = !!next && isLiftingDay(next.day);
 
   return (
     <Pressable
-      onPress={() => router.push('/plan')}
+      onPress={() => router.push(active ? '/workout' : '/plan')}
       accessibilityRole="button"
-      accessibilityLabel={plan ? "Today's workout" : 'Get a workout plan'}
+      accessibilityLabel={active ? 'Workout in progress' : next ? 'Next workout' : 'Get a workout plan'}
       style={({ pressed }) => ({
         backgroundColor: Colors.surface,
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: active ? Colors.teal : Colors.border,
         padding: 18,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
+        gap: 12,
         opacity: pressed ? 0.85 : 1,
       })}
     >
-      <Text style={{ fontSize: 28 }}>{!plan ? '🗓️' : today?.rest ? '😌' : '🏋️'}</Text>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 11, color: Colors.muted, letterSpacing: 0.7, textTransform: 'uppercase', fontFamily: 'DMSans-Medium' }}>
-          {plan ? "Today's workout" : 'Workout plan'}
-        </Text>
-        <Text style={{ fontSize: 16, color: Colors.text, fontFamily: 'DMSans-Bold', marginTop: 2 }}>
-          {!plan ? 'Get a weekly plan from your coach' : today?.rest ? 'Rest day — recover well' : today?.title}
-        </Text>
-        {!!plan && today && !today.rest && (
-          <Text style={{ fontSize: 12, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 2 }}>
-            {today.durationMin} min · {today.exercises.length} exercises
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Text style={{ fontSize: 28 }}>{active ? '⏱️' : !plan ? '🗓️' : '🏋️'}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 11, color: active ? Colors.teal : Colors.muted, letterSpacing: 0.7, textTransform: 'uppercase', fontFamily: 'DMSans-Medium' }}>
+            {active ? 'Workout in progress' : next ? `Next up · Session ${next.number} of ${next.total}` : 'Workout plan'}
           </Text>
-        )}
+          <Text style={{ fontSize: 16, color: Colors.text, fontFamily: 'DMSans-Bold', marginTop: 2 }}>
+            {active ? active.title || 'Workout' : !plan ? 'Get a weekly plan from your coach' : next ? next.day.title : 'All rest days this week'}
+          </Text>
+          {!active && !!next && (
+            <Text style={{ fontSize: 12, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 2 }}>
+              {next.day.durationMin} min · {next.day.exercises.length} exercises
+            </Text>
+          )}
+        </View>
+        <Text style={{ color: Colors.orange, fontSize: 18 }}>›</Text>
       </View>
-      <Text style={{ color: Colors.orange, fontSize: 18 }}>›</Text>
+      {(active || lifting) && (
+        <Pressable
+          onPress={() => (active ? router.push('/workout') : next && startWorkout({ session: next.number, day: next.day }))}
+          accessibilityRole="button"
+          style={({ pressed }) => ({ backgroundColor: active ? Colors.teal : Colors.orange, borderRadius: 999, paddingVertical: 11, alignItems: 'center', opacity: pressed ? 0.85 : 1 })}
+        >
+          <Text style={{ color: '#fff', fontFamily: 'DMSans-Bold', fontSize: 14 }}>{active ? 'Resume workout' : 'Start workout'}</Text>
+        </Pressable>
+      )}
     </Pressable>
   );
 }

@@ -200,11 +200,11 @@ User profile:
 ${profile.map((l) => `- ${l}`).join('\n')}
 
 Rules:
-- Return exactly 7 days, "mon" to "sun", with exactly ${daysPerWeek} training days and the rest as rest days. Spread training days out; avoid more than 3 in a row.
+- Return exactly 7 days, "mon" to "sun", with exactly ${daysPerWeek} training days and the rest as rest days. Spread training days out; avoid more than 3 in a row. The app runs training days in order as session 1, 2, 3…, so a missed day doesn't skip a session; make each session work whatever day it lands on.
 - Training happens ${location === 'gym' ? 'at a gym with standard equipment' : 'at home with no equipment beyond a mat'}.
 - Keep each session close to the active-minutes goal, never over 90 minutes. Match the level: a sedentary beginner gets gentle, short sessions.
 - Address the obstacle: short efficient sessions for "not enough time", the same simple routine on fixed days for consistency, variety for low motivation, clear progression for "no clear plan".
-- Each training day has a short title, an activityType from the allowed list that best describes it, a durationMin, and 3 to 8 exercises. ${library.length ? 'Each exercise is an exerciseId from the exercise list below' : 'Each exercise has a name'} and a short detail like "3 × 12", "20 min easy pace" or "4 × 30 s on / 30 s off".${
+- Each training day has a short title, an activityType from the allowed list that best describes it, a durationMin, and 3 to 8 exercises. ${library.length ? 'Each exercise is an exerciseId from the exercise list below' : 'Each exercise has a name'} and a short detail: a rep range for strength work like "3 × 8–12" (lower reps for heavy compound lifts, e.g. "4 × 5–8"), seconds for holds like "3 × 30 s", or a duration or intervals for cardio like "20 min easy pace" or "4 × 30 s on / 30 s off".${
       library.length
         ? `
 
@@ -268,6 +268,8 @@ ${library.map((e) => `- ${e.id}: ${e.name} (${e.equipment.join('/')}${e.pattern 
       days: days as unknown as Prisma.InputJsonValue,
       generationDay: today,
       generationsToday: usedToday + 1,
+      // A new plan starts from its first session
+      nextSession: 1,
     };
     return this.prisma.workoutPlan.upsert({
       where: { userId: user.id },
@@ -293,6 +295,11 @@ ${library.map((e) => `- ${e.id}: ${e.name} (${e.equipment.join('/')}${e.pattern 
       data: {
         days: days as unknown as Prisma.InputJsonValue,
         daysPerWeek: days.filter((d) => !d.rest).length,
+        // Still a session that exists after a day is made a rest day
+        nextSession: Math.min(
+          plan.nextSession,
+          Math.max(1, days.filter((d) => !d.rest).length),
+        ),
       },
     });
   }

@@ -135,6 +135,12 @@ export class ActivityService {
     return this.prisma.activityLog.findMany({
       where: { userId, loggedAt: { gte: start, lt: end } },
       orderBy: { loggedAt: 'asc' },
+      // Logged set by set: the app opens the workout instead of the quick editor
+      include: {
+        workoutSession: {
+          select: { id: true, title: true, setCount: true, prCount: true },
+        },
+      },
     });
   }
 
@@ -154,6 +160,11 @@ export class ActivityService {
         },
       },
       orderBy: { loggedAt: 'asc' },
+      include: {
+        workoutSession: {
+          select: { id: true, title: true, setCount: true, prCount: true },
+        },
+      },
     });
 
     const byDay = days.map((date) => {

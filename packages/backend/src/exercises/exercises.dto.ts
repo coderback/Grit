@@ -15,4 +15,10 @@ export class ExerciseSearchDto {
   @IsString()
   @Length(1, 40)
   equipment?: string;
+
+  // Same movement, for swapping one exercise for another
+  @IsOptional()
+  @IsString()
+  @Length(1, 40)
+  pattern?: string;
 }

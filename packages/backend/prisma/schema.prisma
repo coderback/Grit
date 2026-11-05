@@ -60,6 +60,9 @@ model User {
   consentHealthTraining  Boolean   @default(false)
   consentWorkoutTraining Boolean   @default(false)
   consentOffSharing      Boolean   @default(false)
+  // Its own consent (Phase 6): reading menstrual data from the health app.
+  // Turning it off deletes what was imported.
+  consentCycleData       Boolean   @default(false)
 
   // Meal descriptions/photos read by the AI today (a daily cap)
   aiParseDay   String?
@@ -94,6 +97,8 @@ model User {
   weightLogs        WeightLog[]
   favoriteFoods     FavoriteFood[]
   healthDays        HealthDay[]
+  healthMetrics     HealthMetric[]
+  workoutSessions   WorkoutSession[]
   foodMemories      FoodMemory[]
   notifications     Notification[]         @relation("recipient")
   notificationsSent Notification[]         @relation("actor")
@@ -172,9 +177,16 @@ model ActivityLog {
   kudosCount     Int      @default(0)
   // The health app's ID for an imported workout, so importing again updates it
   externalId     String?
+  // From the health app: the workout's average heart rate and distance
+  avgHeartRate   Int?
+  distanceM      Float?
+  // How caloriesBurned was worked out: manual | device | heart_rate | met
+  calorieMethod  String?
 
-  user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kudos Kudos[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kudos          Kudos[]
+  // Set by set, for a strength session logged in GRIT
+  workoutSession WorkoutSession?
 
   @@unique([userId, externalId])
   @@index([userId, loggedAt])
@@ -315,6 +327,10 @@ model WorkoutPlan {
   // Caps how often the AI is asked to regenerate it
   generationDay    String // local YYYY-MM-DD of the latest generation
   generationsToday Int    @default(1)
+
+  // The training session (1, 2, 3…) that comes next. Plans run in order, so
+  // a missed day moves the week along instead of skipping a session.
+  nextSession Int @default(1)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -487,4 +503,85 @@ model Exercise {
 
   @@index([name])
   @@map("exercises")
+}
+
+// One training session logged set by set (Phase 6). Finishing it creates the
+// ActivityLog, so the feed, challenges, calories and streaks work unchanged;
+// deleting that log deletes the session.
+model WorkoutSession {
+  id            String   @id @default(cuid())
+  userId        String
+  // Made on the phone, so an upload retried after being offline is saved once
+  clientId      String
+  activityLogId String   @unique
+  // Which training session of the plan this was (1, 2, 3…), if any
+  planSession   Int?
+  title         String?
+  startedAt     DateTime
+  endedAt       DateTime
+  // Summary for the feed and history
+  setCount      Int      @default(0)
+  volumeKg      Float    @default(0)
+  prCount       Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityLog ActivityLog  @relation(fields: [activityLogId], references: [id], onDelete: Cascade)
+  sets        WorkoutSet[]
+
+  @@unique([userId, clientId])
+  @@index([userId, startedAt])
+  @@map("workout_sessions")
+}
+
+model WorkoutSet {
+  id          String  @id @default(cuid())
+  sessionId   String
+  // Copied from the session, for per-exercise history
+  userId      String
+  exerciseId  String
+  order       Int
+  reps        Int     @default(0)
+  weightKg    Float? // null for bodyweight
+  durationSec Int? // for timed sets: planks, intervals
+  rpe         Float? // optional effort, 6–10
+  warmup      Boolean @default(false)
+  // Sets sharing one are a superset or circuit
+  supersetId  String?
+  // The record this set set when it was logged: e1rm | weight | reps
+  pr          String?
+
+  session WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([userId, exerciseId])
+  @@map("workout_sets")
+}
+
+// Daily recovery and cycle values from Apple Health / Health Connect
+// (Phase 6). Cycle data needs consentCycleData, and is never shown in the
+// feed or challenges or written into coach memory.
+model HealthMetric {
+  id        String   @id @default(cuid())
+  userId    String
+  // The local day, stored as midnight UTC of that date
+  day       DateTime
+  // hrv | resting_hr | respiratory_rate | sleep_temp_deviation | vo2max | menstrual_flow
+  metric    String
+  // For HRV: sdnn (Apple) or rmssd (Health Connect), which can't be
+  // compared; '' for everything else
+  type      String   @default("")
+  value     Float
+  // ms | bpm | breaths_min | degC | ml_kg_min | level
+  unit      String
+  source    String // healthkit | health_connect
+  // The app or device that recorded it, if the health app says
+  device    String?
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day, metric, type])
+  @@index([userId, metric, day])
+  @@map("health_metrics")
 }

@@ -453,6 +453,10 @@ export class SocialService {
           user: { select: userSelect },
           // Whether the viewer has already given kudos
           kudos: { where: { userId: viewerId }, select: { id: true } },
+          // Counts only: the sets and weights stay private
+          workoutSession: {
+            select: { title: true, setCount: true, prCount: true },
+          },
         },
         orderBy: [{ loggedAt: 'desc' }, { id: 'desc' }],
         take: limit,
@@ -498,6 +502,7 @@ export class SocialService {
           steps: l.steps,
           kudosCount: l.kudosCount,
           kudosGiven: l.kudos.length > 0,
+          workout: l.workoutSession,
         },
       })),
       ...habitLogs.map((l) => ({

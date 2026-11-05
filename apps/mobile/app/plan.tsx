@@ -5,11 +5,13 @@ import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
+import * as Crypto from 'expo-crypto';
 import {
-  todayWeekday, useGeneratePlan, useWorkoutPlan, WEEKDAY_NAMES,
+  isLiftingDay, nextUp, planSessions, todayWeekday, useGeneratePlan, useWorkoutPlan, WEEKDAY_NAMES,
   type PlanDay, type WorkoutPlan,
 } from '@/hooks/useWorkoutPlan';
-import { useLogActivity } from '@/hooks/useActivityLog';
+import { useLogPlanSession } from '@/hooks/useWorkouts';
+import { useStartWorkout } from '@/hooks/useStartWorkout';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { ACTIVITY_LABELS } from '@/components/activity/LogActivitySheet';
 import { EditPlanDaySheet } from '@/components/plan/EditPlanDaySheet';
@@ -27,7 +29,7 @@ function errorMessage(err: any) {
   return err?.response?.data?.message?.toString() ?? 'Check your connection and try again.';
 }
 
-/** The coach-built weekly plan: view it, log a session, edit a day or rebuild it. */
+/** The coach-built weekly plan: start the next session, edit a day or rebuild it. */
 export default function PlanScreen() {
   const { data: plan, isLoading, isError, refetch } = useWorkoutPlan();
   const { refreshing, onRefresh } = usePullToRefresh([['workout-plan']]);
@@ -70,14 +72,23 @@ export default function PlanScreen() {
 
 function PlanWeek({ plan, onEdit, onOpenExercise }: { plan: WorkoutPlan; onEdit: (day: PlanDay) => void; onOpenExercise: (id: string) => void }) {
   const today = todayWeekday();
-  const { mutateAsync: logActivity } = useLogActivity();
-  const [logged, setLogged] = useState<string | null>(null);
+  const next = nextUp(plan);
+  const sessions = new Map(planSessions(plan).map((x) => [x.day.day, x.number]));
+  const startWorkout = useStartWorkout();
+  const { mutateAsync: logSession, isPending } = useLogPlanSession();
 
-  async function logSession(day: PlanDay) {
+  async function logAsDone(day: PlanDay, session: number) {
+    const end = new Date();
     try {
-      await logActivity({ activityType: day.activityType, durationMin: day.durationMin });
+      await logSession({
+        clientId: Crypto.randomUUID(),
+        planSession: session,
+        title: day.title,
+        activityType: day.activityType,
+        startedAt: new Date(end.getTime() - day.durationMin * 60_000).toISOString(),
+        endedAt: end.toISOString(),
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setLogged(day.day);
     } catch (err) {
       notify("Couldn't log the workout", errorMessage(err));
     }
@@ -88,8 +99,15 @@ function PlanWeek({ plan, onEdit, onOpenExercise }: { plan: WorkoutPlan; onEdit:
       {!!plan.summary && (
         <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14, lineHeight: 20 }}>{plan.summary}</Text>
       )}
+      {next && (
+        <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12, lineHeight: 17 }}>
+          Sessions run in order, so a missed day doesn't skip one: do session {next.number} whenever you next train.
+        </Text>
+      )}
       {plan.days.map((day) => {
         const isToday = day.day === today;
+        const session = sessions.get(day.day);
+        const isNext = !!next && next.day.day === day.day;
         return (
           <View
             key={day.day}
@@ -97,16 +115,16 @@ function PlanWeek({ plan, onEdit, onOpenExercise }: { plan: WorkoutPlan; onEdit:
               backgroundColor: Colors.surface,
               borderRadius: 18,
               borderWidth: 1.5,
-              borderColor: isToday ? Colors.orange : Colors.border,
+              borderColor: isNext ? Colors.orange : Colors.border,
               padding: 16,
               gap: 10,
-              opacity: day.rest && !isToday ? 0.7 : 1,
+              opacity: day.rest ? 0.7 : 1,
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: isToday ? Colors.orange : Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                  {WEEKDAY_NAMES[day.day]}{isToday ? ' · Today' : ''}
+                <Text style={{ color: isNext ? Colors.orange : Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                  {session ? `Session ${session} · ` : ''}{WEEKDAY_NAMES[day.day]}{isToday ? ' (today)' : ''}{isNext ? ' · Next up' : ''}
                 </Text>
                 <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 17, marginTop: 2 }}>{day.title}</Text>
                 {!day.rest && (
@@ -134,24 +152,29 @@ function PlanWeek({ plan, onEdit, onOpenExercise }: { plan: WorkoutPlan; onEdit:
               </Pressable>
             ))}
 
-            {!day.rest && isToday && (
-              <Pressable
-                onPress={() => logSession(day)}
-                disabled={logged === day.day}
-                accessibilityRole="button"
-                style={({ pressed }) => ({
-                  marginTop: 4,
-                  borderRadius: 999,
-                  paddingVertical: 12,
-                  alignItems: 'center',
-                  backgroundColor: logged === day.day ? `${Colors.teal}22` : Colors.orange,
-                  opacity: pressed ? 0.85 : 1,
-                })}
-              >
-                <Text style={{ color: logged === day.day ? Colors.teal : '#fff', fontFamily: 'DMSans-Bold', fontSize: 15 }}>
-                  {logged === day.day ? '✓ Logged' : 'Log this workout'}
-                </Text>
-              </Pressable>
+            {!day.rest && session != null && (
+              isNext ? (
+                <Pressable
+                  onPress={() => (isLiftingDay(day) ? startWorkout({ session, day }) : logAsDone(day, session))}
+                  disabled={isPending}
+                  accessibilityRole="button"
+                  style={({ pressed }) => ({ marginTop: 4, borderRadius: 999, paddingVertical: 12, alignItems: 'center', backgroundColor: Colors.orange, opacity: pressed || isPending ? 0.85 : 1 })}
+                >
+                  <Text style={{ color: '#fff', fontFamily: 'DMSans-Bold', fontSize: 15 }}>
+                    {isLiftingDay(day) ? 'Start workout' : 'Log as done'}
+                  </Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => (isLiftingDay(day) ? startWorkout({ session, day }) : logAsDone(day, session))}
+                  disabled={isPending}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Do session ${session} instead`}
+                  hitSlop={6}
+                >
+                  <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Bold', fontSize: 13 }}>Do this one instead</Text>
+                </Pressable>
+              )
             )}
           </View>
         );

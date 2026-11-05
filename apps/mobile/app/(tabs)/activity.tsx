@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop, G } from 'react-native-svg';
 import { useWeeklySummary, type ActivityLog } from '@/hooks/useActivityLog';
+import { useStartWorkout } from '@/hooks/useStartWorkout';
+import { useOnlineManager } from '@/hooks/useOnline';
+import { useWorkoutStore } from '@/stores/workoutStore';
+import { useAuthStore } from '@/stores/authStore';
+import { retryWorkout } from '@/lib/workoutSync';
 import { useFoodWeek } from '@/hooks/useFoodLog';
 import { useHabits, useHabitSummary } from '@/hooks/useHabits';
 import { useMe } from '@/hooks/useMe';
@@ -81,7 +86,34 @@ function LineChart({
   );
 }
 
+/** Finished workouts not on the server yet: waiting for a connection, or failed. */
+function PendingWorkouts() {
+  const userId = useAuthStore((st) => st.session?.user.id);
+  // Select the list itself: a filtered copy would be new on every render
+  const all = useWorkoutStore((st) => st.pending);
+  const pending = all.filter((p) => p.ownerId === userId);
+  const online = useOnlineManager();
+  if (!pending.length) return null;
+  return (
+    <View style={{ backgroundColor: Colors.surface, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 14, marginBottom: 12, gap: 8 }} accessibilityLiveRegion="polite">
+      {pending.map((p) => (
+        <View key={p.body.clientId} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ flex: 1, color: p.error ? Colors.error : Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 13 }}>
+            {p.body.title || 'Workout'}: {p.error ? `not saved (${p.error})` : online ? 'saving…' : "waiting for a connection. It's safe on your phone."}
+          </Text>
+          {!!p.error && (
+            <Pressable onPress={() => retryWorkout(p.body.clientId)} accessibilityRole="button">
+              <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 13 }}>Retry</Text>
+            </Pressable>
+          )}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function ActivityScreen() {
+  const startWorkout = useStartWorkout();
   const today = localDateStr();
   const thisWeek = weekStartStr(today);
   const [week, setWeek] = useState(thisWeek);
@@ -278,7 +310,16 @@ export default function ActivityScreen() {
           >
             <Text style={{ color: '#fff', fontFamily: 'DMSans-Bold', fontSize: 14 }}>+ Log workout</Text>
           </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => startWorkout()}
+            style={({ pressed }) => ({ marginTop: 8, borderRadius: 999, paddingVertical: 11, alignItems: 'center', borderWidth: 1.5, borderColor: Colors.orange, opacity: pressed ? 0.7 : 1 })}
+          >
+            <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 14 }}>Start a strength workout</Text>
+          </Pressable>
         </View>
+
+        <PendingWorkouts />
 
         {/* Workouts logged this week: tap to edit or delete */}
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18, marginBottom: 12, gap: 12 }}>
@@ -291,18 +332,20 @@ export default function ActivityScreen() {
             [...(weekly?.logs ?? [])].reverse().map((log) => (
               <Pressable
                 key={log.id}
-                onPress={() => setEditingWorkout(log)}
+                onPress={() => (log.workoutSession ? router.push(`/workouts/${log.workoutSession.id}`) : setEditingWorkout(log))}
                 accessibilityRole="button"
-                accessibilityLabel={`${ACTIVITY_LABELS[log.activityType] ?? log.activityType}, ${log.durationMin} minutes`}
-                accessibilityHint="Tap to edit"
+                accessibilityLabel={`${log.workoutSession?.title || ACTIVITY_LABELS[log.activityType] || log.activityType}, ${log.durationMin} minutes`}
+                accessibilityHint={log.workoutSession ? 'Tap to see the sets' : 'Tap to edit'}
                 style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.6 : 1 })}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: Colors.text, fontFamily: 'DMSans-Medium', fontSize: 14 }}>
-                    {ACTIVITY_LABELS[log.activityType] ?? log.activityType}
+                    {log.workoutSession?.title || ACTIVITY_LABELS[log.activityType] || log.activityType}
                   </Text>
                   <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12, marginTop: 1 }}>
                     {dayLabel(localDateStr(new Date(log.loggedAt)), today)} · {log.durationMin} min
+                    {log.workoutSession?.setCount ? ` · ${log.workoutSession.setCount} sets` : ''}
+                    {log.workoutSession?.prCount ? ` · 🏆 ${log.workoutSession.prCount}` : ''}
                   </Text>
                 </View>
                 <Text style={{ color: Colors.teal, fontFamily: 'JetBrainsMono-Regular', fontSize: 14 }}>

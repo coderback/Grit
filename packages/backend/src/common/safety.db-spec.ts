@@ -8,6 +8,12 @@ import { TrendsService } from '../progress/trends.service';
 import { AIService } from '../ai/ai.service';
 import { MealParseService } from '../meal-parse/meal-parse.service';
 import type { FoodService } from '../food/food.service';
+import type { WorkoutsService } from '../workouts/workouts.service';
+
+// The coach's strength lines aren't what these tests are about
+const noWorkouts = {
+  coachLines: () => Promise.resolve([]),
+} as unknown as WorkoutsService;
 
 /** A model that must never be called. */
 const noModel = {
@@ -28,7 +34,7 @@ describe('Safety and consent (database)', () => {
 
   it('refuses AI features without consent, and allows them after', async () => {
     const u = await db.user({ aiConsent: false });
-    const ai = new AIService(db.prisma, noModel, 'test', adaptive);
+    const ai = new AIService(db.prisma, noModel, 'test', adaptive, noWorkouts);
     const meals = new MealParseService(
       db.prisma,
       {} as FoodService,

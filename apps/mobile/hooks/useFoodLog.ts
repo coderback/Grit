@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { deleteFoodFromHealth, updateFoodInHealth, writeFoodsToHealth } from '@/lib/health/sync';
 
 export interface FoodLog {
   id: string;
@@ -119,7 +120,9 @@ export function useLogFood() {
       /** For back-filling an earlier day; omitted for now */
       loggedAt?: string;
     }) => api.post('/food-logs', data).then((r) => r.data),
-    onSuccess: () => {
+    onSuccess: (log) => {
+      // To Apple Health / Health Connect, if the user turned that on
+      writeFoodsToHealth([log]);
       qc.invalidateQueries({ queryKey: ['food-recent'] });
       qc.invalidateQueries({ queryKey: ['food-logs'] });
       qc.invalidateQueries({ queryKey: ['food-week'] });
@@ -159,6 +162,9 @@ export function useDeleteFoodLog() {
     onError: (_err, _id, context) => {
       for (const [key, day] of context?.previous ?? []) qc.setQueryData(key, day);
     },
+    onSuccess: (_res, id) => {
+      deleteFoodFromHealth(id);
+    },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['food-logs'] });
       qc.invalidateQueries({ queryKey: ['food-recent'] });
@@ -176,7 +182,8 @@ export function useUpdateFoodLog() {
   return useMutation({
     mutationFn: ({ id, ...data }: FoodLogUpdate & { id: string }) =>
       api.patch<FoodLog>(`/food-logs/${id}`, data).then((r) => r.data),
-    onSuccess: () => {
+    onSuccess: (log) => {
+      updateFoodInHealth(log);
       qc.invalidateQueries({ queryKey: ['food-logs'] });
       qc.invalidateQueries({ queryKey: ['food-recent'] });
       qc.invalidateQueries({ queryKey: ['food-week'] });

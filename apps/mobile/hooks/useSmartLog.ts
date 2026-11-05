@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { writeFoodsToHealth } from '@/lib/health/sync';
+import type { FoodLog } from '@/hooks/useFoodLog';
 
 export type ItemSource = 'memory' | 'database' | 'estimate';
 
@@ -75,8 +77,9 @@ export function useLogParsedMeal() {
         alcoholPer100g?: number;
         remember?: boolean;
       }[];
-    }) => api.post<{ logged: number }>('/food/parse/log', body).then((r) => r.data),
-    onSuccess: () => {
+    }) => api.post<{ logged: number; logs: FoodLog[] }>('/food/parse/log', body).then((r) => r.data),
+    onSuccess: (res) => {
+      writeFoodsToHealth(res.logs ?? []);
       for (const key of ['food-logs', 'food-recent', 'food-week', 'trends', 'adaptive', 'food-memories']) {
         qc.invalidateQueries({ queryKey: [key] });
       }

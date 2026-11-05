@@ -12,6 +12,8 @@ export interface ActivityLog {
   kudosCount: number;
   /** light | moderate | vigorous; picks the calorie estimate */
   intensity: Intensity | null;
+  /** Set when it was logged set by set in a workout */
+  workoutSession?: { id: string; title: string | null; setCount: number; prCount: number } | null;
 }
 
 export type Intensity = 'light' | 'moderate' | 'vigorous';

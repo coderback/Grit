@@ -12,7 +12,7 @@ type Me = { supabaseId: string };
 export class HealthController {
   constructor(private health: HealthService) {}
 
-  /** Workouts, daily steps and sleep, and weigh-ins from the phone's health app. */
+  /** Workouts, daily steps and sleep, weigh-ins and recovery metrics from the phone's health app. */
   @Post('import')
   import(
     @CurrentUser() user: Me,
@@ -25,5 +25,11 @@ export class HealthController {
   @Get('recent')
   recent(@CurrentUser() user: Me, @UtcOffset() offset: number) {
     return this.health.recent(user.supabaseId, offset);
+  }
+
+  /** Whether cycle data is on, and how many days of it are stored. */
+  @Get('cycle')
+  cycle(@CurrentUser() user: Me) {
+    return this.health.cycleSummary(user.supabaseId);
   }
 }
