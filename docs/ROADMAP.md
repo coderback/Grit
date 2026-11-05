@@ -122,7 +122,8 @@ Supabase. All are additive, so earlier servers keep working.
 See [`PHASE5_PLAN.md`](./PHASE5_PLAN.md). Two tracks:
 
 - **Nutrition:** GRIT's own food database built from open sources (USDA,
-  Open Food Facts, UK, Canada, France, Finland and West African tables),
+  Open Food Facts, UK, Canada, France and Finland tables, with regional
+  tables added where users' searches miss),
   local search and barcodes, micronutrient tracking, models for matching
   food names, typical portions and estimating missing micronutrients, and
   label-photo contributions with quality checks.

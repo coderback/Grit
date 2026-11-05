@@ -2,7 +2,8 @@
 
 **Goals:**
 - **Nutrition:** the right food on the first search, with correct numbers,
-  including micronutrients, in the countries GRIT targets. GRIT should own
+  including micronutrients, for users anywhere in the world (GRIT launches
+  globally). GRIT should own
   its food data instead of asking Open Food Facts live on every search.
 - **Fitness:** a real exercise library and set-by-set strength logging,
   calorie burn that reflects intensity and the person, and training that
@@ -58,7 +59,8 @@ later change is measured against it.
 | Measure | How | Target by end of phase |
 |---|---|---|
 | First-search success | Share of searches where the user picks a result without searching again | Beat baseline by 15 points |
-| Barcode hit rate | Share of scans that find a product, per country | ≥ 90% US/UK, ≥ 80% EU |
+| Barcode hit rate | Share of scans that find a product, per country | ≥ 90% in the 5 countries with the most users, ≥ 75% everywhere else |
+| Search misses by country | Share of searches with no result picked, per country and language | Report monthly; decides where regional depth goes next (5A) |
 | Verified share | Share of logs from measured or verified entries | ≥ 85% |
 | Correction rate | Share of logged foods whose numbers the user edits | Halve the baseline |
 | Micronutrient coverage | Share of a day's logged calories with a full micronutrient profile (measured or passed estimate) | ≥ 80% |
@@ -170,13 +172,24 @@ so re-running it updates rows instead of duplicating them.
 | Open Food Facts | ~3M products worldwide | **ODbL** | Only products with a name and calories; kept traceable through `FoodSource` |
 | UK CoFID | UK foods | Open Government Licence | |
 | Canada CNF, France CIQUAL, Finland Fineli | National foods | Open licences; confirm each | |
-| FAO/INFOODS West Africa table | Jollof, egusi, garri, plantain and more | **FAO terms; confirm before use** | Coverage that MyFitnessPal lacks |
+| Other open national and regional tables | For example Australia/NZ (FSANZ), Japan (MEXT), Denmark (Frida), and FAO/INFOODS regional tables (West Africa, Latin America, ASEAN and others) | Varies; **confirm each before use** | Added according to demand (see below), not all at once |
 
 - **Duplicates:** same normalised barcode = same food. Name and brand matching
   waits for 5E.
 - **Generic foods:** where several national tables list the same food, each
   is kept and tagged with its country, so search can prefer the user's
   country.
+- **Global coverage, regional depth by demand:** Open Food Facts (products
+  from about 150 countries, with names in many languages) plus the generic
+  tables give worldwide coverage from day one. Deeper regional data (local
+  dishes, local names, local portion units) goes where users actually miss:
+  the "search misses by country" measure shows which region's table or dish
+  set to add next. Most regional apps that beat the global ones did it with
+  a local database (HealthifyMe in India, Fitia in Latin America), so this
+  is how GRIT matches them market by market.
+- **Languages:** search covers the product names Open Food Facts holds in
+  each language, plus a synonyms file per language. Translating the app
+  itself is outside Phase 5.
 - **Refresh:** Open Food Facts publishes daily changes, imported by a
   scheduled job (a GitHub Action, or a Railway cron service).
   FoodData Central releases about twice a year; the importer re-runs on
@@ -187,7 +200,8 @@ so re-running it updates rows instead of duplicating them.
 Filtered Open Food Facts plus everything else is roughly **2–4 GB**.
 - Supabase's free plan allows 500 MB, so this needs **Supabase Pro** (8 GB
   included).
-- The alternative is importing only products sold in the target countries.
+- GRIT is global, so the full filtered import is the plan. Filtering by
+  country would leave holes for users outside the chosen countries.
 
 **Exit:** all sources imported into a staging database; row counts and spot
 checks recorded; a re-run changes nothing.
@@ -593,13 +607,14 @@ estimates on new logs use intensity, and heart rate where available.
 
 ## Decisions needed from you
 
-1. **Supabase plan:** Pro for the 2–4 GB of food data, or only import
-   products sold in the target countries.
-2. **Target countries** for the first release. This sets which national
-   tables matter, how search ranks results, and the barcode targets.
+1. **Supabase Pro**, for the 2–4 GB of food data. A global launch needs the
+   full import.
+2. ~~Target countries~~ **Decided: global.** Regional depth is added by
+   demand, using the "search misses by country" measure.
 3. **Licensing review:**
    - how GRIT uses Open Food Facts under ODbL;
-   - the FAO West Africa table's terms for commercial use.
+   - each national and FAO regional table's terms for commercial use,
+     before it's imported.
    Have a lawyer confirm both.
 4. **Restaurants:** not in Phase 5. Choose later between a licensed API
    (FatSecret, Nutritionix, Edamam; check current pricing) and a curated set
