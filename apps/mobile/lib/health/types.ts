@@ -8,6 +8,42 @@ export interface HealthWorkout {
   start: Date;
   end: Date;
   kcal?: number;
+  /** Average over the workout, from the watch */
+  avgHeartRate?: number;
+  distanceM?: number;
+}
+
+export type MetricName = 'hrv' | 'resting_hr' | 'respiratory_rate' | 'sleep_temp_deviation' | 'vo2max' | 'menstrual_flow';
+
+/** One reading of a recovery or cycle metric. */
+export interface MetricSample {
+  metric: MetricName;
+  /** HRV only: Apple gives SDNN, Health Connect RMSSD; they can't be compared */
+  type?: 'sdnn' | 'rmssd';
+  at: Date;
+  value: number;
+  /** The app or device that recorded it */
+  device?: string;
+}
+
+/** A logged meal, written back to the health app when that's turned on. */
+export interface FoodEntry {
+  id: string;
+  name: string;
+  loggedAt: Date;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  caffeineMg?: number | null;
+  mealType?: string | null;
+}
+
+export interface AccessOptions {
+  /** Menstrual data: its own consent in GRIT */
+  cycle: boolean;
+  /** Write logged meals back */
+  writeFood: boolean;
 }
 
 /** A stretch of sleep (or awake time inside a sleep session). */
@@ -33,6 +69,7 @@ export interface HealthData {
   steps: DailySteps[];
   sleep: SleepInterval[];
   weights: WeightSample[];
+  metrics: MetricSample[];
 }
 
 /** One phone's health store. */
@@ -42,7 +79,11 @@ export interface HealthSource {
   /** "Apple Health" or "Health Connect" */
   name: string;
   isAvailable(): Promise<boolean>;
-  /** Asks for read access; true if granted (iOS never says, so true once asked) */
-  requestAccess(): Promise<boolean>;
-  read(since: Date, until: Date): Promise<HealthData>;
+  /** Asks for access; true if granted (iOS never says, so true once asked) */
+  requestAccess(opts?: AccessOptions): Promise<boolean>;
+  read(since: Date, until: Date, opts?: { cycle: boolean }): Promise<HealthData>;
+  /** Writes a logged meal's energy, macros and caffeine */
+  writeFood(food: FoodEntry): Promise<void>;
+  /** Removes a meal GRIT wrote, when it's deleted in GRIT */
+  deleteFood(id: string): Promise<void>;
 }

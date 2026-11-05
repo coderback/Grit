@@ -42,6 +42,8 @@ export interface Me {
   consentHealthTraining: boolean;
   consentWorkoutTraining: boolean;
   consentOffSharing: boolean;
+  /** Reading menstrual data from the health app: its own consent */
+  consentCycleData: boolean;
 }
 
 /** Fields the signed-in user can change with PUT /users/me. */

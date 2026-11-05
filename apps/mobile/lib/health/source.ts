@@ -6,5 +6,7 @@ export const healthSource: HealthSource = {
   name: 'Health data',
   isAvailable: async () => false,
   requestAccess: async () => false,
-  read: async () => ({ workouts: [], steps: [], sleep: [], weights: [] }),
+  read: async () => ({ workouts: [], steps: [], sleep: [], weights: [], metrics: [] }),
+  writeFood: async () => {},
+  deleteFood: async () => {},
 };

@@ -61,7 +61,17 @@
         "android.permission.health.READ_EXERCISE",
         "android.permission.health.READ_STEPS",
         "android.permission.health.READ_WEIGHT",
-        "android.permission.health.READ_SLEEP"
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_HEART_RATE_VARIABILITY",
+        "android.permission.health.READ_RESTING_HEART_RATE",
+        "android.permission.health.READ_RESPIRATORY_RATE",
+        "android.permission.health.READ_SKIN_TEMPERATURE",
+        "android.permission.health.READ_VO2_MAX",
+        "android.permission.health.READ_DISTANCE",
+        "android.permission.health.READ_MENSTRUATION",
+        "android.permission.health.WRITE_NUTRITION",
+        "android.permission.health.READ_HEALTH_DATA_HISTORY"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
@@ -104,8 +114,8 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "GRIT reads your workouts, steps, sleep and weight so they count toward your goals and challenges, and so your coach can see how you're recovering.",
-          "NSHealthUpdateUsageDescription": false,
+          "NSHealthShareUsageDescription": "GRIT reads your workouts, heart rate, steps, sleep, weight and recovery data (and cycle data, if you turn it on) so they count toward your goals and challenges, and so your coach can see how you're recovering.",
+          "NSHealthUpdateUsageDescription": "If you turn it on, GRIT writes the meals you log (calories, protein, carbs, fat and caffeine) to Apple Health.",
           "background": false
         }
       ],
