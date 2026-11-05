@@ -425,18 +425,21 @@ model HealthDay {
 // nutrition per 100 g and usual portion for a food, used before any
 // estimate the next time they mention it
 model FoodMemory {
-  id             String   @id @default(cuid())
-  userId         String
+  id              String   @id @default(cuid())
+  userId          String
   // lowercased, single-spaced name
-  key            String
-  name           String
-  kcalPer100g    Float
-  proteinPer100g Float
-  carbsPer100g   Float
-  fatPer100g     Float
-  usualGrams     Float
-  uses           Int      @default(1)
-  updatedAt      DateTime @updatedAt
+  key             String
+  name            String
+  kcalPer100g     Float
+  proteinPer100g  Float
+  carbsPer100g    Float
+  fatPer100g      Float
+  usualGrams      Float
+  // Caffeine (mg) and alcohol (g) per 100 g, if known
+  caffeinePer100g Float?
+  alcoholPer100g  Float?
+  uses            Int      @default(1)
+  updatedAt       DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

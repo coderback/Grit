@@ -30,6 +30,9 @@ const item = (over: Record<string, unknown> = {}) => ({
   proteinPer100g: 13,
   carbsPer100g: 60,
   fatPer100g: 7,
+  caffeineMgPer100g: 0,
+  alcoholGPer100g: 0,
+  category: 'grains_bread',
   confidence: 'medium',
   ...over,
 });

@@ -72,6 +72,20 @@ export class ConfirmedItemDto {
   @Max(100)
   fatPer100g: number;
 
+  // mg per 100 g
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(5000)
+  caffeinePer100g?: number;
+
+  // g of alcohol per 100 g
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(80)
+  alcoholPer100g?: number;
+
   // Off for a one-off, so it doesn't become "your usual"
   @IsOptional()
   @IsBoolean()

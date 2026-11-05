@@ -146,7 +146,11 @@ export class MealParseService {
       });
     }
 
-    let parsed: { items: ModelItem[]; question: string | null };
+    let parsed: {
+      items: ModelItem[];
+      question: string | null;
+      cookingFatUnclear?: boolean;
+    };
     try {
       const response = await this.openai.responses.create({
         model: this.model,
@@ -189,6 +193,8 @@ export class MealParseService {
           protein: m.proteinPer100g,
           carbs: m.carbsPer100g,
           fat: m.fatPer100g,
+          caffeine: m.caffeinePer100g ?? undefined,
+          alcohol: m.alcoholPer100g ?? undefined,
           usualGrams: m.usualGrams,
         },
       ]),
@@ -223,7 +229,13 @@ export class MealParseService {
     const question = parsed.question?.trim()
       ? parsed.question.trim().slice(0, 200)
       : null;
-    return { items, total, question };
+    return {
+      items,
+      total,
+      question,
+      // The app asks "Cooked in oil?" and adds the oil itself
+      cookingFatUnclear: parsed.cookingFatUnclear === true,
+    };
   }
 
   /**
@@ -242,6 +254,8 @@ export class MealParseService {
           protein: item.proteinPer100g,
           carbs: item.carbsPer100g,
           fat: item.fatPer100g,
+          caffeine: item.caffeinePer100g,
+          alcohol: item.alcoholPer100g,
         };
         const t = totals(per100, item.grams);
         logs.push(
@@ -257,6 +271,8 @@ export class MealParseService {
               fatG: t.fatG,
               servingQty: Math.round(item.grams),
               servingUnit: 'g',
+              caffeineMg: t.caffeineMg,
+              alcoholG: t.alcoholG,
               loggedAt,
             },
           }),
@@ -270,6 +286,8 @@ export class MealParseService {
           proteinPer100g: per100.protein,
           carbsPer100g: per100.carbs,
           fatPer100g: per100.fat,
+          caffeinePer100g: per100.caffeine ?? null,
+          alcoholPer100g: per100.alcohol ?? null,
           usualGrams: item.grams,
         };
         await tx.foodMemory.upsert({

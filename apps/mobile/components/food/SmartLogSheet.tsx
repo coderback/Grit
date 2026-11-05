@@ -18,6 +18,18 @@ import { Colors } from '@/constants/colors';
 /** Photos are shrunk before upload: plenty for the model, a few hundred kB. */
 const PHOTO_WIDTH = 1024;
 
+const CONFIDENCE_LABELS = { high: 'high confidence', medium: 'medium confidence', low: 'low confidence' } as const;
+
+type OilAnswer = 'none' | 'a_little' | 'a_lot';
+const OIL_CHOICES: { value: OilAnswer; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'a_little', label: 'A little' },
+  { value: 'a_lot', label: 'A lot' },
+];
+// About a teaspoon or a tablespoon
+const OIL_GRAMS: Record<OilAnswer, number> = { none: 0, a_little: 5, a_lot: 15 };
+const OIL_KEY = 'cooking-oil';
+
 const SOURCE_LABELS: Record<ItemSource, { label: string; color: () => string }> = {
   memory: { label: 'Your usual', color: () => Colors.teal },
   database: { label: 'Food database', color: () => Colors.blue },
@@ -60,6 +72,9 @@ export function SmartLogSheet({ date, initialMeal, onClose }: { date?: string; i
   const [photo, setPhoto] = useState<{ uri: string; base64: string } | null>(null);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [question, setQuestion] = useState<string | null>(null);
+  // "Cooked in oil?": asked when the reading couldn't tell; null once answered
+  const [oilAsked, setOilAsked] = useState(false);
+  const [oil, setOil] = useState<OilAnswer | null>(null);
   const [answer, setAnswer] = useState('');
   const [meal, setMeal] = useState<Meal>(initialMeal ?? mealForHour(new Date().getHours()));
 
@@ -103,6 +118,8 @@ export function SmartLogSheet({ date, initialMeal, onClose }: { date?: string; i
       if (extra) setText(description);
       setAnswer('');
       setQuestion(result.question);
+      setOilAsked(result.cookingFatUnclear);
+      setOil(null);
       setRows(result.items.map((item, i) => ({ ...item, key: `${i}-${item.name}`, gramsText: String(item.grams) })));
     } catch (err: any) {
       notify("Couldn't read that meal", errorText(err, 'Check your connection and try again.'));
@@ -124,6 +141,8 @@ export function SmartLogSheet({ date, initialMeal, onClose }: { date?: string; i
           proteinPer100g: r.per100.protein,
           carbsPer100g: r.per100.carbs,
           fatPer100g: r.per100.fat,
+          caffeinePer100g: r.per100.caffeine,
+          alcoholPer100g: r.per100.alcohol,
         })),
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -137,6 +156,29 @@ export function SmartLogSheet({ date, initialMeal, onClose }: { date?: string; i
   const setGrams = (key: string, value: string) =>
     setRows((rs) => rs?.map((r) => (r.key === key ? { ...r, gramsText: value.replace(/[^0-9.]/g, '') } : r)) ?? null);
   const removeRow = (key: string) => setRows((rs) => rs?.filter((r) => r.key !== key) ?? null);
+
+  /** Adds (or changes, or removes) the cooking oil row for the answer. */
+  function answerOil(answer: OilAnswer) {
+    setOil(answer);
+    const grams = OIL_GRAMS[answer];
+    setRows((rs) => {
+      const rest = (rs ?? []).filter((r) => r.key !== OIL_KEY);
+      if (!grams) return rest;
+      return [...rest, {
+        key: OIL_KEY,
+        name: 'cooking oil',
+        brand: null,
+        portion: answer === 'a_lot' ? 'about 1 tbsp' : 'about 1 tsp',
+        grams,
+        gramsText: String(grams),
+        per100: { kcal: 884, protein: 0, carbs: 0, fat: 100 },
+        source: 'estimate',
+        confidence: 'medium',
+        check: false,
+        calories: 0, proteinG: 0, carbsG: 0, fatG: 0,
+      }];
+    });
+  }
 
   const loggable = (rows ?? []).filter((r) => (parseFloat(r.gramsText) || 0) > 0);
   const totalKcal = loggable.reduce((t, r) => t + kcalFor(r), 0);
@@ -230,6 +272,28 @@ export function SmartLogSheet({ date, initialMeal, onClose }: { date?: string; i
               </View>
             )}
 
+            {oilAsked && (
+              <View style={{ backgroundColor: Colors.surface2, borderRadius: 16, padding: 14, gap: 10, borderWidth: 1, borderColor: `${Colors.orange}60` }}>
+                <Text style={{ color: Colors.text, fontFamily: 'DMSans-Medium', fontSize: 14 }}>Cooked in oil or butter?</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }} accessibilityRole="radiogroup">
+                  {OIL_CHOICES.map((c) => {
+                    const selected = oil === c.value;
+                    return (
+                      <Pressable
+                        key={c.value}
+                        onPress={() => answerOil(c.value)}
+                        accessibilityRole="radio"
+                        aria-checked={selected}
+                        style={{ flex: 1, paddingVertical: 9, borderRadius: 999, alignItems: 'center', backgroundColor: selected ? Colors.orange : Colors.surface, borderWidth: 1, borderColor: selected ? Colors.orange : Colors.border }}
+                      >
+                        <Text style={{ color: selected ? '#fff' : Colors.text, fontFamily: 'DMSans-Medium', fontSize: 13 }}>{c.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
             <View style={{ gap: 10 }}>
               {rows.map((row) => {
                 const src = SOURCE_LABELS[row.source];
@@ -259,11 +323,13 @@ export function SmartLogSheet({ date, initialMeal, onClose }: { date?: string; i
                         {kcalFor(row)} kcal
                       </Text>
                     </View>
-                    <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                    <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} accessibilityLabel={`${src.label}, ${row.confidence} confidence${row.check ? ', check this' : ''}`}>
                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: src.color() }} />
-                      <Text style={{ color: src.color(), fontFamily: 'DMSans-Medium', fontSize: 11 }}>
-                        {src.label}{row.source === 'estimate' && row.confidence === 'low' ? ' · check the portion' : ''}
-                      </Text>
+                      <Text style={{ color: src.color(), fontFamily: 'DMSans-Medium', fontSize: 11 }}>{src.label}</Text>
+                      <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 11 }}>· {CONFIDENCE_LABELS[row.confidence]}</Text>
+                      {row.check && (
+                        <Text style={{ color: Colors.error, fontFamily: 'DMSans-Bold', fontSize: 11 }}>· ⚠ check this</Text>
+                      )}
                     </View>
                   </View>
                 );
@@ -297,7 +363,7 @@ export function SmartLogSheet({ date, initialMeal, onClose }: { date?: string; i
               loading={logging}
               disabled={!loggable.length}
             />
-            <Pressable onPress={() => { setRows(null); setQuestion(null); }} accessibilityRole="button" style={{ alignItems: 'center', paddingVertical: 4 }}>
+            <Pressable onPress={() => { setRows(null); setQuestion(null); setOilAsked(false); setOil(null); }} accessibilityRole="button" style={{ alignItems: 'center', paddingVertical: 4 }}>
               <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 14 }}>Start over</Text>
             </Pressable>
           </>

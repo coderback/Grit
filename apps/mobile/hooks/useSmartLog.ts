@@ -8,6 +8,10 @@ export interface Per100 {
   protein: number;
   carbs: number;
   fat: number;
+  /** mg per 100 g, if known */
+  caffeine?: number;
+  /** g of alcohol per 100 g, if known */
+  alcohol?: number;
 }
 
 export interface ParsedItem {
@@ -18,6 +22,8 @@ export interface ParsedItem {
   per100: Per100;
   source: ItemSource;
   confidence: 'high' | 'medium' | 'low';
+  /** Protein or fat looks wrong for this kind of food */
+  check: boolean;
   calories: number;
   proteinG: number;
   carbsG: number;
@@ -28,6 +34,8 @@ export interface ParsedMeal {
   items: ParsedItem[];
   total: { calories: number; proteinG: number; carbsG: number; fatG: number };
   question: string | null;
+  /** Probably cooked in oil or butter, but unclear how much: the app asks */
+  cookingFatUnclear: boolean;
 }
 
 export interface FoodMemory {
@@ -63,6 +71,8 @@ export function useLogParsedMeal() {
         proteinPer100g: number;
         carbsPer100g: number;
         fatPer100g: number;
+        caffeinePer100g?: number;
+        alcoholPer100g?: number;
         remember?: boolean;
       }[];
     }) => api.post<{ logged: number }>('/food/parse/log', body).then((r) => r.data),
