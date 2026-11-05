@@ -8,6 +8,7 @@ import {
   Query,
   Param,
   Body,
+  HttpCode,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
@@ -19,6 +20,7 @@ import { FoodService } from './food.service';
 import {
   CreateFoodLogDto,
   FoodSearchQueryDto,
+  SearchEventDto,
   UpdateFoodLogDto,
 } from './food.dto';
 
@@ -32,6 +34,16 @@ export class FoodController {
   @Get('food/search')
   search(@Query() query: FoodSearchQueryDto) {
     return this.food.searchFoods(query.q ?? '');
+  }
+
+  /** What the user picked from a search, for first-search success and misses by country. */
+  @Post('food/search-events')
+  @HttpCode(204)
+  async searchEvent(
+    @CurrentUser() user: { supabaseId: string },
+    @Body() body: SearchEventDto,
+  ) {
+    await this.food.recordSearch(user.supabaseId, body);
   }
 
   @Get('food/barcode/:code')

@@ -13,7 +13,11 @@ import {
   weekStart,
 } from '../common/day';
 import { calorieBudget, macroTargets } from '../common/nutrition';
-import type { CreateFoodLogDto, UpdateFoodLogDto } from './food.dto';
+import type {
+  CreateFoodLogDto,
+  SearchEventDto,
+  UpdateFoodLogDto,
+} from './food.dto';
 import type { NormalizedFood, OFFProduct, SearchHit } from './food.types';
 
 // Open Food Facts asks every client to identify itself and can be slow, so
@@ -48,6 +52,23 @@ function toNumber(value: number | string | undefined): number | undefined {
   return n !== undefined && Number.isFinite(n) ? n : undefined;
 }
 
+/**
+ * Caffeine (labelled in grams) as mg, and alcohol (labelled as % vol) as
+ * grams per 100 g, taking a drink's density as about 1 and ethanol's as 0.789.
+ */
+export function drinkValues(n: OFFProduct['nutriments'] = {}) {
+  const caffeine = toNumber(n.caffeine_100g);
+  const abv = toNumber(n.alcohol_100g);
+  return {
+    ...(caffeine !== undefined && caffeine >= 0 && caffeine < 5
+      ? { caffeineMg: Math.round(caffeine * 1000) }
+      : {}),
+    ...(abv !== undefined && abv > 0 && abv <= 100
+      ? { alcoholG: Math.round(abv * 0.789 * 10) / 10 }
+      : {}),
+  };
+}
+
 @Injectable()
 export class FoodService {
   private searchCache = new Map<
@@ -76,6 +97,7 @@ export class FoodService {
       servingQty: hasServing ? servingQty : 100,
       servingUnit: product.serving_quantity_unit || 'g',
       imageUrl: product.image_small_url ?? null,
+      ...drinkValues(n),
     };
   }
 
@@ -210,6 +232,8 @@ export class FoodService {
         fatG: dto.fatG ?? 0,
         servingQty: dto.servingQty ?? 1,
         servingUnit: dto.servingUnit ?? 'serving',
+        caffeineMg: dto.caffeineMg,
+        alcoholG: dto.alcoholG,
         loggedAt: dto.loggedAt ? new Date(dto.loggedAt) : new Date(),
       },
     });
@@ -260,8 +284,17 @@ export class FoodService {
         proteinG: acc.proteinG + log.proteinG,
         carbsG: acc.carbsG + log.carbsG,
         fatG: acc.fatG + log.fatG,
+        caffeineMg: acc.caffeineMg + (log.caffeineMg ?? 0),
+        alcoholG: acc.alcoholG + (log.alcoholG ?? 0),
       }),
-      { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 },
+      {
+        calories: 0,
+        proteinG: 0,
+        carbsG: 0,
+        fatG: 0,
+        caffeineMg: 0,
+        alcoholG: 0,
+      },
     );
 
     const budget = calorieBudget({
@@ -327,15 +360,39 @@ export class FoodService {
 
   async updateFoodLog(supabaseId: string, id: string, dto: UpdateFoodLogDto) {
     const userId = await this.resolveUserId(supabaseId);
-    const { count } = await this.prisma.foodLog.updateMany({
-      where: { id, userId },
+    const before = await this.prisma.foodLog.findUnique({ where: { id } });
+    if (!before || before.userId !== userId) {
+      throw new NotFoundException('Food log not found');
+    }
+    // Changing the numbers of a picked food measures how often the food
+    // data is wrong; renaming or moving it to another meal doesn't count
+    const changed = (['calories', 'proteinG', 'carbsG', 'fatG'] as const).some(
+      (k) => dto[k] !== undefined && Math.abs(dto[k] - before[k]) > 0.5,
+    );
+    return this.prisma.foodLog.update({
+      where: { id },
       data: {
         ...dto,
         loggedAt: dto.loggedAt ? new Date(dto.loggedAt) : undefined,
+        corrected: before.corrected || changed,
       },
     });
-    if (!count) throw new NotFoundException('Food log not found');
-    return this.prisma.foodLog.findUniqueOrThrow({ where: { id } });
+  }
+
+  /** Records what the user picked from a search (or that they picked nothing). */
+  async recordSearch(supabaseId: string, dto: SearchEventDto) {
+    const userId = await this.resolveUserId(supabaseId);
+    await this.prisma.searchEvent.create({
+      data: {
+        userId,
+        query: dto.query.trim().toLowerCase().slice(0, 200),
+        position: dto.position ?? null,
+        pickedName: dto.pickedName ?? null,
+        country: dto.country ?? null,
+        lang: dto.lang ?? null,
+      },
+    });
+    return { ok: true };
   }
 
   async deleteFoodLog(supabaseId: string, id: string) {

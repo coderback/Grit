@@ -112,6 +112,11 @@ export class AIService {
     const todayProtein = todayFood.reduce((s, f) => s + f.proteinG, 0);
     const todayCarbs = todayFood.reduce((s, f) => s + f.carbsG, 0);
     const todayFat = todayFood.reduce((s, f) => s + f.fatG, 0);
+    const todayCaffeine = todayFood.reduce(
+      (s, f) => s + (f.caffeineMg ?? 0),
+      0,
+    );
+    const todayAlcohol = todayFood.reduce((s, f) => s + (f.alcoholG ?? 0), 0);
 
     const completedHabitIds = new Set(habitLogs.map((l) => l.habitId));
 
@@ -213,7 +218,7 @@ ${weekLines.join('\n')}
 Today's nutrition:
 - Calories: ${Math.round(todayCalories)} / ${user?.calorieGoal} kcal
 - Protein: ${Math.round(todayProtein)}g | Carbs: ${Math.round(todayCarbs)}g | Fat: ${Math.round(todayFat)}g
-- Meals logged: ${todayFood.length}
+- Meals logged: ${todayFood.length}${todayCaffeine >= 1 ? `\n- Caffeine: ${Math.round(todayCaffeine)} mg` : ''}${todayAlcohol >= 1 ? `\n- Alcohol: ${Math.round(todayAlcohol)} g` : ''}
 
 Habits today:
 ${habitLines}

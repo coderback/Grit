@@ -20,6 +20,7 @@ import { confirmAction } from '@/lib/confirm';
 import { DateNavigator } from '@/components/ui/DateNavigator';
 import { EditFoodSheet } from '@/components/food/EditFoodSheet';
 import { SmartLogSheet } from '@/components/food/SmartLogSheet';
+import { DRINKS } from '@/lib/drinks';
 import { useEnsureAiConsent } from '@/hooks/useAiConsent';
 import { useMe } from '@/hooks/useMe';
 import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
@@ -137,6 +138,8 @@ export default function FoodScreen() {
   const proteinG = data?.totals?.proteinG ?? 0;
   const carbsG = data?.totals?.carbsG ?? 0;
   const fatG = data?.totals?.fatG ?? 0;
+  const caffeineMg = Math.round(data?.totals?.caffeineMg ?? 0);
+  const alcoholG = Math.round(data?.totals?.alcoholG ?? 0);
 
   // Targets follow the goal focus chosen in onboarding (from the backend)
   const fallback = calcMacros(calorieGoal, me?.goalFocus);
@@ -258,12 +261,35 @@ export default function FoodScreen() {
               <Text style={{ fontSize: 11, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 2 }}>
                 {Math.round(Math.max(0, calorieGoal - eaten))} kcal remaining
               </Text>
+              {(caffeineMg > 0 || alcoholG > 0) && (
+                <Text style={{ fontSize: 11, color: Colors.muted, fontFamily: 'DMSans-Regular' }} accessibilityLabel={`${caffeineMg} milligrams of caffeine and ${alcoholG} grams of alcohol today`}>
+                  {caffeineMg > 0 ? `☕ ${caffeineMg} mg caffeine` : ''}
+                  {caffeineMg > 0 && alcoholG > 0 ? '  ·  ' : ''}
+                  {alcoholG > 0 ? `🍷 ${alcoholG} g alcohol` : ''}
+                </Text>
+              )}
             </View>
           </View>
         </View>
 
         {/* Search bar */}
         <FoodSearchBar onSelect={(food) => { setSelectedMeal(undefined); setSelectedFood(food); }} />
+
+        {/* Quick drinks: coffee, tea, beer, wine */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 10 }} keyboardShouldPersistTaps="handled">
+          {DRINKS.map((d) => (
+            <Pressable
+              key={d.food.name}
+              onPress={() => { setSelectedMeal('snack'); setSelectedFood(d.food); }}
+              accessibilityRole="button"
+              accessibilityLabel={`Log ${d.food.name}`}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border }}
+            >
+              <Text style={{ fontSize: 13 }}>{d.emoji}</Text>
+              <Text style={{ color: Colors.text, fontFamily: 'DMSans-Medium', fontSize: 13 }}>{d.food.name}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
 
         {/* Recent and favourite foods */}
         <QuickAddCard

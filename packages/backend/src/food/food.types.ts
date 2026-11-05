@@ -10,6 +10,10 @@ export interface NormalizedFood {
   servingQty: number;
   servingUnit: string;
   imageUrl: string | null;
+  /** Caffeine, mg per 100 g, when the label gives it */
+  caffeineMg?: number;
+  /** Alcohol, g per 100 g, from the label's % vol */
+  alcoholG?: number;
 }
 
 // OFF sometimes sends numbers as strings ("30"), so numeric fields accept both
@@ -27,6 +31,8 @@ export interface OFFProduct {
     proteins_100g?: OFFNumber;
     carbohydrates_100g?: OFFNumber;
     fat_100g?: OFFNumber;
+    caffeine_100g?: OFFNumber; // grams
+    alcohol_100g?: OFFNumber; // % vol
   };
   serving_quantity?: OFFNumber;
   serving_quantity_unit?: string;
