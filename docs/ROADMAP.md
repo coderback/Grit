@@ -119,19 +119,27 @@ Supabase. All are additive, so earlier servers keep working.
 
 ## Phase 5 — Own food and exercise data, and ML (planned)
 
-See [`PHASE5_PLAN.md`](./PHASE5_PLAN.md). Two tracks:
+See [`PHASE5_PLAN.md`](./PHASE5_PLAN.md), shaped by the research in
+[`reports/GRIT health fitness nutrition moat.md`](../reports/GRIT%20health%20fitness%20nutrition%20moat.md).
+It starts with a **trust and safety baseline** (no third-party SDKs on
+health screens, AI consent naming Microsoft, the EU AI disclosure, an 18+
+gate, calorie floors), then two tracks:
 
 - **Nutrition:** GRIT's own food database built from open sources (USDA,
   Open Food Facts, UK, Canada, France and Finland tables, with regional
   tables added where users' searches miss),
   local search and barcodes, micronutrient tracking, models for matching
   food names, typical portions and estimating missing micronutrients, and
-  label-photo contributions with quality checks.
+  label-photo contributions with quality checks. Smart log gains confidence
+  badges and a cooking-oil question; caffeine and alcohol are tracked;
+  nutrition is written back to the phone's health app.
 - **Fitness:** an exercise library that coach plans are built from (with
   injury-aware filtering), set-by-set strength logging with PRs, calorie
   burn from intensity and heart rate calibrated against each person's
-  weight trend, strength levels from OpenPowerlifting, and progression that
-  takes nutrition and sleep into account.
+  weight trend (with a cycle-aware filter), strength levels from
+  OpenPowerlifting, voice and offline set logging, a wider health import
+  (HRV, resting heart rate, VO2max, cycle data), and progression rules that
+  switch to "preserve" in a big deficit or when protein is low.
 
 ## Later
 

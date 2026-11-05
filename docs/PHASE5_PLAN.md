@@ -10,20 +10,38 @@
   progresses with what they eat and how they recover. Today activities are
   only a type and a duration.
 
-**Duration:** two tracks.
+- **Trust:** a privacy and safety baseline under everything GRIT already
+  runs: the social feed, the AI coach and health data.
 
-| Track | Parts | Weeks (one developer) |
+**Duration:** a short trust-and-safety part first, then two tracks.
+
+| Part | What | Weeks (one developer) |
 |---|---|---|
-| Nutrition | 5A–5E | about 8 |
-| Fitness | 5F–5H | about 7 |
+| 5J, first | Trust and safety baseline | about 1 |
+| Nutrition track | 5A–5E | about 9 |
+| Fitness track | 5F–5H | about 7 |
 | Verify and release | 5I | 1 |
 
-That's about 16 weeks one after the other, or about 9 with two developers in
-parallel. If one track has to go first, start with nutrition: Smart log and
-search are used daily, and the fitness track's calorie work benefits from 5A's
-infrastructure.
+That's about 18 weeks one after the other, or about 11 with two developers
+running the tracks in parallel after 5J. Weeks in each part's heading count
+from the start of its track. If one track has to go first, start with
+nutrition: Smart log and search are used daily, and the fitness track's
+calorie work benefits from 5A's infrastructure.
 
-Background: [MARKET_RESEARCH.md](./MARKET_RESEARCH.md) and
+5J runs first because it hardens features that are already live.
+
+**Why this shape:** the research
+([GRIT health fitness nutrition moat](../reports/GRIT%20health%20fitness%20nutrition%20moat.md))
+found that in 2026 most single features became free or bundled elsewhere:
+- Apple's adaptive strength plans;
+- Strava's set logging;
+- food logging inside the Google, Samsung and Garmin coaches;
+- WHOOP's coach memory.
+
+GRIT's moat is therefore the links between nutrition, training, recovery and
+friends. Phase 5 builds the data those links need.
+
+Other background: [MARKET_RESEARCH.md](./MARKET_RESEARCH.md) and
 [ROADMAP.md](./ROADMAP.md).
 
 ---
@@ -69,15 +87,76 @@ later change is measured against it.
 | Logging speed | Taps to log a set that repeats last time's numbers | 1 tap |
 | Plan exercises linked | Share of exercises in new coach plans that come from the library | 100% |
 | Burn estimates with heart rate | Share of imported workouts whose calories use heart rate | Report only (depends on devices) |
+| Voice-logged sets | Share of sets logged by saying them, once 5G ships | Report only |
+| Third-party SDKs on health screens | Ad, attribution or analytics SDKs that can see health data | 0 (5J) |
 
 The app starts recording search selections and corrections in week 1 (see
 5B) so these can be measured.
 
 ---
 
+# 5J. Trust and safety baseline (week 1, before the tracks)
+
+**Why first:** the feed, the AI coach, Smart log and health sync are already
+in production, and several rules apply to them now.
+
+- **Third-party SDK audit:** list every SDK in the app and backend, and
+  confirm none can see health data. The rule is no ad, attribution or
+  analytics SDKs on any screen that shows health data. Any analytics are
+  server-side, with event names that carry no health data. This is the
+  pattern behind the GoodRx, BetterHelp and Flo/Meta cases, and Washington's
+  health-data law.
+- **AI consent (Apple guideline 5.1.2(i), since November 2025):** before the
+  first meal photo or coach message, a screen says that the content goes to
+  Microsoft's Azure OpenAI service, and asks for permission. Without
+  permission, the app offers manual logging only.
+- **Azure set-up:**
+  - an EU or US Data Zone deployment instead of Global;
+  - stateless API calls;
+  - a request to Microsoft for modified abuse monitoring, so flagged content
+    isn't kept.
+- **Saying the coach is an AI:** the EU AI Act has required this since
+  August 2026. The coach screen is labelled "AI coach" and says it's an AI on
+  first use. It never calls itself a nutritionist, dietitian or therapist.
+- **Refusals in the coach's instructions:** no diagnosing and no medication
+  dosing. Crisis and eating-disorder language gets a supportive reply and
+  links to resources instead of coaching.
+- **Age:**
+  - 18+ sign-up, using the platforms' age signals where they exist (the
+    Texas App Store Accountability Act is enforceable);
+  - under the UK Online Safety Act, eating-disorder content must be kept from
+    children on apps with a social feed, which GRIT has.
+- **Calorie safety:**
+  - calorie floors, about 1,200 kcal for women and 1,500 for men, and a cap on
+    weekly loss rate, both reviewed with a dietitian;
+  - a short eating-disorder screen at onboarding, with no weight-loss
+    targets for anyone it flags;
+  - moderation of the feed for pro-eating-disorder content.
+- **Privacy documents:**
+  - a consumer health data privacy notice, covering Washington and other
+    states;
+  - a data protection impact assessment for health data and profiling
+    (GDPR, Nigeria's GAID 2025);
+  - the Play Store's health apps declaration and the privacy policy shown in
+    Health Connect must match.
+- **Consent settings:** separate settings, all off by default:
+  - use of health data to train models;
+  - use of workout data to train models;
+  - sharing contributed products with Open Food Facts.
+  (See decision 7.)
+
+**Exit:**
+- the SDK audit is written down, with zero third-party SDKs on health screens;
+- the AI consent screen and AI label are live;
+- the age gate and calorie floors are covered by tests;
+- the privacy notice and the impact assessment are drafted for a lawyer to
+  review.
+
+---
+
 # Nutrition track
 
-## 5A. Data foundation (weeks 1–2)
+## 5A. Data foundation (weeks 1–3)
 
 ### Schema
 
@@ -136,11 +215,33 @@ model FoodNutrient {
   @@map("food_nutrients")
 }
 
+// Local and alternative names, per language: "eba" (Yoruba) for garri
+// paste, "aubergine" (en-GB) for eggplant
+model FoodName {
+  id     String @id @default(cuid())
+  foodId String
+  name   String
+  lang   String // BCP 47, e.g. "yo", "en-GB", "hi"
+  food   Food   @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  @@index([name])
+  @@map("food_names")
+}
+
+// Dishes as recipes of other foods, so a "plate of jollof rice" has real
+// nutrients and can be scaled. Used where no measured dish exists.
+model FoodComponent {
+  dishId       String
+  ingredientId String
+  grams        Float  // per 100 g of the dish
+  @@id([dishId, ingredientId])
+  @@map("food_components")
+}
+
 // Where each food came from, so values can be traced and refreshed
 model FoodSource {
   id         String   @id @default(cuid())
   foodId     String
-  source     String   // fdc | off | cofid | cnf | ciqual | fineli | fao_wa | user
+  source     String   // fdc | off | cofid | cnf | ciqual | fineli | fao_* | national_* | user
   externalId String
   fetchedAt  DateTime
   food       Food     @relation(fields: [foodId], references: [id], onDelete: Cascade)
@@ -156,7 +257,10 @@ model FoodSource {
 - **Minerals:** calcium, iron, magnesium, potassium, zinc, phosphorus,
   selenium.
 
-That's 26 codes, kept in one `nutrients.ts` list with units and display
+- **Other:** caffeine and alcohol (5C uses them for the coach, and later
+  for recovery insights).
+
+That's 28 codes, kept in one `nutrients.ts` list with units and display
 names.
 
 ### Importers
@@ -187,6 +291,14 @@ so re-running it updates rows instead of duplicating them.
   set to add next. Most regional apps that beat the global ones did it with
   a local database (HealthifyMe in India, Fitia in Latin America), so this
   is how GRIT matches them market by market.
+- **Dish-level regional data:** for each region chosen this way:
+  - typical dishes as recipes (`FoodComponent`);
+  - local names in the region's languages (`FoodName`);
+  - local portion units as `FoodServing` rows, such as a "wrap" of swallow,
+    a "mudu", a "katori" or a "fist".
+  Start with the one or two regions with the most misses after launch,
+  using national tables such as Nigeria's 2025 conversion table or the FAO
+  regional tables.
 - **Languages:** search covers the product names Open Food Facts holds in
   each language, plus a synonyms file per language. Translating the app
   itself is outside Phase 5.
@@ -204,11 +316,12 @@ Filtered Open Food Facts plus everything else is roughly **2–4 GB**.
   country would leave holes for users outside the chosen countries.
 
 **Exit:** all sources imported into a staging database; row counts and spot
-checks recorded; a re-run changes nothing.
+checks recorded; a re-run changes nothing; the dish, name and unit tables
+work end to end for at least one region's sample.
 
 ---
 
-## 5B. Search, barcodes and Smart log on the new data (weeks 2–3)
+## 5B. Search, barcodes and Smart log on the new data (weeks 3–4)
 
 - **Search:**
   - Postgres full-text plus trigram search (`pg_trgm`) over name, brand and
@@ -229,8 +342,22 @@ checks recorded; a re-run changes nothing.
   matcher (5D); until it ships, top search result above a similarity
   threshold. The source order becomes memory → measured database →
   branded database → estimate.
+- **Accuracy users can see in Smart log.** Studies find AI meal estimates
+  go most wrong on fat and protein, so:
+  - every item shows a **confidence badge**: measured, database, your usual,
+    or estimate, with low / medium / high confidence;
+  - when cooking fat is likely and unstated, Smart log asks **one question**
+    ("Cooked in oil? None / a little / a lot") and adds the oil as its own
+    item;
+  - **protein and fat checks** against the food's category: for example,
+    grilled chicken can't come back at 2 g protein per 100 g. Failing items
+    are marked "check this".
+- **"Verified" as a trust feature:** verified entries are labelled in search,
+  and the share of logs from verified entries is shown to the user ("92% of
+  this week's logs are verified").
 - **Logging what users pick:** add a small `search_events` table (query,
-  chosen `foodId` or none, position) and a correction flag on
+  chosen `foodId` or none, position, the user's country and app language) and
+  a correction flag on
   `FoodLog`. These feed the success measures and later model training.
 - **Mobile:**
   - search results show serving choices ("1 slice (28 g)");
@@ -243,7 +370,7 @@ every earlier test suite passes.
 
 ---
 
-## 5C. Micronutrient tracking in the app (weeks 3–4)
+## 5C. Micronutrient tracking in the app (weeks 4–5)
 
 - **Storage:** `FoodLog.nutrients Json?`, the eaten amount's micronutrients
   saved at log time as `{ iron_mg: { amount, basis } }`. A snapshot, so later
@@ -266,6 +393,14 @@ every earlier test suite passes.
     the user's diet, for example vegan B12 sources;
   - a new check-in rule fires when the same nutrient is low 5 of the last 7
     logged days.
+- **Caffeine and alcohol:** daily totals on the Food tab, from the food
+  data, plus a quick "drinks" shortcut for coffee, tea, beer and wine. They
+  join the coach's context now, so it can link them to sleep and training
+  later (Phase 6).
+- **Writing nutrition back:** with permission, logged meals' energy, macros,
+  caffeine and water are written to Apple Health and Health Connect
+  (HealthKit dietary samples, Health Connect `NutritionRecord`). Other apps
+  and devices can then use GRIT's logs.
 - **Wording:** "low", "good source" and "estimated", never "deficient" or
   anything diagnostic.
 
@@ -274,21 +409,22 @@ calculation; estimated values are always marked.
 
 ---
 
-## 5D. ML (weeks 3–7)
+## 5D. ML (weeks 4–8)
 
 All training is in Python, in a new `ml/` folder with its own `README`,
 pinned requirements and data download scripts. Models are exported to
 **ONNX** and run in the backend with `onnxruntime-node`, or their outputs are
 precomputed into the database. No new service to host.
 
-### Evaluation first (week 3)
+### Evaluation first (week 4)
 
 Before any model:
 - **Test sets:**
   - held-out foods, split by product **and** by brand, so near-duplicates
     can't leak between training and test;
   - 500 Smart log item names labelled by hand, taken from real meal
-    descriptions.
+    descriptions. At least 100 are dishes from the regions picked in 5A, so
+    accuracy is measured where global apps are weakest.
 - **Baselines:**
   - the category median;
   - the nearest food by name in FoodData Central;
@@ -349,14 +485,20 @@ designed in the research:
   and calls "good source" correctly ≥ 85% of the time. Nutrients that fail
   stay hidden for that food.
 
-**Exit for 5D:** each model's report is committed in `ml/reports/`; the models
+**Publishing accuracy:** no competitor publishes accuracy figures; Google
+doesn't for its photo estimates. A short public page and an in-app "How
+accurate is GRIT?" screen show Smart log's and the matcher's results against
+the hand-labelled set, by region, updated with each model release.
+
+**Exit for 5D:** each model's report is committed in `ml/reports/`, and the
+public accuracy page is live; the models
 that passed are switched on and the ones that failed stay off; prediction runs
 for every food in the database; the backend's database tests cover reading
 estimated values.
 
 ---
 
-## 5E. Contributions and data quality (weeks 6–8)
+## 5E. Contributions and data quality (weeks 7–9)
 
 - **Adding a missing product:**
   - **Flow:** after a barcode miss, the app offers "Add it": photograph the
@@ -370,6 +512,10 @@ estimated values.
     others after it passes the checks.
   - **Sharing back:** with the user's consent, the product is submitted to
     Open Food Facts through its write API.
+- **Asking where it helps most:**
+  - users in the countries with the most search misses are prompted more
+    often to add missing products and local dishes;
+  - those regions get a moderation queue with reviewers who know the foods.
 - **Quality score** per food, from 0 to 1. It weighs:
   - how trustworthy the source is (lab table > label > user);
   - agreeing scans;
@@ -419,6 +565,9 @@ model Exercise {
   instructions String?
   imageUrl    String?
   met         Float?   // typical MET, for calories
+  // Movement pattern, e.g. "squat", "hip_hinge", "horizontal_press".
+  // Swapping a back squat for a goblet squat keeps progression history.
+  pattern     String?
   sources     ExerciseSource[]
   @@map("exercises")
 }
@@ -458,7 +607,9 @@ model WorkoutSession {
   id            String   @id @default(cuid())
   userId        String
   activityLogId String   @unique
-  planDay       String?  // mon..sun, if it came from the plan
+  // Which session of the plan this was (1, 2, 3…). Plans run in order, so a
+  // missed Tuesday moves the week along instead of skipping the session.
+  planSession   Int?
   startedAt     DateTime
   endedAt       DateTime?
   sets          WorkoutSet[]
@@ -482,26 +633,64 @@ model WorkoutSet {
 
 - **Start a workout:** "Start today's workout" from Home or the plan opens a
   session with the plan's exercises.
-- **Logging sets:**
+- **Logging sets.** Logging alone is now free elsewhere (Hevy, Strava, Apple),
+  so it has to be the fastest anywhere:
   - each exercise shows last time's sets, so repeating them is one tap;
-  - a rest timer;
-  - adding, swapping or reordering exercises;
+  - **"say it":** saying "bench 80 for 8, 8, 7" logs three sets, using the
+    Smart log pipeline with a workout schema;
+  - rest timers that differ by set type (warm-up, working, superset);
+  - **supersets** and circuits;
+  - free **plate** and **warm-up** calculators;
+  - **works offline:** sets save on the phone and sync later;
+  - adding, swapping or reordering exercises; a swap keeps history through
+    the movement pattern;
   - **personal records** marked as they happen.
 - **Finishing:** creates the `ActivityLog` (type `strength_training`,
   duration from the session) and posts to the feed as today.
 - **History per exercise:** a weight-over-time chart and estimated one-rep
   max (5H).
+- **Plans run by session order, not weekday:** "next up: session 2" rather
+  than "Tuesday", so missed days don't break the plan. This is a common
+  complaint about RP Hypertrophy and Runna.
 - **Quick logging** of other activities (a run, a class) stays as it is.
 
 **Exit:** a full plan session can be logged on a phone with one tap per
-repeated set; it appears in the feed, counts toward challenges, and shows
+repeated set, by voice, and with the phone offline; it appears in the feed, counts toward challenges, and shows
 PRs; database tests cover sessions and PR detection.
 
 ## 5H. Fitness models (weeks 5–7)
 
-All four follow the nutrition track's rules: the code lives in `ml/`, each
-model is tested against a baseline before it ships, and results are
-precomputed or run in the backend.
+All three models follow the nutrition track's rules: the code lives in
+`ml/`, each model is tested against a baseline before it ships, and results
+are precomputed or run in the backend. They need more health data than GRIT
+imports today, so 5H starts by widening the import.
+
+### 0. Wider health import (first week of 5H)
+
+- **New data, read from Apple Health and Health Connect** with the user's
+  permission:
+  - heart rate variability: Apple gives SDNN and, from iOS 27, RMSSD;
+    Health Connect gives RMSSD. Store which, so values aren't compared across
+    types;
+  - resting heart rate;
+  - respiratory rate;
+  - sleeping temperature deviation;
+  - VO2max;
+  - menstrual flow and cycle days;
+  - per workout: average heart rate and distance.
+- **Storage:** a `HealthMetric` table (user, day, metric, value, unit,
+  **source app or device**, type). The source matters because different
+  devices' readings can't be compared directly.
+- **Android:** request Health Connect's background-read permission and
+  history permission (data older than 30 days), with a clear reason shown for
+  each.
+- **Cycle data is special:**
+  - never shown in the feed or challenges;
+  - never written into coach memory;
+  - covered by its own consent;
+  - no third-party code on its screens (the Flo case).
+- **Gate:** values match the phone's own health app on test devices, and a
+  second sync changes nothing.
 
 ### 1. Calorie burn
 
@@ -509,8 +698,9 @@ precomputed or run in the backend.
   value per type.
 - **v2, heart rate:** when Apple Health / Health Connect provides average heart
   rate for a workout, use the published heart-rate equations, which take
-  age, sex and weight (Keytel et al., 2005). This needs `ActivityLog` to
-  store `avgHeartRate`, `distanceM` and `source` detail from the import.
+  age, sex and weight (Keytel et al., 2005). The workout heart rate and
+  distance come from step 0, stored on `ActivityLog` as `avgHeartRate` and
+  `distanceM`.
 - **v3, personal calibration:**
   - the adaptive expenditure model (Phase 4) already estimates what a person
     actually burns;
@@ -522,6 +712,11 @@ precomputed or run in the backend.
     because it doesn't track training.
   - It switches on per user after about 4 weeks of logs and weigh-ins, and
     the shown factor is capped between 0.6 and 1.2.
+  - **Cycle-aware weight trend:** for users who log their cycle, water
+    weight gained before a period (often 1–2 kg) is filtered out of the
+    trend. Otherwise both the burn factor and the adaptive calorie targets
+    would read it as fat gain. This also improves the Phase 4 adaptive
+    targets.
 - **Gate:** v2 has to agree with published validation results on a sample.
   v3 has to make the adaptive model's week-ahead weight prediction more
   accurate on held-out weeks.
@@ -547,13 +742,24 @@ precomputed or run in the backend.
 
 - **v1, rules:**
   - **double progression:** once every set reaches the top of the rep range,
-    add 2.5 kg (lower body 5 kg, or 5%);
-  - after two missed sessions on a lift, drop it by 10%.
-- **Context the rules use:**
-  - **nutrition:** in a calorie deficit, smaller increases or hold; if
-    protein has been low most of the week, hold;
+    add the smallest step the equipment allows (usually 2.5 kg; lower body
+    5 kg);
+  - **load-jump caps:** never more than one equipment step at a time, or 5%,
+    whichever is smaller;
+  - **stalls:** after two sessions with no progress on a lift, or two missed
+    sessions, drop it by 10% for a week (a deload).
+- **Context the rules use**, from the research evidence:
+  - **deficit:** averaging more than 500 kcal a day below expenditure (from
+    the Phase 4 adaptive estimate) switches the goal to **"preserve"**: hold
+    weights and keep volume, aiming to keep muscle rather than add it. At
+    that deficit, strength can still rise but muscle gain stalls (Murphy and
+    Koehler, 2022);
+  - **protein:** under 1.6 g per kg of body weight on most of the last 7 days
+    holds increases. Gains above that level are small (Morton, 2018);
   - **recovery,** from health data: after a short night (under 6 h), keep
     today's weights instead of adding.
+- **Naming:** the engine is rules, described honestly as rules, never
+  marketed as "AI".
 - The coach explains each change ("holding your squat this week: you're in
   a deficit and slept 5 h"). No other app links training load to nutrition
   and sleep this way.
@@ -563,26 +769,21 @@ precomputed or run in the backend.
 - **Gate (v1):** unit tests over scripted training histories; no single
   increase above 10%.
 
-### 4. Running pace and race predictions
+Race-time predictions have moved out of Phase 5, into the later endurance
+package with route import and fuelling (see "Not in Phase 5").
 
-- **Data:** pace from imported runs, which needs `distanceM` from v2 above.
-- **Model:** race-time predictions for 5k, 10k, half marathon and marathon,
-  using Riegel's formula with each runner's own fatigue exponent fitted from
-  their runs.
-- **Gate:** shown only after 3 or more runs of different distances.
-- Optional within the phase; it ships if the time allows.
-
-**Exit for 5H:** models 1–3 live, with reports in `ml/reports/`; calorie
-estimates on new logs use intensity, and heart rate where available.
+**Exit for 5H:** the wider import is live; the three models are live, with
+reports in `ml/reports/`; calorie estimates on new logs use intensity, and
+heart rate where available; the cycle-aware trend is covered by tests.
 
 ---
 
 ## 5I. Verify and release
 
 - **Migrations:**
-  - the new tables are additive, including `Exercise`, `WorkoutSession`,
-    `WorkoutSet`, and the new `ActivityLog` columns (`avgHeartRate`,
-    `distanceM`);
+  - the new tables are additive, including `FoodName`, `FoodComponent`,
+    `Exercise`, `WorkoutSession`, `WorkoutSet`, `HealthMetric`, and the new
+    `ActivityLog` columns (`avgHeartRate`, `distanceM`);
   - `FoodLog.nutrients` is nullable;
   - the large import runs before the app release, so search never points at
     an empty table.
@@ -595,8 +796,10 @@ estimates on new logs use intensity, and heart rate where available.
 - **End to end:**
   - Smart log, search, barcode and the Nutrients view, in the web build and
     on a development build;
-  - a full strength session logged from the plan, and a plan generated for
-    a user with an injury note;
+  - a full strength session logged from the plan, by tap and by voice, and
+    a plan generated for a user with an injury note;
+  - the 5J checks: AI consent shown before the first AI call, no
+    third-party SDK traffic from health screens, and the age gate;
   - live checks against the production data.
 - **Docs:**
   - ROADMAP, README (new tables and endpoints) and `ml/README`;
@@ -608,7 +811,7 @@ estimates on new logs use intensity, and heart rate where available.
 ## Decisions needed from you
 
 1. **Supabase Pro**, for the 2–4 GB of food data. A global launch needs the
-   full import.
+   full import, and the research recommends it too.
 2. ~~Target countries~~ **Decided: global.** Regional depth is added by
    demand, using the "search misses by country" measure.
 3. **Licensing review:**
@@ -623,10 +826,21 @@ estimates on new logs use intensity, and heart rate where available.
    need licensing or your own filming.
 6. **Fitness first or nutrition first,** if only one developer: the plan
    assumes nutrition first.
-7. **Data consent:** a setting ("Help improve GRIT's food data") that covers
-   search and correction logging used for training, workout data used to
-   improve the progression and burn models, and sharing additions with
-   Open Food Facts, with matching privacy policy wording.
+7. **Data consent:** separate settings, all **off by default**, each with
+   matching privacy policy wording:
+   - "Use my food logs and corrections to improve GRIT's food data";
+   - "Use my health data to improve GRIT's models";
+   - "Use my workouts to improve progression and calorie estimates";
+   - "Share products I add with Open Food Facts".
+   Under GDPR, health data needs explicit opt-in, and bundling consents into
+   one setting isn't allowed.
+8. **Lawyer review before launch,** of the 5J items:
+   - the US consumer health data notice, including Washington's law;
+   - the GDPR impact assessment, and EU and UK representatives;
+   - how the UK Online Safety Act applies to GRIT's feed;
+   - Texas age signals;
+   - registration thresholds with Nigeria's data protection commission
+     (NDPC), if GRIT has Nigerian users.
 
 ## Risks
 
@@ -639,10 +853,31 @@ estimates on new logs use intensity, and heart rate where available.
 | Set logging feels slower than a paper notebook | One tap to repeat last time's set; designed and timed on a real phone before 5H starts |
 | Strength percentiles discourage beginners | Shown only when the user turns them on; framed against competitive lifters, with progress over time as the main view |
 | Burn calibration swings with noisy data | Switched on only after 4 weeks; capped between 0.6 and 1.2; changes at most 0.05 a week |
+| Apple's free strength plans and Strava's logger make GRIT's logger look redundant | The logger must be the fastest (voice, offline, one tap), and its value is the link to nutrition and sleep, which those apps don't have |
+| Health data reaches a third party by accident | 5J audit, no third-party SDKs on health screens, server-side analytics only; re-checked on every release |
+| Regional data spreads effort thin | Only the top one or two regions by search misses at a time; each region's accuracy is measured before the next starts |
 | ML work takes longer than planned | 5A–5C ship value without it: measured micronutrients for generic foods and labels. 5D models switch on one by one |
 
 ## Not in Phase 5
 
+These are in the later phases the research recommends: Phase 6 "Close the
+loop", Phase 7 "Reach and revenue" and Phase 8 "Biomarkers and partners".
+
+- **Phase 6:**
+  - a Recovery Context view, built on 5H's health data, caffeine and alcohol;
+  - Squads v2;
+  - a mood check-in with breathing sessions;
+  - a GLP-1 companion;
+  - writing workouts back to the health apps.
+- **Phase 7:**
+  - an endurance package: route import, fuelling, and the **race-time
+    predictions moved out of 5H**;
+  - meal plans and grocery lists;
+  - a hide-numbers mode;
+  - cycle-aware coaching;
+  - regional launches with local payments.
+- **Phase 8, after a lawyer signs off:** blood pressure, glucose-monitor
+  meal responses, a VO2max fitness age, and trend-only lab import.
 - Restaurant data.
 - Per-person portion calibration, the check-in bandit and the
   water-weight explainer, which need GRIT's own usage data first.
@@ -650,6 +885,5 @@ estimates on new logs use intensity, and heart rate where available.
 - Camera-based rep counting and form checks (open pose models such as
   MediaPipe run on the phone); worth a later phase once strength logging
   has users.
-- Writing GRIT workouts back to Apple Health / Health Connect.
 - Progression learned from GRIT's own data (v2), which needs a few
   thousand logged sessions.
