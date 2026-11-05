@@ -19,6 +19,7 @@ import { WorkoutPlanModule } from './workout-plan/workout-plan.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { ProgressModule } from './progress/progress.module';
 import { HealthModule } from './health/health.module';
+import { WorkoutsModule } from './workouts/workouts.module';
 import { AppController } from './app.controller';
 import { validateEnv } from './config/env';
 import { AllExceptionsFilter } from './observability/all-exceptions.filter';
@@ -54,6 +55,7 @@ import { UserThrottlerGuard } from './observability/throttler.guard';
     AlertsModule,
     ProgressModule,
     HealthModule,
+    WorkoutsModule,
   ],
   controllers: [AppController],
   providers: [

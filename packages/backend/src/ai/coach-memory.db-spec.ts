@@ -3,6 +3,12 @@ import { TestDb } from '../test-utils/db';
 import { AdaptiveService } from '../progress/adaptive.service';
 import { TrendsService } from '../progress/trends.service';
 import { AIService } from './ai.service';
+import type { WorkoutsService } from '../workouts/workouts.service';
+
+// The coach's strength lines aren't what these tests are about
+const noWorkouts = {
+  coachLines: () => Promise.resolve([]),
+} as unknown as WorkoutsService;
 
 /**
  * A model that streams a fixed reply for chat requests and returns `notes`
@@ -51,7 +57,7 @@ describe('Coach memory (database)', () => {
       add: ['Has a sore left knee; avoid jumping'],
       remove: [],
     });
-    const ai = new AIService(db.prisma, client, 'test', adaptive);
+    const ai = new AIService(db.prisma, client, 'test', adaptive, noWorkouts);
 
     const events = await collect(
       ai.streamMessage(u.supabaseId, 'My left knee hurts when I jump', 0),
@@ -87,7 +93,7 @@ describe('Coach memory (database)', () => {
       add: ['Knee has healed; back to running'],
       remove: [old.id],
     });
-    const ai = new AIService(db.prisma, client, 'test', adaptive);
+    const ai = new AIService(db.prisma, client, 'test', adaptive, noWorkouts);
     await ai.updateMemories(u.id, 'My knee is all better now, running again');
     expect((await ai.listMemories(u.supabaseId)).map((n) => n.text)).toEqual([
       'Knee has healed; back to running',
@@ -97,7 +103,7 @@ describe('Coach memory (database)', () => {
   it("doesn't ask about short messages, and skips the event when nothing is new", async () => {
     const u = await db.user();
     const { client, calls } = fakeModel({ add: [], remove: [] });
-    const ai = new AIService(db.prisma, client, 'test', adaptive);
+    const ai = new AIService(db.prisma, client, 'test', adaptive, noWorkouts);
     const short = await collect(ai.streamMessage(u.supabaseId, 'thanks!', 0));
     expect(short.map((e) => e.type)).toEqual(['delta', 'delta', 'done']);
     expect(calls.filter((c) => !c.stream)).toHaveLength(0);
@@ -111,7 +117,13 @@ describe('Coach memory (database)', () => {
 
   it('lets the user add, delete and clear notes', async () => {
     const u = await db.user();
-    const ai = new AIService(db.prisma, fakeModel({}).client, 'test', adaptive);
+    const ai = new AIService(
+      db.prisma,
+      fakeModel({}).client,
+      'test',
+      adaptive,
+      noWorkouts,
+    );
     const note = await ai.addMemory(u.supabaseId, '  Allergic to   peanuts ');
     expect([note.text, note.source]).toEqual(['Allergic to peanuts', 'user']);
     await expect(
@@ -160,7 +172,7 @@ describe('Coach memory (database)', () => {
       ],
     });
     const { client, calls } = fakeModel({ add: [], remove: [] });
-    const ai = new AIService(db.prisma, client, 'test', adaptive);
+    const ai = new AIService(db.prisma, client, 'test', adaptive, noWorkouts);
     await collect(ai.streamMessage(u.supabaseId, 'hi', 0));
     const chat = calls.find((c) => c.stream)!;
     expect(chat.instructions).toContain('Food logged on 2 of the last 7 days');

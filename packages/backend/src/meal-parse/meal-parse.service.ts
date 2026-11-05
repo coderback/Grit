@@ -1,8 +1,6 @@
 import {
   BadGatewayException,
   BadRequestException,
-  HttpException,
-  HttpStatus,
   Inject,
   Injectable,
   Logger,
@@ -13,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AI_MODEL } from '../ai/azure-openai';
 import { localToday } from '../common/day';
 import { assertAiConsent } from '../common/ai-consent';
+import { giveBackParse, takeParse } from '../common/parse-quota';
 import { FoodService } from '../food/food.service';
 import {
   groundItem,
@@ -26,8 +25,7 @@ import {
 } from './meal-parse';
 import type { LogParsedMealDto, ParseMealDto } from './meal-parse.dto';
 
-// Each reading is a model call (with a photo, a large one), so cap it per day
-export const DAILY_PARSES = 30;
+export { DAILY_PARSES } from '../common/parse-quota';
 const MAX_ITEMS = 12;
 
 @Injectable()
@@ -48,45 +46,6 @@ export class MealParseService {
     });
     if (!user) throw new NotFoundException('User not found');
     return user.id;
-  }
-
-  /**
-   * Takes one of today's readings, or refuses. Two conditional updates, so
-   * parallel requests can't both take the last one.
-   */
-  private async takeParse(userId: string, today: string) {
-    const fresh = await this.prisma.user.updateMany({
-      where: {
-        id: userId,
-        OR: [{ aiParseDay: null }, { aiParseDay: { not: today } }],
-      },
-      data: { aiParseDay: today, aiParseCount: 1 },
-    });
-    if (fresh.count) return;
-    const more = await this.prisma.user.updateMany({
-      where: {
-        id: userId,
-        aiParseDay: today,
-        aiParseCount: { lt: DAILY_PARSES },
-      },
-      data: { aiParseCount: { increment: 1 } },
-    });
-    if (!more.count) {
-      throw new HttpException(
-        `You can use smart logging ${DAILY_PARSES} times a day. Search or add foods by hand for the rest of today.`,
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-  }
-
-  /** A reading that failed on our side doesn't count. */
-  private async giveBack(userId: string, today: string) {
-    await this.prisma.user
-      .updateMany({
-        where: { id: userId, aiParseDay: today, aiParseCount: { gt: 0 } },
-        data: { aiParseCount: { decrement: 1 } },
-      })
-      .catch(() => undefined);
   }
 
   /** The first database product with calories for a branded item. */
@@ -124,7 +83,7 @@ export class MealParseService {
     assertAiConsent(user);
     const userId = user.id;
     const today = localToday(offset);
-    await this.takeParse(userId, today);
+    await takeParse(this.prisma, userId, today);
     const known = await this.prisma.foodMemory.findMany({
       where: { userId },
       orderBy: [{ uses: 'desc' }, { updatedAt: 'desc' }],
@@ -172,7 +131,7 @@ export class MealParseService {
       if (!Array.isArray(parsed.items)) throw new Error('No items');
     } catch (err) {
       this.logger.warn(`Meal parse failed: ${(err as Error).message}`);
-      await this.giveBack(userId, today);
+      await giveBackParse(this.prisma, userId, today);
       throw new BadGatewayException(
         "Couldn't read that meal right now. Try again, or add it by hand.",
       );

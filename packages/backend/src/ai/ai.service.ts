@@ -25,6 +25,9 @@ import {
 import { macroTargets } from '../common/nutrition';
 import { assertAiConsent } from '../common/ai-consent';
 import { AdaptiveService } from '../progress/adaptive.service';
+import { WorkoutsService } from '../workouts/workouts.service';
+import { recoveryLines, summarizeMetrics } from '../health/health.service';
+import { CYCLE_METRICS } from '../health/heart-rate';
 import {
   MAX_MEMORIES,
   MEMORY_SCHEMA,
@@ -50,6 +53,7 @@ export class AIService {
     private openai: OpenAI,
     @Inject(AI_MODEL) private model: string,
     private adaptive: AdaptiveService,
+    private workouts: WorkoutsService,
   ) {}
 
   private async resolveUser(supabaseId: string) {
@@ -72,6 +76,7 @@ export class AIService {
       healthDays,
       weekFood,
       memories,
+      metrics,
     ] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: userId } }),
       this.prisma.foodLog.findMany({
@@ -105,6 +110,15 @@ export class AIService {
         where: { userId },
         orderBy: { createdAt: 'asc' },
         select: { text: true },
+      }),
+      // Recovery metrics from the health app; cycle data never reaches the coach
+      this.prisma.healthMetric.findMany({
+        where: {
+          userId,
+          day: { gte: dateMarker(addDays(todayDate, -30)) },
+          metric: { notIn: [...CYCLE_METRICS] },
+        },
+        orderBy: { day: 'asc' },
       }),
     ]);
 
@@ -170,6 +184,7 @@ export class AIService {
       todayHealth?.sleepMinutes != null
         ? `- Sleep last night: ${Math.floor(todayHealth.sleepMinutes / 60)}h ${todayHealth.sleepMinutes % 60}m`
         : null,
+      ...recoveryLines(summarizeMetrics(metrics), todayDate),
     ].filter(Boolean);
 
     // Averages over the days they logged, so unlogged days don't drag them down
@@ -205,6 +220,11 @@ export class AIService {
       );
     }
 
+    // What the progression rules say about the next session, and recent PRs
+    const strengthLines = user
+      ? await this.workouts.coachLines(user, offset).catch(() => [])
+      : [];
+
     const memoryBlock = memories.length
       ? `\nWhat you know about them from earlier chats (use it naturally; don't list it back to them):\n${memories.map((m) => `- ${m.text}`).join('\n')}\n`
       : '';
@@ -224,7 +244,11 @@ Habits today:
 ${habitLines}
 
 Activity (last 7 days):
-${activityLines}`;
+${activityLines}${
+      strengthLines.length
+        ? `\n\nStrength training (the app's progression rules, not your guesses; explain them in these words when asked why a weight changed or held):\n${strengthLines.join('\n')}`
+        : ''
+    }`;
   }
 
   private getSystemPrompt(context: string): string {
