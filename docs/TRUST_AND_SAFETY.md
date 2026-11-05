@@ -24,7 +24,8 @@ that carry no health data.
 | Expo push service (`expo-notifications`) | Push tokens and the text of each push | **Watch:** push text includes streak counts, the weekly summary (workouts, active minutes, days with food logged) and coach check-ins ("No meals logged for 3 days"). Expo is a service provider, but see recommendation below |
 | Azure OpenAI (backend `openai` client) | Meal text and photos, coach chats with a summary of the user's logs | Only after the AI consent in the app; see section 2 |
 | Open Food Facts (backend) | Search terms and barcodes, from the server, with no user identity | Fine |
-| Apple HealthKit / Health Connect (`@kingstinct/react-native-healthkit`, `react-native-health-connect`) | Read on the phone, sent only to GRIT's backend | Fine; no HealthKit data in iCloud or used for ads |
+| Apple HealthKit / Health Connect (`@kingstinct/react-native-healthkit`, `react-native-health-connect`) | Read on the phone, sent only to GRIT's backend. If the user turns it on, GRIT writes logged meals (calories, macros, caffeine) back to the phone's health app | Fine; no HealthKit data in iCloud or used for ads |
+| AsyncStorage and React Query persistence (`@react-native-async-storage/async-storage`, `@tanstack/*-persist*`), Phase 6 | The workout in progress, finished workouts waiting for a connection, and the cached plan, on the phone only | Fine; nothing leaves the phone. Cleared from the cache on sign-out; a waiting workout is only sent for the account it belongs to |
 | Expo modules (camera, image picker, haptics, fonts, secure store, …) | Nothing leaves the phone | Fine |
 | `@react-native-community/netinfo` | Checks connectivity; no user data | Fine |
 | Google / Apple sign-in | Sign-in only | Fine |
@@ -95,6 +96,8 @@ Facebook SDK, PostHog and so on).
 | **Loss-rate cap:** planned loss of at most 1% of body weight a week, in onboarding targets, adaptive suggestions and the time-to-goal estimate | Same files, plus `lib/tdee.ts` |
 | **Eating-disorder question:** asked in onboarding (and at the "Before you start" check). A "yes" means no weight-loss goal (hidden in the app, refused by the server), adaptive suggestions for maintenance only, and coach instructions to avoid weight-loss talk | `wellbeing.tsx`, `users.service.ts`, `adaptive.service.ts`, `ai.service.ts` |
 | **Pro-eating-disorder names:** display names and challenge names containing terms like "thinspo" or "proana" are refused, also when split up ("thin-spo") | `common/safety.ts`, `users.service.ts`, `challenges.service.ts` |
+| **Cycle data (Phase 6):** menstrual flow and period days are read only with their own consent (Settings → Health data), off by default. Turning it off deletes what was imported. Cycle data never appears in the feed or challenges, never reaches the coach's context, and notes about it are never kept in coach memory (the model is told not to, and a word filter drops any it proposes). No third-party code runs on its screen | `health.service.ts`, `users.service.ts`, `ai.service.ts`, `coach-memory.ts`, `settings/health.tsx` |
+| **Health data in other users' view:** a workout logged set by set shows in the feed as counts only (sets and PRs), never weights | `social.service.ts` |
 | **Separate data permissions**, all off by default: improving food data, training on health data, training on workout data, and sharing products with Open Food Facts. GRIT does none of these today; the settings record the user's choice for when it does | Settings → Privacy |
 
 **To review with a dietitian:** the floors and the loss-rate cap are the
@@ -114,12 +117,29 @@ are added, they need the same check plus reporting.
     weight, sleep and steps from Health Connect, an AI coach, and
     challenges;
   - for each Health Connect permission GRIT requests, describe the feature
-    that uses it.
+    that uses it (the same reasons are on the app's Health data screen):
+    - exercise, steps, distance: workouts and steps count toward goals and
+      challenges;
+    - heart rate: workout calories from heart rate;
+    - sleep, heart rate variability, resting heart rate, respiratory rate,
+      skin temperature: recovery, for the coach and the progression rules;
+    - VO2max: the fitness trend;
+    - weight: the weight trend and calorie targets;
+    - menstruation (only after the in-app cycle consent): the user's own
+      cycle record, not shared;
+    - write nutrition (only if the user turns it on): logged meals in
+      Health Connect;
+    - read health data history: the first sync imports two months.
+  - GRIT doesn't request background read; add it to the declaration if
+    background sync is built.
 - **The privacy policy shown in Health Connect must be the same one as on
   the Play listing.**
 - **Apple App Store privacy labels:**
   - Health & Fitness, collected and linked to the user;
   - not used for tracking.
+- **Apple HealthKit:** the app now asks to write nutrition (with
+  `NSHealthUpdateUsageDescription`), only when the user turns on writing
+  meals; App Review checks that the text matches.
 
 ---
 
@@ -133,8 +153,13 @@ alongside the main privacy policy.*
 - **What you enter:** food and drinks, workouts, habits, weight, height, date
   of birth, sex, goals, your answer to the eating-disorder question, chats
   with the AI coach, and the coach's notes about you.
-- **From your phone's health app, if you connect it:** workouts, steps,
-  sleep and weight.
+- **From your phone's health app, if you connect it:** workouts (with heart
+  rate and distance), steps, sleep, weight, heart rate variability, resting
+  heart rate, breathing rate, sleeping temperature and VO2max; and, only if
+  you turn on cycle data separately, period days and flow.
+- **Cycle data** is used only to show you your own record. It's never
+  shared with other users or sent to the AI coach, and turning it off
+  deletes it.
 - **Inferred:** calorie and macro targets, estimates of how much you burn,
   and the patterns behind coach check-ins.
 

@@ -153,21 +153,75 @@ first time they use an AI feature. The Azure steps in `TRUST_AND_SAFETY.md`
 section 2, and the store declarations in section 4, are for the account
 owner.
 
-## Phases 6–9 (planned)
+## Phase 6 — Strength logging and health data ✅
+
+- **Strength logging** (the workout screen, from Home, the plan or the
+  Activity tab):
+  - each set starts filled with today's target; one tap ticks it, and one
+    tap on last time's numbers repeats them;
+  - rest timers by set type (45 s after a warm-up, none inside a superset,
+    90–150 s after working sets), with +30 s and skip;
+  - supersets and circuits, plate and warm-up calculators, adding, swapping
+    and reordering exercises;
+  - a swap to a similar exercise (same movement, same equipment) borrows its
+    history, so progression carries on;
+  - PRs (heaviest, best estimated 1RM, most reps) marked as they happen;
+  - "Say it": "bench 80 for 8, 8, 7" logs three sets. Common phrasings are
+    read without the AI; others use it, sharing Smart log's 30 a day;
+  - offline: the workout lives on the phone, and a finished one waits there
+    until it's saved. React Query's persisted mutations carry it across
+    restarts, and the backend saves it once however often it's sent;
+  - finishing creates the activity log, so the feed (set and PR counts, no
+    weights), challenges, calories and streaks work as before;
+  - history per exercise: a chart of estimated 1RM (Epley, 10 reps or fewer)
+    or top weight, records and past sessions;
+  - plans run by session order: "Next up · Session 2 of 3", so a missed day
+    doesn't skip a session.
+- **Progression rules** (rules, not AI, with every change explained in the
+  app and to the coach):
+  - double progression: add one equipment step (2.5 kg, 5 kg for the lower
+    body), never more than 5%; light dumbbells and kettlebells add a rep
+    instead;
+  - a 10% deload after two sessions without progress, or two missed weeks;
+  - hold the weight in a deficit of more than 500 kcal a day ("preserve"),
+    on protein under 1.6 g/kg on most logged days, or after under 6 h sleep.
+- **Health data:**
+  - HRV (SDNN or RMSSD, stored apart), resting heart rate, breathing rate,
+    sleeping temperature (Apple's as a deviation from earlier nights),
+    VO2max, and each workout's average heart rate and distance;
+  - workout calories from heart rate (Keytel et al., 2005) when the device
+    gives none, with the method recorded;
+  - a second sync with the same data changes nothing;
+  - cycle data with its own consent, deleted when turned off, and never in
+    the feed, challenges, the coach's context or coach memory;
+  - logged meals written back to Apple Health or Health Connect, if turned
+    on;
+  - the settings screen says why each kind of data is read; the first sync
+    reads two months (Health Connect's history permission).
+
+**After deploying Phase 6:** the migration is applied to Supabase. The
+app needs a new development or store build:
+it adds AsyncStorage and new health permissions, so Expo Go and older
+builds can't be used for the health parts. Check on real phones that a
+first sync's values match the phone's own health app, that a second sync
+reports nothing new, and that meals appear in the health app when
+writing is on.
+
+**Not done in Phase 6:**
+- Health Connect's background-read permission isn't requested: GRIT syncs
+  when the app is open, and Play rejects permissions an app doesn't use.
+  Ask for it when background sync is built.
+- Apple's RMSSD is read where iOS offers it; older iOS has SDNN only.
+- Weights are stored in kg; for lb users, suggested weights convert from
+  kg steps rather than 5 lb plates.
+
+## Phases 7–9 (planned)
 
 See [`PLAN_PHASES_5_TO_9.md`](./PLAN_PHASES_5_TO_9.md), shaped by the
 research in
 [`reports/GRIT health fitness nutrition moat.md`](../reports/GRIT%20health%20fitness%20nutrition%20moat.md).
 Ordered from easiest to hardest, each phase is released on its own:
 
-- **Phase 6 — Strength logging and health data (about 5 weeks):**
-  - set-by-set logging with PRs, supersets, calculators, voice and offline
-    logging, and plans that run by session order;
-  - progression rules that switch to "preserve" in a big deficit or when
-    protein is low;
-  - a wider health import (HRV, resting heart rate, VO2max, cycle data) with
-    heart-rate calories;
-  - nutrition written back to the phone's health app.
 - **Phase 7 — GRIT's own food database (about 4 weeks):** imports from
   USDA, Open Food Facts and the UK, Canada, France and Finland tables; local
   search and barcodes; micronutrient tracking from measured values.
