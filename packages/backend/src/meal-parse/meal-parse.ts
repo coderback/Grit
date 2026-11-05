@@ -16,14 +16,38 @@ export interface ModelItem {
   proteinPer100g: number;
   carbsPer100g: number;
   fatPer100g: number;
+  caffeineMgPer100g: number;
+  alcoholGPer100g: number;
+  category: FoodCategory;
   confidence: 'high' | 'medium' | 'low';
 }
+
+export const FOOD_CATEGORIES = [
+  'meat_fish',
+  'eggs',
+  'dairy',
+  'grains_bread',
+  'vegetables',
+  'fruit',
+  'legumes',
+  'nuts_seeds',
+  'oils_fats',
+  'sweets_snacks',
+  'drinks',
+  'mixed_dish',
+  'other',
+] as const;
+export type FoodCategory = (typeof FOOD_CATEGORIES)[number];
 
 export interface Per100 {
   kcal: number;
   protein: number;
   carbs: number;
   fat: number;
+  /** mg per 100 g; missing means unknown */
+  caffeine?: number;
+  /** g of alcohol per 100 g */
+  alcohol?: number;
 }
 
 export interface Memory extends Per100 {
@@ -40,12 +64,15 @@ export interface ParsedItem {
   per100: Per100;
   source: ItemSource;
   confidence: 'high' | 'medium' | 'low';
+  category: FoodCategory;
+  /** Protein or fat is outside what's normal for the category */
+  check: boolean;
 }
 
 export const MEAL_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['items', 'question'],
+  required: ['items', 'question', 'cookingFatUnclear'],
   properties: {
     items: {
       type: 'array',
@@ -62,6 +89,9 @@ export const MEAL_SCHEMA = {
           'proteinPer100g',
           'carbsPer100g',
           'fatPer100g',
+          'caffeineMgPer100g',
+          'alcoholGPer100g',
+          'category',
           'confidence',
         ],
         properties: {
@@ -74,13 +104,54 @@ export const MEAL_SCHEMA = {
           proteinPer100g: { type: 'number' },
           carbsPer100g: { type: 'number' },
           fatPer100g: { type: 'number' },
+          caffeineMgPer100g: { type: 'number' },
+          alcoholGPer100g: { type: 'number' },
+          category: { type: 'string', enum: [...FOOD_CATEGORIES] },
           confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
         },
       },
     },
     question: { type: ['string', 'null'] },
+    cookingFatUnclear: { type: 'boolean' },
   },
 } as const;
+
+// What's normal per 100 g, generously, so only clear mistakes are flagged
+// (grilled chicken at 2 g protein, or rice at 40 g fat)
+const RANGES: Partial<
+  Record<FoodCategory, { protein: [number, number]; fat: [number, number] }>
+> = {
+  meat_fish: { protein: [8, 45], fat: [0, 45] },
+  eggs: { protein: [8, 16], fat: [3, 25] },
+  grains_bread: { protein: [1, 20], fat: [0, 30] },
+  vegetables: { protein: [0, 10], fat: [0, 20] },
+  fruit: { protein: [0, 5], fat: [0, 40] },
+  legumes: { protein: [4, 40], fat: [0, 25] },
+  nuts_seeds: { protein: [5, 40], fat: [25, 80] },
+  oils_fats: { protein: [0, 3], fat: [50, 100] },
+  drinks: { protein: [0, 12], fat: [0, 12] },
+};
+
+/** True when protein or fat is outside the normal range for the category. */
+export function needsCheck(category: FoodCategory, per100: Per100) {
+  const r = RANGES[category];
+  if (!r) return false;
+  return (
+    per100.protein < r.protein[0] ||
+    per100.protein > r.protein[1] ||
+    per100.fat < r.fat[0] ||
+    per100.fat > r.fat[1]
+  );
+}
+
+/** Cooking oil, for the "Cooked in oil?" answer. */
+export const COOKING_OIL: Per100 = {
+  kcal: 884,
+  protein: 0,
+  carbs: 0,
+  fat: 100,
+};
+export const OIL_AMOUNTS = { none: 0, a_little: 5, a_lot: 15 } as const;
 
 /** The same food, ignoring case, spacing, punctuation and plurals. */
 export function memoryKey(name: string) {
@@ -145,6 +216,16 @@ export function groundItem(
   database: Per100 | undefined,
 ): ParsedItem {
   const grams = clamp(Math.round(item.grams), 1, 2000);
+  const category = (FOOD_CATEGORIES as readonly string[]).includes(
+    item.category,
+  )
+    ? item.category
+    : 'other';
+  // Labels rarely give caffeine or alcohol, so the reading fills them in
+  const drink = {
+    caffeine: clamp(item.caffeineMgPer100g, 0, 5000),
+    alcohol: clamp(item.alcoholGPer100g, 0, 80),
+  };
   if (memory) {
     return {
       name: item.name,
@@ -154,9 +235,16 @@ export function groundItem(
         : `your usual ${Math.round(memory.usualGrams)} g`,
       // "Oats" with no amount means their usual amount
       grams: item.quantityStated ? grams : Math.round(memory.usualGrams),
-      per100: memory,
+      per100: {
+        ...memory,
+        caffeine: memory.caffeine ?? drink.caffeine,
+        alcohol: memory.alcohol ?? drink.alcohol,
+      },
       source: 'memory',
       confidence: 'high',
+      category,
+      // Their own numbers, so not second-guessed
+      check: false,
     };
   }
   if (database) {
@@ -165,24 +253,32 @@ export function groundItem(
       brand: item.brand,
       portion: item.portion,
       grams,
-      per100: database,
+      per100: { ...drink, ...database },
       source: 'database',
       confidence: item.confidence,
+      category,
+      check: needsCheck(category, database),
     };
   }
-  return {
-    name: item.name,
-    brand: item.brand,
-    portion: item.portion,
-    grams,
-    per100: saneEstimate({
+  const per100 = {
+    ...saneEstimate({
       kcal: item.kcalPer100g,
       protein: item.proteinPer100g,
       carbs: item.carbsPer100g,
       fat: item.fatPer100g,
     }),
+    ...drink,
+  };
+  return {
+    name: item.name,
+    brand: item.brand,
+    portion: item.portion,
+    grams,
+    per100,
     source: 'estimate',
     confidence: item.confidence,
+    category,
+    check: needsCheck(category, per100),
   };
 }
 
@@ -194,6 +290,9 @@ export function totals(per100: Per100, grams: number) {
     proteinG: round1(per100.protein * f),
     carbsG: round1(per100.carbs * f),
     fatG: round1(per100.fat * f),
+    caffeineMg:
+      per100.caffeine != null ? Math.round(per100.caffeine * f) : null,
+    alcoholG: per100.alcohol != null ? round1(per100.alcohol * f) : null,
   };
 }
 
@@ -208,8 +307,11 @@ For each food:
 - grams eaten: use their amount if they said it; otherwise a realistic portion for what they described or what the photo shows. Say in "portion" what you assumed ("2 large eggs", "1 tbsp").
 - quantityStated: true only if they gave the amount.
 - nutrition per 100 g as eaten (cooked, with typical preparation).
-- Hidden calories are the usual reason trackers undercount: list cooking oil, butter, dressings, sauces, sugar in drinks and toppings as their own items when they're likely to be there.
+- Hidden calories are the usual reason trackers undercount: list dressings, sauces, sugar in drinks and toppings as their own items when they're likely to be there.
+- Cooking fat: if they said how it was cooked, or the photo clearly shows it fried or in oil, list the oil or butter as its own item. If it was probably cooked in fat but you can't tell how much, don't add it: set cookingFatUnclear to true and the app will ask. Otherwise cookingFatUnclear is false.
+- caffeineMgPer100g and alcoholGPer100g: typical amounts per 100 g (0 if none). Coffee and tea have caffeine; beer, wine and spirits have alcohol.
+- category: the kind of food.
 - confidence: how sure you are of the portion.
 
-If one detail would change the total a lot and you can't tell (portion size of the main food, fried or grilled, sugar in a drink), ask about it in "question" (one short question). Otherwise question is null.
+If one detail other than cooking fat would change the total a lot and you can't tell (portion size of the main food, sugar in a drink), ask about it in "question" (one short question). Otherwise question is null.
 Don't give advice. Only food the person ate.`;

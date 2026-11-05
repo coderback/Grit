@@ -27,6 +27,8 @@ export class AIController {
     @UtcOffset() offset: number,
     @Res() res: Response,
   ) {
+    // Refused before the stream starts, so the app gets a 403 it understands
+    await this.ai.ensureConsent(user.supabaseId);
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');

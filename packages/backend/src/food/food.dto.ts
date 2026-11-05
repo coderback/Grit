@@ -1,4 +1,6 @@
 import {
+  Matches,
+  IsInt,
   IsIn,
   IsISO8601,
   IsNumber,
@@ -63,6 +65,19 @@ export class CreateFoodLogDto {
   @IsString()
   @Length(1, 20)
   servingUnit?: string;
+
+  // Caffeine (mg) and alcohol (g) in the amount eaten, if known
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(5000)
+  caffeineMg?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1000)
+  alcoholG?: number;
 
   @IsOptional()
   @IsISO8601({ strict: true })
@@ -178,4 +193,33 @@ export class SaveFavoriteDto {
   @IsString()
   @Length(1, 20)
   servingUnit?: string;
+}
+
+/** What the user picked from a food search, or that they picked nothing. */
+export class SearchEventDto {
+  @IsString()
+  @Length(1, 200)
+  query: string;
+
+  // The result's position (0-based) and name; both left out when nothing was picked
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1000)
+  position?: number;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  pickedName?: string;
+
+  // From the phone's locale, e.g. "GB" and "en-GB"
+  @IsOptional()
+  @Matches(/^[A-Z]{2}$/)
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(2, 20)
+  lang?: string;
 }

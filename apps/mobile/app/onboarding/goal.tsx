@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useOnboardingStore } from '../../stores/onboardingStore';
+import { weightLossAllowed } from '../../lib/safety';
 
 function ProgressBar({ step, total }: { step: number; total: number }) {
   return (
@@ -27,7 +28,9 @@ const GOALS: {
 ];
 
 export default function GoalScreen() {
-  const { primaryGoal, desiredWeightKg, weightKg, set } = useOnboardingStore();
+  const { primaryGoal, desiredWeightKg, weightKg, edScreen, set } = useOnboardingStore();
+  // After a "yes" to the eating-disorder question, no weight-loss goal
+  const lossAllowed = weightLossAllowed(edScreen);
   const [desired, setDesired] = useState(desiredWeightKg ? String(desiredWeightKg) : weightKg ? String(weightKg) : '');
 
   const showDesired = primaryGoal && primaryGoal !== 'maintain';
@@ -44,7 +47,7 @@ export default function GoalScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
       <ScrollView contentContainerStyle={{ padding: 20, gap: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        <ProgressBar step={5} total={11} />
+        <ProgressBar step={6} total={12} />
 
         {/* Header nav */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -54,7 +57,7 @@ export default function GoalScreen() {
           >
             <Text style={{ color: Colors.text, fontSize: 18 }}>‹</Text>
           </Pressable>
-          <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>6 of 11</Text>
+          <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>7 of 12</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -68,7 +71,7 @@ export default function GoalScreen() {
         </View>
 
         <View style={{ gap: 12 }}>
-          {GOALS.map(g => {
+          {GOALS.filter((g) => lossAllowed || g.value !== 'lose_weight').map(g => {
             const selected = primaryGoal === g.value;
             return (
               <Pressable accessibilityRole="button" aria-selected={selected}

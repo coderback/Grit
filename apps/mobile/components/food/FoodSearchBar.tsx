@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useFoodSearch, type NormalizedFood } from '@/hooks/useFoodLog';
+import { recordSearch } from '@/lib/searchEvents';
 import { Colors } from '@/constants/colors';
 
 interface FoodSearchBarProps {
@@ -18,10 +19,21 @@ export function FoodSearchBar({ onSelect }: FoodSearchBarProps) {
   const [query, setQuery] = useState('');
   const { data: results, isLoading } = useFoodSearch(query);
 
+  // A search the user leaves without picking anything counts as a miss
+  const pending = useRef('');
+  pending.current = query;
+  useEffect(() => () => recordSearch(pending.current), []);
+  const clear = () => {
+    recordSearch(query);
+    setQuery('');
+  };
+
   const renderItem = useCallback(
-    ({ item }: { item: NormalizedFood }) => (
+    ({ item, index }: { item: NormalizedFood; index: number }) => (
       <Pressable accessibilityRole="button"
         onPress={() => {
+          recordSearch(pending.current, { position: index, name: item.name });
+          pending.current = '';
           onSelect(item);
           setQuery('');
         }}
@@ -106,7 +118,7 @@ export function FoodSearchBar({ onSelect }: FoodSearchBarProps) {
         />
         {isLoading && <ActivityIndicator size="small" color={Colors.muted} />}
         {query.length > 0 && !isLoading && (
-          <Pressable accessibilityLabel="Clear search" accessibilityRole="button" onPress={() => setQuery('')} hitSlop={8}>
+          <Pressable accessibilityLabel="Clear search" accessibilityRole="button" onPress={clear} hitSlop={8}>
             <Text style={{ color: Colors.muted, fontSize: 16 }}>×</Text>
           </Pressable>
         )}
@@ -145,7 +157,7 @@ export function FoodSearchBar({ onSelect }: FoodSearchBarProps) {
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular' }}>
             No results for "{query}"
           </Text>
-          <Pressable accessibilityRole="button" onPress={() => onSelect({ offId: '', name: query, brand: null, barcode: null, calories: 0, proteinG: 0, carbsG: 0, fatG: 0, servingQty: 1, servingUnit: 'serving', imageUrl: null })}>
+          <Pressable accessibilityRole="button" onPress={() => { recordSearch(query); pending.current = ''; onSelect({ offId: '', name: query, brand: null, barcode: null, calories: 0, proteinG: 0, carbsG: 0, fatG: 0, servingQty: 1, servingUnit: 'serving', imageUrl: null }); }}>
             <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold' }}>
               Log "{query}" manually →
             </Text>

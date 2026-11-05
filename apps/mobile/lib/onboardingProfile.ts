@@ -17,6 +17,7 @@ export async function syncOnboardingProfile(): Promise<void> {
           calcTDEE(calcBMR(s.gender, s.weightKg, s.heightCm, ageFromDOB(s.dateOfBirth)), s.activityLevel),
           s.primaryGoal,
           s.pace,
+          { gender: s.gender, weightKg: s.weightKg },
         )
       : undefined;
 
@@ -26,6 +27,7 @@ export async function syncOnboardingProfile(): Promise<void> {
     heightCm: s.heightCm,
     weightKg: s.weightKg,
     activityLevel: s.activityLevel ?? undefined,
+    edScreen: s.edScreen ?? undefined,
     primaryGoal: s.primaryGoal ?? undefined,
     calorieGoal,
     goalWeightKg: s.desiredWeightKg ?? undefined,
@@ -45,8 +47,6 @@ export async function syncOnboardingProfile(): Promise<void> {
     notifOffTrackOnly: s.notifOffTrackOnly,
   });
   s.reset();
-
-  // The coach builds a first workout plan from these answers. It takes a few
-  // seconds, so it runs in the background; the Plan screen can retry it.
-  void api.post('/workout-plan/generate', {}, { timeout: 90_000 }).catch(() => {});
+  // The first workout plan is built from the Plan screen, which asks for
+  // permission to use the AI first (Apple guideline 5.1.2(i)).
 }

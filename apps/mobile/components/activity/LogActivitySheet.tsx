@@ -3,7 +3,7 @@ import { View, Text, Pressable, Alert } from 'react-native';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { SheetTextInput, sheetKeyboardProps } from '@/components/ui/SheetTextInput';
 import * as Haptics from 'expo-haptics';
-import { useLogActivity, useActivityTypes, useUpdateActivity, useDeleteActivity, type ActivityLog } from '@/hooks/useActivityLog';
+import { useLogActivity, useActivityTypes, useUpdateActivity, useDeleteActivity, type ActivityLog, type Intensity } from '@/hooks/useActivityLog';
 import { confirmAction } from '@/lib/confirm';
 import { loggedAtFor } from '@/lib/date';
 import { Button } from '@/components/ui/Button';
@@ -44,6 +44,12 @@ interface LogActivitySheetProps {
   date?: string;
 }
 
+const INTENSITY_CHOICES: { value: Intensity; label: string; hint: string }[] = [
+  { value: 'light', label: 'Easy', hint: 'can chat' },
+  { value: 'moderate', label: 'Moderate', hint: 'short sentences' },
+  { value: 'vigorous', label: 'Hard', hint: 'few words' },
+];
+
 export function LogActivitySheet({ onClose, editing, date }: LogActivitySheetProps) {
   const sheetRef = useRef<BottomSheet>(null);
   useHideTabBar();
@@ -56,6 +62,7 @@ export function LogActivitySheet({ onClose, editing, date }: LogActivitySheetPro
   const [selectedType, setSelectedType] = useState(editing?.activityType ?? 'running');
   const [duration, setDuration] = useState(String(editing?.durationMin ?? 30));
   const [steps, setSteps] = useState(editing?.steps ? String(editing.steps) : '');
+  const [intensity, setIntensity] = useState<Intensity>(editing?.intensity ?? 'moderate');
   // Step counts only make sense for on-foot workouts; they count toward step challenges
   const countsSteps = STEP_TYPES.includes(selectedType);
 
@@ -77,18 +84,19 @@ export function LogActivitySheet({ onClose, editing, date }: LogActivitySheetPro
           id: editing.id,
           activityType: selectedType,
           durationMin,
+          intensity,
           // 0 clears a count that no longer applies
           steps: countsSteps ? stepCount ?? 0 : editing.steps ? 0 : undefined,
         });
       } else {
-        await logActivity({ activityType: selectedType, durationMin, steps: stepCount, loggedAt: date ? loggedAtFor(date) : undefined });
+        await logActivity({ activityType: selectedType, durationMin, intensity, steps: stepCount, loggedAt: date ? loggedAtFor(date) : undefined });
       }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
     } catch {
       Alert.alert('Error', editing ? 'Could not save the workout. Please try again.' : 'Could not log activity. Please try again.');
     }
-  }, [selectedType, duration, steps, countsSteps, logActivity, updateActivity, editing, date, onClose]);
+  }, [selectedType, duration, steps, intensity, countsSteps, logActivity, updateActivity, editing, date, onClose]);
 
   async function handleDelete() {
     if (!editing) return;
@@ -145,6 +153,31 @@ export function LogActivitySheet({ onClose, editing, date }: LogActivitySheetPro
                 </Text>
               </Pressable>
             ))}
+          </View>
+        </View>
+
+        {/* Intensity: picks the calorie estimate */}
+        <View>
+          <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12, marginBottom: 8 }}>
+            HOW HARD
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8 }} accessibilityRole="radiogroup">
+            {INTENSITY_CHOICES.map((c) => {
+              const selected = intensity === c.value;
+              return (
+                <Pressable
+                  key={c.value}
+                  onPress={() => setIntensity(c.value)}
+                  accessibilityRole="radio"
+                  aria-checked={selected}
+                  accessibilityLabel={`${c.label}: ${c.hint}`}
+                  style={{ flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: selected ? Colors.orange : Colors.surface2, borderWidth: 1.5, borderColor: selected ? Colors.orange : Colors.border }}
+                >
+                  <Text style={{ color: selected ? '#fff' : Colors.text, fontFamily: 'DMSans-Bold', fontSize: 14 }}>{c.label}</Text>
+                  <Text style={{ color: selected ? '#ffffffcc' : Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 11 }}>{c.hint}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 

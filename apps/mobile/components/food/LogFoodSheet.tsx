@@ -65,6 +65,8 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
   const adjustedProtein = isManual ? num(manual.proteinG) * servings : (food?.proteinG ?? 0) * factor;
   const adjustedCarbs = isManual ? num(manual.carbsG) * servings : (food?.carbsG ?? 0) * factor;
   const adjustedFat = isManual ? num(manual.fatG) * servings : (food?.fatG ?? 0) * factor;
+  const caffeineMg = food?.caffeineMg != null && !isManual ? Math.round(food.caffeineMg * factor) : undefined;
+  const alcoholG = food?.alcoholG != null && !isManual ? Math.round(food.alcoholG * factor * 10) / 10 : undefined;
 
   // The star saves exactly what would be logged now
   const { data: favorites } = useFavoriteFoods();
@@ -110,6 +112,8 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
         fatG: adjustedFat,
         servingQty: isManual ? servings : amount,
         servingUnit: isManual ? 'serving' : food.servingUnit,
+        caffeineMg,
+        alcoholG,
         loggedAt: date ? loggedAtFor(date) : undefined,
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -117,7 +121,7 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
     } catch {
       Alert.alert('Error', 'Could not log food. Please try again.');
     }
-  }, [food, isManual, name, manual.calories, mealType, servings, amount, adjustedCalories, adjustedProtein, adjustedCarbs, adjustedFat, logFood, onClose, date]);
+  }, [food, isManual, name, manual.calories, mealType, servings, amount, adjustedCalories, adjustedProtein, adjustedCarbs, adjustedFat, caffeineMg, alcoholG, logFood, onClose, date]);
 
   if (!food) return null;
 

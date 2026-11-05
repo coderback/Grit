@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { useMe, useUpdateMe, type Me } from '@/hooks/useMe';
+import { calorieFloor, weightLossAllowed } from '@/lib/safety';
 import { calcAdjustedCalories, calcBMR, calcMacros, calcTDEE, ageFromDOB } from '@/lib/tdee';
 import { LB_PER_KG, kgToUnit, unitToKg } from '@/lib/units';
 import {
@@ -103,14 +104,16 @@ function GoalsForm({ me }: { me: Me }) {
   const recommended = useMemo(() => {
     if (!me.gender || !me.dateOfBirth || !weightKg || !height || !activity) return null;
     const tdee = calcTDEE(calcBMR(me.gender, weightKg, height, ageFromDOB(me.dateOfBirth)), activity);
-    return calcAdjustedCalories(tdee, goal, pace);
+    return calcAdjustedCalories(tdee, goal, pace, { gender: me.gender, weightKg });
   }, [me.gender, me.dateOfBirth, weightKg, height, activity, goal, pace]);
 
   const errors = {
     weight: weightKg != null && (weightKg < 20 || weightKg > 400) ? 'Enter a realistic weight.' : null,
     goalWeight: goalWeightKg != null && (goalWeightKg < 20 || goalWeightKg > 400) ? 'Enter a realistic weight.' : null,
     height: height != null && (height < 50 || height > 300) ? 'Enter a realistic height.' : null,
-    calories: !num(calories) || num(calories)! < 800 || num(calories)! > 10000 ? 'Between 800 and 10,000 kcal.' : null,
+    calories: !num(calories) || num(calories)! < calorieFloor(me.gender) || num(calories)! > 10000
+      ? `Between ${calorieFloor(me.gender).toLocaleString()} and 10,000 kcal. Lower targets need medical supervision.`
+      : null,
     activeMin: !num(activeMin) || num(activeMin)! < 5 || num(activeMin)! > 600 ? 'Between 5 and 600 minutes.' : null,
   };
   const valid = Object.values(errors).every((e) => !e);
@@ -143,7 +146,11 @@ function GoalsForm({ me }: { me: Me }) {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={{ padding: 20, gap: 22, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
         <Section title="Your goal">
-          <ChipGroup options={[...GOALS]} value={goal} onChange={setGoal} />
+          <ChipGroup
+            options={GOALS.filter((g) => weightLossAllowed(me.edScreen) || g.value !== 'lose_weight')}
+            value={goal}
+            onChange={setGoal}
+          />
           {changesWeight && (
             <>
               <View style={{ gap: 8 }}>

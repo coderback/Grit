@@ -7,6 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useAIMessages, useStreamMessage } from '@/hooks/useAICoach';
+import { useEnsureAiConsent } from '@/hooks/useAiConsent';
+import { useMe } from '@/hooks/useMe';
 import { ErrorNotice } from '@/components/ui/QueryStatus';
 import { ChatBubble } from '@/components/coach/ChatBubble';
 import { Colors } from '@/constants/colors';
@@ -27,6 +29,20 @@ export default function CoachScreen() {
   const [streamingContent, setStreamingContent] = useState('');
   const scrollRef = useRef<ScrollView>(null);
   const pendingNote = useRef<string | null>(null);
+  const ensureAiConsent = useEnsureAiConsent();
+  const { data: me } = useMe();
+
+  // Ask before the first chat; without permission there's nothing to show here
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!me || me.aiConsentAt || asked.current) return;
+    asked.current = true;
+    ensureAiConsent().then((ok) => {
+      if (ok) return;
+      if (router.canGoBack()) router.back();
+      else router.replace('/(tabs)/');
+    });
+  }, [me, ensureAiConsent]);
 
   // Sync history into local messages once loaded
   useEffect(() => {
@@ -42,6 +58,7 @@ export default function CoachScreen() {
   async function handleSend() {
     const text = input.trim();
     if (!text || isStreaming) return;
+    if (!(await ensureAiConsent())) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setInput('');
@@ -121,7 +138,7 @@ export default function CoachScreen() {
               GRIT Coach
             </Text>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12 }}>
-              10 messages / day
+              AI coach · 10 messages / day
             </Text>
           </View>
           <Pressable
@@ -154,13 +171,13 @@ export default function CoachScreen() {
             <View style={{ alignItems: 'center', marginTop: 60, gap: 12 }}>
               <Text style={{ fontSize: 40 }}>🤖</Text>
               <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 18 }}>
-                Hey, I'm your GRIT Coach
+                Hey, I'm GRIT's AI coach
               </Text>
               <Text style={{
                 color: Colors.muted, fontFamily: 'DMSans-Regular',
                 fontSize: 14, textAlign: 'center', lineHeight: 22,
               }}>
-                Ask me anything about your nutrition, activity, or habits. I have your data.
+                Ask me anything about your nutrition, activity, or habits. I can see your logs. I'm an AI, not a doctor or dietitian, so I can make mistakes.
               </Text>
             </View>
           ) : (

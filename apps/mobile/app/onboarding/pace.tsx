@@ -28,7 +28,7 @@ export default function PaceScreen() {
     const age = ageFromDOB(dateOfBirth);
     const bmr = calcBMR(gender, weightKg, heightCm, age);
     const tdee = calcTDEE(bmr, activityLevel);
-    const calories = calcAdjustedCalories(tdee, primaryGoal, pace);
+    const calories = calcAdjustedCalories(tdee, primaryGoal, pace, { gender, weightKg });
     const weeks = desiredWeightKg ? calcTimeline(weightKg, desiredWeightKg, pace) : null;
     return { calories, weeks };
   }, [pace, gender, dateOfBirth, heightCm, weightKg, activityLevel, primaryGoal, desiredWeightKg]);
@@ -36,7 +36,7 @@ export default function PaceScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
       <ScrollView contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        <ProgressBar step={6} total={11} />
+        <ProgressBar step={7} total={12} />
 
         <View style={{ gap: 6 }}>
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>

@@ -12,6 +12,8 @@ interface OnboardingState {
   heightUnit: 'cm' | 'ft';
   // Step 2 — activity
   activityLevel: 'sedentary' | 'lightly_active' | 'active' | 'very_active' | null;
+  // The eating-disorder question: no | yes | prefer_not
+  edScreen: 'no' | 'yes' | 'prefer_not' | null;
   // Step 3 — goal
   primaryGoal: 'lose_weight' | 'build_muscle' | 'maintain' | 'recomp' | null;
   desiredWeightKg: number | null;
@@ -45,6 +47,7 @@ const defaults = {
   weightUnit: 'kg',
   heightUnit: 'cm',
   activityLevel: null,
+  edScreen: null,
   primaryGoal: null,
   desiredWeightKg: null,
   pace: null,

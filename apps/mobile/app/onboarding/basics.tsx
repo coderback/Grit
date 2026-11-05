@@ -25,7 +25,7 @@ export default function GenderScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
       <View style={{ flex: 1, padding: 20 }}>
-        <ProgressBar step={1} total={11} />
+        <ProgressBar step={1} total={12} />
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 28 }}>
           <Pressable accessibilityRole="button" accessibilityLabel="Back"
@@ -34,7 +34,7 @@ export default function GenderScreen() {
           >
             <Text style={{ color: Colors.text, fontSize: 18 }}>‹</Text>
           </Pressable>
-          <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>2 of 11</Text>
+          <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>2 of 12</Text>
           <View style={{ width: 40 }} />
         </View>
 

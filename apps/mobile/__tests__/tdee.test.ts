@@ -18,6 +18,10 @@ describe('calorie maths', () => {
     expect(calcAdjustedCalories(2500, 'build_muscle', 'slow')).toBe(2775);
     expect(calcAdjustedCalories(2500, 'maintain', 'aggressive')).toBe(2500);
     expect(calcAdjustedCalories(1500, 'lose_weight', 'aggressive')).toBe(1200);
+    // A man's floor is 1,500
+    expect(calcAdjustedCalories(1700, 'lose_weight', 'aggressive', { gender: 'male' })).toBe(1500);
+    // Aggressive (1 kg a week) is capped at 1% of a 60 kg person's weight: 660 kcal a day
+    expect(calcAdjustedCalories(2500, 'lose_weight', 'aggressive', { weightKg: 60 })).toBe(1840);
   });
 
   it('macro splits match the backend', () => {

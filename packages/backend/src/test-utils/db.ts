@@ -32,7 +32,14 @@ export class TestDb {
     this.push as unknown as ExpoPushService,
   );
 
-  async user(overrides: { displayName?: string; isPrivate?: boolean } = {}) {
+  /** A test user. They've allowed AI features unless `aiConsent` is false. */
+  async user(
+    overrides: {
+      displayName?: string;
+      isPrivate?: boolean;
+      aiConsent?: boolean;
+    } = {},
+  ) {
     const supabaseId = randomUUID();
     const suffix = supabaseId.slice(0, 8);
     const user = await this.prisma.user.create({
@@ -41,6 +48,7 @@ export class TestDb {
         username: `t_${overrides.displayName?.toLowerCase() ?? 'user'}_${suffix}`,
         displayName: overrides.displayName ?? `Test ${suffix}`,
         isPrivate: overrides.isPrivate ?? true,
+        aiConsentAt: overrides.aiConsent === false ? null : new Date(),
       },
     });
     this.created.push(user.id);

@@ -9,12 +9,29 @@ import { useBlocked, useUnblock } from '@/hooks/useSocialFeed';
 import { PersonRow } from '@/components/social/PersonRow';
 import { ErrorNotice } from '@/components/ui/QueryStatus';
 import { confirmAction } from '@/lib/confirm';
-import { NavRow, ScreenHeader, Section, ToggleRow } from '@/components/settings/SettingsUI';
+import { ChipGroup, NavRow, ScreenHeader, Section, ToggleRow } from '@/components/settings/SettingsUI';
+import { useSetAiConsent } from '@/hooks/useAiConsent';
 
 export default function PrivacyScreen() {
   const { data: me } = useMe();
   const { mutate: save } = useUpdateMe();
   const blocked = useBlocked();
+  const { mutate: setAiConsent, isPending: savingAi } = useSetAiConsent();
+
+  async function toggleAi(value: boolean) {
+    if (!value) {
+      const ok = await confirmAction({
+        title: 'Turn off AI features?',
+        message: 'Smart log, the AI coach and workout plan building stop working until you turn this back on. Nothing else changes.',
+        confirmLabel: 'Turn off',
+      });
+      if (!ok) return;
+    }
+    setAiConsent(value, { onError: () => showToast("Couldn't save that setting.") });
+  }
+
+  const saveSetting = (data: Parameters<typeof save>[0]) =>
+    save(data, { onError: (err: any) => showToast(err?.response?.data?.message?.toString() ?? "Couldn't save that setting.") });
   const { mutate: unblock, isPending: unblocking } = useUnblock();
 
   async function setPrivate(value: boolean) {
@@ -42,6 +59,46 @@ export default function PrivacyScreen() {
               : 'Anyone can follow you and see your workouts, meals and habits.'}
           >
             <ToggleRow label="Private account" value={me.isPrivate} onChange={setPrivate} />
+          </Section>
+        )}
+
+        {me && (
+          <Section
+            title="AI features"
+            footer="When on, Smart log, the AI coach and workout plans send what you type, say or photograph, plus a summary of your logs for coach replies, to Microsoft's Azure OpenAI service. Microsoft doesn't use it to train its models."
+          >
+            <ToggleRow label="Allow AI features" value={!!me.aiConsentAt} onChange={toggleAi} disabled={savingAi} />
+          </Section>
+        )}
+
+        {me && (
+          <Section
+            title="How your data is used"
+            footer="All off unless you turn them on. Turning one off stops future use."
+          >
+            <ToggleRow label="Improve GRIT's food data" hint="Use my food searches, logs and corrections" value={me.consentFoodData} onChange={(v) => saveSetting({ consentFoodData: v })} />
+            <ToggleRow label="Improve GRIT's models with my health data" hint="Steps, sleep, heart rate and weight from my health app" value={me.consentHealthTraining} onChange={(v) => saveSetting({ consentHealthTraining: v })} />
+            <ToggleRow label="Improve workout estimates" hint="Use my workouts for progression and calorie estimates" value={me.consentWorkoutTraining} onChange={(v) => saveSetting({ consentWorkoutTraining: v })} />
+            <ToggleRow label="Share products I add with Open Food Facts" hint="The free, public food database GRIT uses" value={me.consentOffSharing} onChange={(v) => saveSetting({ consentOffSharing: v })} />
+          </Section>
+        )}
+
+        {me && (
+          <Section
+            title="Wellbeing"
+            footer={me.edScreen === 'yes'
+              ? "GRIT doesn't set weight-loss targets or suggest eating less, and your coach focuses on regular meals, training and how you feel."
+              : 'Have you ever been diagnosed with, or treated for, an eating disorder? Only you see this answer.'}
+          >
+            <ChipGroup
+              options={[
+                { value: 'no', label: 'No' },
+                { value: 'yes', label: 'Yes' },
+                { value: 'prefer_not', label: 'Rather not say' },
+              ]}
+              value={me.edScreen}
+              onChange={(v) => saveSetting({ edScreen: v })}
+            />
           </Section>
         )}
 

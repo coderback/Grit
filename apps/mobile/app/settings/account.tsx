@@ -4,10 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { Colors } from '@/constants/colors';
 import { showToast } from '@/stores/toastStore';
-import { api } from '@/lib/api';
-import { removeAvatarFile } from '@/lib/avatar';
-import { supabase } from '@/lib/supabase';
 import { signOut } from '@/lib/session';
+import { deleteAccount } from '@/lib/deleteAccount';
 import { useThemeStore } from '@/stores/themeStore';
 import { confirmAction, notify } from '@/lib/confirm';
 import { sendPasswordReset } from '@/lib/passwordReset';
@@ -49,12 +47,7 @@ export default function AccountScreen() {
     if (!ok) return;
     setBusy(true);
     try {
-      // While still signed in: storage only lets the owner delete their photo
-      const authId = (await supabase.auth.getUser()).data.user?.id;
-      if (authId && me?.avatarUrl) await removeAvatarFile(authId).catch(() => {});
-      await api.delete('/users/me');
-      // The sign-in no longer exists, so only clear the local session
-      await supabase.auth.signOut({ scope: 'local' });
+      await deleteAccount(me?.avatarUrl);
     } catch (err: any) {
       setBusy(false);
       notify("Couldn't delete your account", err?.response?.data?.message?.toString() ?? 'Check your connection and try again.');

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useEnsureAiConsent } from '@/hooks/useAiConsent';
 import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +13,7 @@ import { useLogActivity } from '@/hooks/useActivityLog';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { ACTIVITY_LABELS } from '@/components/activity/LogActivitySheet';
 import { EditPlanDaySheet } from '@/components/plan/EditPlanDaySheet';
+import { ExerciseSheet } from '@/components/exercises/ExerciseSheet';
 import { ChipGroup, FieldLabel, PrimaryButton, ScreenHeader, Section } from '@/components/settings/SettingsUI';
 import { notify } from '@/lib/confirm';
 
@@ -30,6 +32,7 @@ export default function PlanScreen() {
   const { data: plan, isLoading, isError, refetch } = useWorkoutPlan();
   const { refreshing, onRefresh } = usePullToRefresh([['workout-plan']]);
   const [editing, setEditing] = useState<PlanDay | null>(null);
+  const [openExercise, setOpenExercise] = useState<string | null>(null);
 
   useFocusEffect(React.useCallback(() => () => setEditing(null), []));
 
@@ -50,7 +53,7 @@ export default function PlanScreen() {
             </Pressable>
           </Section>
         ) : plan ? (
-          <PlanWeek plan={plan} onEdit={setEditing} />
+          <PlanWeek plan={plan} onEdit={setEditing} onOpenExercise={setOpenExercise} />
         ) : null}
 
         {/* Keyed so its defaults follow the plan after a day is edited or rebuilt */}
@@ -60,11 +63,12 @@ export default function PlanScreen() {
       </ScrollView>
 
       {editing && <EditPlanDaySheet key={editing.day} day={editing} onClose={() => setEditing(null)} />}
+      <ExerciseSheet id={openExercise} onClose={() => setOpenExercise(null)} />
     </SafeAreaView>
   );
 }
 
-function PlanWeek({ plan, onEdit }: { plan: WorkoutPlan; onEdit: (day: PlanDay) => void }) {
+function PlanWeek({ plan, onEdit, onOpenExercise }: { plan: WorkoutPlan; onEdit: (day: PlanDay) => void; onOpenExercise: (id: string) => void }) {
   const today = todayWeekday();
   const { mutateAsync: logActivity } = useLogActivity();
   const [logged, setLogged] = useState<string | null>(null);
@@ -117,10 +121,17 @@ function PlanWeek({ plan, onEdit }: { plan: WorkoutPlan; onEdit: (day: PlanDay) 
             </View>
 
             {day.exercises.map((e, i) => (
-              <View key={i} style={{ flexDirection: 'row', gap: 10 }}>
-                <Text style={{ color: Colors.text, fontFamily: 'DMSans-Regular', fontSize: 14, flex: 1 }}>{e.name}</Text>
+              <Pressable
+                key={i}
+                disabled={!e.exerciseId}
+                onPress={() => e.exerciseId && onOpenExercise(e.exerciseId)}
+                accessibilityRole={e.exerciseId ? 'button' : undefined}
+                accessibilityLabel={e.exerciseId ? `${e.name}, ${e.detail}. Show how` : undefined}
+                style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}
+              >
+                <Text style={{ color: Colors.text, fontFamily: 'DMSans-Regular', fontSize: 14, flex: 1, textDecorationLine: e.exerciseId ? 'underline' : 'none', textDecorationColor: `${Colors.muted}80` }}>{e.name}</Text>
                 {!!e.detail && <Text style={{ color: Colors.muted, fontFamily: 'JetBrainsMono-Regular', fontSize: 12 }}>{e.detail}</Text>}
-              </View>
+              </Pressable>
             ))}
 
             {!day.rest && isToday && (
@@ -152,11 +163,13 @@ function PlanWeek({ plan, onEdit }: { plan: WorkoutPlan; onEdit: (day: PlanDay) 
 /** Builds the first plan, or rebuilds it with new settings or a request for the coach. */
 function BuildPlan({ plan }: { plan: WorkoutPlan | null }) {
   const { mutateAsync: generate, isPending } = useGeneratePlan();
+  const ensureAiConsent = useEnsureAiConsent();
   const [days, setDays] = useState(String(plan?.daysPerWeek ?? 3));
   const [location, setLocation] = useState<'home' | 'gym'>(plan?.location ?? 'home');
   const [feedback, setFeedback] = useState('');
 
   async function handleBuild() {
+    if (!(await ensureAiConsent())) return;
     try {
       await generate({ daysPerWeek: Number(days), location, feedback: feedback.trim() || undefined });
       setFeedback('');

@@ -1,4 +1,9 @@
 import {
+  calorieFloor,
+  maxDailyDeficit,
+  weightLossAllowed,
+} from '../common/safety';
+import {
   BadRequestException,
   Injectable,
   NotFoundException,
@@ -56,7 +61,17 @@ export class AdaptiveService {
       !!user.adaptiveSnoozedUntil && user.adaptiveSnoozedUntil > now;
     const suggestion =
       estimate && settled && !snoozed
-        ? suggestTarget(estimate, user.calorieGoal, user.primaryGoal, user.pace)
+        ? suggestTarget(
+            estimate,
+            user.calorieGoal,
+            // No weight-loss targets after a "yes" to the eating-disorder question
+            weightLossAllowed(user.edScreen) ? user.primaryGoal : 'maintain',
+            user.pace,
+            {
+              floor: calorieFloor(user.gender),
+              maxDeficit: maxDailyDeficit(user.weightKg),
+            },
+          )
         : null;
 
     const firstWeigh = series.findIndex((d) => d.weightKg != null);

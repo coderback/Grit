@@ -54,6 +54,8 @@ export const FRICTIONS = [
   'plan',
 ] as const;
 
+export const ED_SCREEN_ANSWERS = ['no', 'yes', 'prefer_not'] as const;
+
 /** Fields a user may change on their own profile. Anything else is rejected. */
 export class UpdateUserDto {
   @IsOptional()
@@ -183,6 +185,28 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   isPrivate?: boolean;
+
+  // The onboarding eating-disorder question; "yes" turns off weight-loss targets
+  @IsOptional()
+  @IsIn(ED_SCREEN_ANSWERS)
+  edScreen?: string;
+
+  // Separate permissions, all off by default
+  @IsOptional()
+  @IsBoolean()
+  consentFoodData?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  consentHealthTraining?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  consentWorkoutTraining?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  consentOffSharing?: boolean;
 }
 
 export class SyncUserDto {

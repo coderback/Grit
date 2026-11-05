@@ -117,11 +117,76 @@ Chosen from [`MARKET_RESEARCH.md`](./MARKET_RESEARCH.md): the three
 Database: migrations `20261106120000` to `20261106150000` are applied to
 Supabase. All are additive, so earlier servers keep working.
 
+## Phase 5 — Quick wins and safety ✅
+
+- **Trust and safety** ([`TRUST_AND_SAFETY.md`](./TRUST_AND_SAFETY.md)):
+  - AI features ask first, naming Microsoft's Azure OpenAI, and the server
+    refuses them without consent;
+  - the coach is labelled as an AI and refuses diagnosis, medication advice
+    and under-eating;
+  - GRIT is 18+, with a "Before you start" check for users who skipped
+    onboarding;
+  - calorie floors by sex (1,500 kcal for men, 1,200 otherwise) and a cap
+    on planned loss of 1% of body weight a week;
+  - an eating-disorder question that turns off weight-loss goals;
+  - pro-eating-disorder names refused;
+  - four separate data permissions, all off by default;
+  - an SDK audit, with no ad or analytics SDKs.
+- **Smart log accuracy:** each item shows its source and confidence;
+  protein or fat that's out of range for the food is marked "check this";
+  and the app asks "Cooked in oil or butter?" instead of guessing.
+- **Caffeine and alcohol** on logs, from labels and Smart log, with drink
+  shortcuts and daily totals; the coach sees them.
+- **Search and correction data:** food searches record what was picked,
+  with the phone's country and language, and edited numbers mark a log as
+  corrected.
+- **Exercise library:**
+  - 876 exercises with movement patterns and injury tags;
+  - coach plans built only from a shortlist that suits where the user
+    trains, their level and their coach notes;
+  - a library screen;
+  - calories by intensity (easy, moderate, hard).
+
+**After deploying Phase 5:** existing users see the "Before you start"
+check once (age and the wellbeing question), and the AI consent sheet the
+first time they use an AI feature. The Azure steps in `TRUST_AND_SAFETY.md`
+section 2, and the store declarations in section 4, are for the account
+owner.
+
+## Phases 6–9 (planned)
+
+See [`PLAN_PHASES_5_TO_9.md`](./PLAN_PHASES_5_TO_9.md), shaped by the
+research in
+[`reports/GRIT health fitness nutrition moat.md`](../reports/GRIT%20health%20fitness%20nutrition%20moat.md).
+Ordered from easiest to hardest, each phase is released on its own:
+
+- **Phase 6 — Strength logging and health data (about 5 weeks):**
+  - set-by-set logging with PRs, supersets, calculators, voice and offline
+    logging, and plans that run by session order;
+  - progression rules that switch to "preserve" in a big deficit or when
+    protein is low;
+  - a wider health import (HRV, resting heart rate, VO2max, cycle data) with
+    heart-rate calories;
+  - nutrition written back to the phone's health app.
+- **Phase 7 — GRIT's own food database (about 4 weeks):** imports from
+  USDA, Open Food Facts and the UK, Canada, France and Finland tables; local
+  search and barcodes; micronutrient tracking from measured values.
+- **Phase 8 — Data quality and regional foods (about 3 weeks):**
+  label-photo contributions with checks and verification, quality scores,
+  merging duplicates, and regional dishes, names and units where users'
+  searches miss.
+- **Phase 9 — ML and research (about 5 weeks):**
+  - nutrition: the name matcher, portion defaults, the micronutrient
+    estimator and a public accuracy page;
+  - fitness: personal burn calibration, a cycle-aware weight trend and
+    strength levels from OpenPowerlifting.
+
 ## Later
 
-- From the research: Squads (small accountability groups), a GLP-1
-  mode, and strength tracking with progressive overload linked to
-  nutrition.
+- After Phase 9, from the research (see the plan's "After Phase 9"):
+  Phase 10 "Close the loop" (recovery view, Squads v2, mood check-ins, a
+  GLP-1 companion), Phase 11 "Reach and revenue" (endurance and fuelling,
+  meal plans, regional launches) and Phase 12 "Biomarkers and partners".
 - Let the coach propose changes to the workout plan and habits for the
   user to approve, as it already does for calorie targets.
 - A real-device check of push alerts, photo picking and the keyboard in

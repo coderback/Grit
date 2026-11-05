@@ -14,6 +14,8 @@ export interface FoodLog {
   servingQty: number;
   servingUnit: string;
   loggedAt: string;
+  caffeineMg: number | null;
+  alcoholG: number | null;
 }
 
 export interface MacroTotals {
@@ -21,6 +23,8 @@ export interface MacroTotals {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  caffeineMg?: number;
+  alcoholG?: number;
 }
 
 /** The day's calorie budget: the goal plus earnback and rollover, if enabled. */
@@ -51,6 +55,10 @@ export interface NormalizedFood {
   imageUrl: string | null;
   /** A saved portion (recent or favourite): amounts are for the whole portion */
   portion?: boolean;
+  /** Caffeine, mg per 100 g (or for the whole portion) */
+  caffeineMg?: number;
+  /** Alcohol, g per 100 g (or for the whole portion) */
+  alcoholG?: number;
 }
 
 export function useFoodLogsForDate(date: string) {
@@ -106,6 +114,8 @@ export function useLogFood() {
       fatG?: number;
       servingQty?: number;
       servingUnit?: string;
+      caffeineMg?: number;
+      alcoholG?: number;
       /** For back-filling an earlier day; omitted for now */
       loggedAt?: string;
     }) => api.post('/food-logs', data).then((r) => r.data),

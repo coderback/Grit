@@ -8,9 +8,14 @@ import {
   Min,
 } from 'class-validator';
 import { IsNotFuture } from '../common/validators';
-import { ACTIVITY_TYPES } from './activity.constants';
+import { ACTIVITY_TYPES, INTENSITIES } from './activity.constants';
 
 export class CreateActivityLogDto {
+  // Picks the MET value; moderate when left out
+  @IsOptional()
+  @IsIn(INTENSITIES)
+  intensity?: string;
+
   @IsIn(ACTIVITY_TYPES)
   activityType: string;
 
@@ -44,6 +49,11 @@ export class CreateActivityLogDto {
 
 /** Edits to a logged workout. Calories are re-estimated if the type or duration changes without new calories. */
 export class UpdateActivityLogDto {
+  // Picks the MET value; moderate when left out
+  @IsOptional()
+  @IsIn(INTENSITIES)
+  intensity?: string;
+
   @IsOptional()
   @IsIn(ACTIVITY_TYPES)
   activityType?: string;
