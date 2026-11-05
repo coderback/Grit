@@ -207,6 +207,11 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   consentOffSharing?: boolean;
+
+  // Reading menstrual data from the health app; turning it off deletes it
+  @IsOptional()
+  @IsBoolean()
+  consentCycleData?: boolean;
 }
 
 export class SyncUserDto {

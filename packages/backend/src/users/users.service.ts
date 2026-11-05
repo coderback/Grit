@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { CYCLE_METRICS } from '../health/heart-rate';
 import { WeightService } from '../progress/weight.service';
 import type { UpdateUserDto } from './users.dto';
 import {
@@ -96,6 +97,13 @@ export class UsersService {
     // A new weight from onboarding or the profile is also today's weigh-in
     if (data.weightKg !== undefined) {
       await this.weight.logForUser(user.id, data.weightKg, offset);
+    }
+
+    // Withdrawing cycle consent deletes the cycle data already imported
+    if (data.consentCycleData === false) {
+      await this.prisma.healthMetric.deleteMany({
+        where: { userId: user.id, metric: { in: [...CYCLE_METRICS] } },
+      });
     }
 
     // Going public approves everyone who was waiting

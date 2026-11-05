@@ -16,6 +16,7 @@ import {
 } from 'class-validator';
 import { ACTIVITY_TYPES } from '../activity/activity.constants';
 import { IsNotFuture } from '../common/validators';
+import { METRIC_NAMES } from './heart-rate';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -48,6 +49,42 @@ export class HealthWorkoutDto {
   @Min(0)
   @Max(300000)
   steps?: number;
+
+  // Average over the workout, from the watch
+  @IsOptional()
+  @IsInt()
+  @Min(30)
+  @Max(230)
+  avgHeartRate?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1000000)
+  distanceM?: number;
+}
+
+/** One day's value of a recovery or cycle metric. */
+export class HealthMetricDto {
+  @Matches(DATE)
+  date: string;
+
+  @IsIn(METRIC_NAMES)
+  metric: string;
+
+  // HRV only: sdnn (Apple) or rmssd (Health Connect)
+  @IsOptional()
+  @IsIn(['sdnn', 'rmssd', ''])
+  type?: string;
+
+  @IsNumber()
+  value: number;
+
+  // The app or device that recorded it
+  @IsOptional()
+  @IsString()
+  @Length(0, 80)
+  device?: string;
 }
 
 export class HealthDayDto {
@@ -98,4 +135,10 @@ export class HealthImportDto {
   @ValidateNested({ each: true })
   @Type(() => HealthWeightDto)
   weights: HealthWeightDto[] = [];
+
+  @IsArray()
+  @ArrayMaxSize(600)
+  @ValidateNested({ each: true })
+  @Type(() => HealthMetricDto)
+  metrics: HealthMetricDto[] = [];
 }
