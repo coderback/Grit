@@ -78,12 +78,6 @@ display rounding.
   tests cover the feed, leaderboard, privacy, alerts, challenges, weight
   and quick foods.
 
-### After deploying Phase 3
-
-- Apply `20261105130000_drop_users_push_token` to Supabase. It removes
-  the old `users.pushToken` column, which Phase 2 servers still read, so
-  only apply it once Railway runs this version.
-
 ## Phase 4 — Moat features and platform ✅
 
 Chosen from [`MARKET_RESEARCH.md`](./MARKET_RESEARCH.md): the three
