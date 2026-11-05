@@ -117,35 +117,49 @@ Chosen from [`MARKET_RESEARCH.md`](./MARKET_RESEARCH.md): the three
 Database: migrations `20261106120000` to `20261106150000` are applied to
 Supabase. All are additive, so earlier servers keep working.
 
-## Phase 5 — Own food and exercise data, and ML (planned)
+## Phases 5–9 (planned)
 
-See [`PHASE5_PLAN.md`](./PHASE5_PLAN.md), shaped by the research in
+See [`PLAN_PHASES_5_TO_9.md`](./PLAN_PHASES_5_TO_9.md), shaped by the
+research in
 [`reports/GRIT health fitness nutrition moat.md`](../reports/GRIT%20health%20fitness%20nutrition%20moat.md).
-It starts with a **trust and safety baseline** (no third-party SDKs on
-health screens, AI consent naming Microsoft, the EU AI disclosure, an 18+
-gate, calorie floors), then two tracks:
+Ordered from easiest to hardest, each phase is released on its own:
 
-- **Nutrition:** GRIT's own food database built from open sources (USDA,
-  Open Food Facts, UK, Canada, France and Finland tables, with regional
-  tables added where users' searches miss),
-  local search and barcodes, micronutrient tracking, models for matching
-  food names, typical portions and estimating missing micronutrients, and
-  label-photo contributions with quality checks. Smart log gains confidence
-  badges and a cooking-oil question; caffeine and alcohol are tracked;
-  nutrition is written back to the phone's health app.
-- **Fitness:** an exercise library that coach plans are built from (with
-  injury-aware filtering), set-by-set strength logging with PRs, calorie
-  burn from intensity and heart rate calibrated against each person's
-  weight trend (with a cycle-aware filter), strength levels from
-  OpenPowerlifting, voice and offline set logging, a wider health import
-  (HRV, resting heart rate, VO2max, cycle data), and progression rules that
-  switch to "preserve" in a big deficit or when protein is low.
+- **Phase 5 — Quick wins and safety (about 3 weeks):**
+  - a trust and safety baseline: no third-party SDKs on health screens, AI
+    consent naming Microsoft, the EU AI disclosure, an 18+ gate, calorie
+    floors;
+  - Smart log confidence badges, a cooking-oil question, and protein and fat
+    checks;
+  - caffeine and alcohol tracking, and recording of searches and corrections;
+  - an exercise library that coach plans are built from, with injury-aware
+    filtering and calories by intensity.
+- **Phase 6 — Strength logging and health data (about 5 weeks):**
+  - set-by-set logging with PRs, supersets, calculators, voice and offline
+    logging, and plans that run by session order;
+  - progression rules that switch to "preserve" in a big deficit or when
+    protein is low;
+  - a wider health import (HRV, resting heart rate, VO2max, cycle data) with
+    heart-rate calories;
+  - nutrition written back to the phone's health app.
+- **Phase 7 — GRIT's own food database (about 4 weeks):** imports from
+  USDA, Open Food Facts and the UK, Canada, France and Finland tables; local
+  search and barcodes; micronutrient tracking from measured values.
+- **Phase 8 — Data quality and regional foods (about 3 weeks):**
+  label-photo contributions with checks and verification, quality scores,
+  merging duplicates, and regional dishes, names and units where users'
+  searches miss.
+- **Phase 9 — ML and research (about 5 weeks):**
+  - nutrition: the name matcher, portion defaults, the micronutrient
+    estimator and a public accuracy page;
+  - fitness: personal burn calibration, a cycle-aware weight trend and
+    strength levels from OpenPowerlifting.
 
 ## Later
 
-- From the research: Squads (small accountability groups), a GLP-1
-  mode, and strength tracking with progressive overload linked to
-  nutrition.
+- After Phase 9, from the research (see the plan's "After Phase 9"):
+  Phase 10 "Close the loop" (recovery view, Squads v2, mood check-ins, a
+  GLP-1 companion), Phase 11 "Reach and revenue" (endurance and fuelling,
+  meal plans, regional launches) and Phase 12 "Biomarkers and partners".
 - Let the coach propose changes to the workout plan and habits for the
   user to approve, as it already does for calorie targets.
 - A real-device check of push alerts, photo picking and the keyboard in
