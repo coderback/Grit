@@ -33,7 +33,7 @@ export default function ActivityScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
       <ScrollView contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        <ProgressBar step={4} total={11} />
+        <ProgressBar step={4} total={12} />
 
         <View style={{ gap: 6 }}>
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>
@@ -91,7 +91,7 @@ export default function ActivityScreen() {
 
         <Pressable accessibilityRole="button"
           onPress={() => {
-            if (activityLevel) router.push('/onboarding/goal');
+            if (activityLevel) router.push('/onboarding/wellbeing');
           }}
           disabled={!activityLevel}
           style={({ pressed }) => ({

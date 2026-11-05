@@ -12,6 +12,7 @@ import OpenAI from 'openai';
 import { PrismaService } from '../prisma/prisma.service';
 import { AI_MODEL } from '../ai/azure-openai';
 import { localToday } from '../common/day';
+import { assertAiConsent } from '../common/ai-consent';
 import { FoodService } from '../food/food.service';
 import {
   groundItem,
@@ -115,7 +116,13 @@ export class MealParseService {
       throw new BadRequestException('Describe the meal or add a photo');
     }
 
-    const userId = await this.resolveUserId(supabaseId);
+    const user = await this.prisma.user.findUnique({
+      where: { supabaseId },
+      select: { id: true, aiConsentAt: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    assertAiConsent(user);
+    const userId = user.id;
     const today = localToday(offset);
     await this.takeParse(userId, today);
     const known = await this.prisma.foodMemory.findMany({

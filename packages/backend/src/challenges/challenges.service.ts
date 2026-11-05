@@ -9,6 +9,7 @@ import type { Challenge } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { dayRange, localDateOf, localToday } from '../common/day';
+import { hasProEdTerm } from '../common/safety';
 import type { CreateChallengeDto } from './challenges.dto';
 import {
   GOAL_LIMITS,
@@ -51,6 +52,11 @@ export class ChallengesService {
     dto: CreateChallengeDto,
     offset: number,
   ) {
+    if (hasProEdTerm(dto.title)) {
+      throw new BadRequestException(
+        "That challenge name isn't allowed on GRIT.",
+      );
+    }
     const user = await this.resolveUser(supabaseId);
     const type = dto.type && isChallengeType(dto.type) ? dto.type : 'steps';
     const { min, max } = GOAL_LIMITS[type];

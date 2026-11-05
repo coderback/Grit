@@ -49,6 +49,18 @@ model User {
   // Private accounts approve each follower; only approved followers see activity
   isPrivate Boolean @default(true)
 
+  // Safety and consent (Phase 5). aiConsentAt: when the user agreed to
+  // meal photos and chats going to Azure OpenAI (Apple 5.1.2(i)); null
+  // means no AI features. edScreen: answer to the onboarding eating-disorder
+  // question (no | yes | prefer_not); "yes" turns off weight-loss targets.
+  aiConsentAt            DateTime?
+  edScreen               String?
+  // Separate, default-off permissions to use data beyond the app itself
+  consentFoodData        Boolean   @default(false)
+  consentHealthTraining  Boolean   @default(false)
+  consentWorkoutTraining Boolean   @default(false)
+  consentOffSharing      Boolean   @default(false)
+
   // Meal descriptions/photos read by the AI today (a daily cap)
   aiParseDay   String?
   aiParseCount Int     @default(0)
@@ -72,6 +84,7 @@ model User {
   followers         Follow[]               @relation("followers")
   challenges        ChallengeParticipant[]
   aiMessages        AIMessage[]
+  searchEvents      SearchEvent[]
   coachMemories     CoachMemory[]
   kudosGiven        Kudos[]
   workoutPlan       WorkoutPlan?
@@ -133,6 +146,11 @@ model FoodLog {
   servingQty  Float    @default(1)
   servingUnit String   @default("serving")
   loggedAt    DateTime @default(now())
+  caffeineMg  Float?
+  alcoholG    Float?
+  // Set when the user changed the numbers of a food they picked, which
+  // measures how often the food data is wrong
+  corrected   Boolean  @default(false)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -148,6 +166,8 @@ model ActivityLog {
   caloriesBurned Float?
   steps          Int?
   source         String   @default("manual")
+  // light | moderate | vigorous, or a pace for running; picks the MET value
+  intensity      String?
   loggedAt       DateTime @default(now())
   kudosCount     Int      @default(0)
   // The health app's ID for an imported workout, so importing again updates it
@@ -422,4 +442,46 @@ model FoodMemory {
 
   @@unique([userId, key])
   @@map("food_memories")
+}
+
+// One food search and what the user picked from it, if anything. Measures
+// first-search success and where searches miss, by country and language.
+model SearchEvent {
+  id         String   @id @default(cuid())
+  userId     String
+  query      String
+  // The chosen result's position (0-based) and name, or null if none was picked
+  position   Int?
+  pickedName String?
+  country    String?
+  lang       String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@map("search_events")
+}
+
+// The exercise library, imported from free-exercise-db (public domain)
+model Exercise {
+  id           String   @id // free-exercise-db's id, e.g. "Barbell_Squat"
+  name         String
+  aliases      String[]
+  primary      String[] // muscles
+  secondary    String[]
+  equipment    String[] // barbell | dumbbell | machine | cable | bodyweight | band | kettlebell | other
+  mechanics    String? // compound | isolation
+  level        String? // beginner | intermediate | expert
+  category     String? // strength | stretching | plyometrics | cardio | ...
+  // Movement pattern, so a swap keeps progression history
+  pattern      String?
+  // What the exercise loads, used to avoid it for an injury
+  stresses     String[]
+  instructions String?
+  imageUrl     String?
+  source       String   @default("free-exercise-db")
+
+  @@index([name])
+  @@map("exercises")
 }

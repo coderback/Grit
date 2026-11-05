@@ -5,6 +5,7 @@ import {
   Get,
   Headers,
   HttpCode,
+  Post,
   Put,
   UseGuards,
 } from '@nestjs/common';
@@ -41,6 +42,20 @@ export class UsersController {
     @UtcOffset() offset: number,
   ) {
     return this.users.updateUser(user.supabaseId, body, offset);
+  }
+
+  /**
+   * Permission to send meal photos, descriptions and coach chats to Azure
+   * OpenAI (Apple guideline 5.1.2(i)). AI features are refused without it.
+   */
+  @Post('me/ai-consent')
+  grantAiConsent(@CurrentUser() user: { supabaseId: string }) {
+    return this.users.setAiConsent(user.supabaseId, true);
+  }
+
+  @Delete('me/ai-consent')
+  withdrawAiConsent(@CurrentUser() user: { supabaseId: string }) {
+    return this.users.setAiConsent(user.supabaseId, false);
   }
 
   /** Deletes the account and all its data. Required by the App Store. */

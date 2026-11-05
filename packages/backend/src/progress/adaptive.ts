@@ -11,6 +11,7 @@ export const MIN_LOGGED_DAYS = 10;
 export const MIN_WEIGH_INS = 4;
 const MAX_STEP_KCAL = 200; // the most a single check-in moves the target
 const MIN_CHANGE_KCAL = 50; // smaller changes aren't worth suggesting
+/** Used when no floor is passed; see common/safety for floors by sex. */
 export const FLOOR_KCAL = 1200;
 
 export interface AdaptiveDay {
@@ -133,11 +134,19 @@ const PACE_KG_PER_WEEK: Record<string, number> = {
   aggressive: 1,
 };
 
-/** The target for the goal at that expenditure, before limits. */
-export function idealTarget(tdee: number, goal: string, pace: string | null) {
+/**
+ * The target for the goal at that expenditure, before limits. A loss
+ * deficit is capped at `maxDeficit` (1% of body weight a week).
+ */
+export function idealTarget(
+  tdee: number,
+  goal: string,
+  pace: string | null,
+  maxDeficit = Infinity,
+) {
   const kgPerWeek = PACE_KG_PER_WEEK[pace ?? 'moderate'] ?? 0.5;
   const daily = (KCAL_PER_KG * kgPerWeek) / 7;
-  if (goal === 'lose_weight') return tdee - daily;
+  if (goal === 'lose_weight') return tdee - Math.min(daily, maxDeficit);
   // Lean gain: half the pace
   if (goal === 'build_muscle' || goal === 'build_strength')
     return tdee + daily / 2;
@@ -153,28 +162,34 @@ export interface Suggestion {
   reason: string;
 }
 
+export interface TargetLimits {
+  /** Lowest target, by sex (common/safety) */
+  floor?: number;
+  /** Largest daily deficit, from body weight (common/safety) */
+  maxDeficit?: number;
+}
+
 /**
  * The next target: toward the ideal, at most 200 kcal per check-in, never
- * below 1,200, and only when the change is worth making.
+ * below the floor, and only when the change is worth making.
  */
 export function suggestTarget(
   est: Estimate,
   current: number,
   goal: string,
   pace: string | null,
+  limits: TargetLimits = {},
 ): Suggestion | null {
+  const floor = limits.floor ?? FLOOR_KCAL;
   const ideal = Math.max(
-    FLOOR_KCAL,
-    Math.round(idealTarget(est.tdee, goal, pace) / 10) * 10,
+    floor,
+    Math.round(idealTarget(est.tdee, goal, pace, limits.maxDeficit) / 10) * 10,
   );
   const delta = Math.max(
     -MAX_STEP_KCAL,
     Math.min(MAX_STEP_KCAL, ideal - current),
   );
-  const suggested = Math.max(
-    FLOOR_KCAL,
-    Math.round((current + delta) / 10) * 10,
-  );
+  const suggested = Math.max(floor, Math.round((current + delta) / 10) * 10);
   const change = suggested - current;
   if (Math.abs(change) < MIN_CHANGE_KCAL) return null;
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useEnsureAiConsent } from '@/hooks/useAiConsent';
 import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -152,11 +153,13 @@ function PlanWeek({ plan, onEdit }: { plan: WorkoutPlan; onEdit: (day: PlanDay) 
 /** Builds the first plan, or rebuilds it with new settings or a request for the coach. */
 function BuildPlan({ plan }: { plan: WorkoutPlan | null }) {
   const { mutateAsync: generate, isPending } = useGeneratePlan();
+  const ensureAiConsent = useEnsureAiConsent();
   const [days, setDays] = useState(String(plan?.daysPerWeek ?? 3));
   const [location, setLocation] = useState<'home' | 'gym'>(plan?.location ?? 'home');
   const [feedback, setFeedback] = useState('');
 
   async function handleBuild() {
+    if (!(await ensureAiConsent())) return;
     try {
       await generate({ daysPerWeek: Number(days), location, feedback: feedback.trim() || undefined });
       setFeedback('');

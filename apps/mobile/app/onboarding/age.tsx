@@ -67,7 +67,8 @@ export default function AgeScreen() {
   const storedAge = dateOfBirth
     ? new Date().getFullYear() - parseInt(dateOfBirth.slice(0, 4), 10)
     : 25;
-  const [age, setAge] = useState(storedAge);
+  // GRIT is for adults (lib/safety MIN_AGE)
+  const [age, setAge] = useState(Math.max(18, storedAge));
 
   function handleContinue() {
     set({ dateOfBirth: `${new Date().getFullYear() - age}-01-01` });
@@ -77,7 +78,7 @@ export default function AgeScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
       <View style={{ flex: 1, padding: 20 }}>
-        <ProgressBar step={2} total={11} />
+        <ProgressBar step={2} total={12} />
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 28 }}>
           <Pressable accessibilityRole="button" accessibilityLabel="Back"
@@ -86,7 +87,7 @@ export default function AgeScreen() {
           >
             <Text style={{ color: Colors.text, fontSize: 18 }}>‹</Text>
           </Pressable>
-          <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>3 of 11</Text>
+          <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>3 of 12</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -104,7 +105,7 @@ export default function AgeScreen() {
             paddingVertical: 32, paddingHorizontal: 40,
             alignItems: 'center', gap: 16,
           }}>
-            <DrumPicker value={age} onChange={setAge} min={13} max={80} />
+            <DrumPicker value={age} onChange={setAge} min={18} max={90} />
             <Text style={{ fontSize: 14, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>years old</Text>
           </View>
           <Text style={{ fontSize: 12, color: `${Colors.muted}60`, fontFamily: 'DMSans-Regular' }}>Scroll to adjust</Text>

@@ -1,3 +1,5 @@
+import { calorieFloor, maxDailyDeficit } from './safety';
+
 /** Mifflin-St Jeor BMR */
 export function calcBMR(
   gender: 'male' | 'female' | 'other',
@@ -29,15 +31,23 @@ const PACE_KG_PER_WEEK: Record<string, number> = {
   aggressive: 1.0,
 };
 
+/**
+ * The daily target for a goal. Loss is capped at 1% of body weight a week
+ * and never goes below the floor for the person's sex (lib/safety).
+ */
 export function calcAdjustedCalories(
   tdee: number,
   goal: string,
   pace: string,
+  person: { gender?: string | null; weightKg?: number | null } = {},
 ): number {
   const kgPerWeek = PACE_KG_PER_WEEK[pace] ?? 0.5;
   const dailyDelta = Math.round((7700 * kgPerWeek) / 7);
 
-  if (goal === 'lose_weight') return Math.max(1200, tdee - dailyDelta);
+  if (goal === 'lose_weight') {
+    const deficit = Math.min(dailyDelta, maxDailyDeficit(person.weightKg));
+    return Math.max(calorieFloor(person.gender), tdee - deficit);
+  }
   if (goal === 'build_muscle') return tdee + dailyDelta;
   return tdee; // maintain / recomp
 }
@@ -72,8 +82,10 @@ export function calcTimeline(
   desiredKg: number,
   pace: string,
 ): number | null {
-  const kgPerWeek = PACE_KG_PER_WEEK[pace];
-  if (!kgPerWeek || Math.abs(currentKg - desiredKg) < 0.1) return null;
+  const paceKg = PACE_KG_PER_WEEK[pace];
+  if (!paceKg || Math.abs(currentKg - desiredKg) < 0.1) return null;
+  // Loss is capped at 1% of body weight a week (lib/safety)
+  const kgPerWeek = desiredKg < currentKg ? Math.min(paceKg, currentKg * 0.01) : paceKg;
   return Math.ceil(Math.abs(currentKg - desiredKg) / kgPerWeek);
 }
 

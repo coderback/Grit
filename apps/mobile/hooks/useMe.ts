@@ -34,10 +34,18 @@ export interface Me {
   notifSocial: boolean;
   /** Followers need approval; only they see your activity */
   isPrivate: boolean;
+  /** When the user allowed meals and chats to go to Azure OpenAI; null = no AI features */
+  aiConsentAt: string | null;
+  /** The eating-disorder question: "yes" turns off weight-loss targets */
+  edScreen: 'no' | 'yes' | 'prefer_not' | null;
+  consentFoodData: boolean;
+  consentHealthTraining: boolean;
+  consentWorkoutTraining: boolean;
+  consentOffSharing: boolean;
 }
 
 /** Fields the signed-in user can change with PUT /users/me. */
-export type MeUpdate = Partial<Omit<Me, 'id' | 'username'>>;
+export type MeUpdate = Partial<Omit<Me, 'id' | 'username' | 'aiConsentAt'>>;
 
 export function useMe() {
   return useQuery<Me>({

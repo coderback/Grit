@@ -23,6 +23,7 @@ import {
   FRICTION_LABELS,
 } from './profile-labels';
 import { macroTargets } from '../common/nutrition';
+import { assertAiConsent } from '../common/ai-consent';
 import { AdaptiveService } from '../progress/adaptive.service';
 import {
   MAX_MEMORIES,
@@ -35,6 +36,7 @@ import {
 } from './coach-memory';
 
 const DAILY_LIMIT = 10;
+const FALLBACK_NUDGE = 'Keep showing up — consistency is the whole game.';
 // How long a finished reply waits for the note-taking call before moving on
 const MEMORY_WAIT_MS = 5000;
 
@@ -150,6 +152,9 @@ export class AIService {
         ? `- Biggest obstacle: ${FRICTION_LABELS[user.friction] ?? user.friction}`
         : null,
       `- Active-minutes goal: ${user?.activeMinutesGoal ?? 60} min/day`,
+      user?.edScreen === 'yes'
+        ? "- They told GRIT they have or have had an eating disorder. Don't discuss weight loss, calorie cutting or foods as good or bad. Focus on regular, adequate meals, training and how they feel, and gently suggest professional support if eating comes up as a struggle."
+        : null,
     ].filter(Boolean);
 
     const todayHealth = healthDays.find(
@@ -222,7 +227,14 @@ ${activityLines}`;
 
 ${context}
 
-Keep responses to 2–4 sentences unless detail is needed. Reference specific numbers from their data when relevant. Never shame food choices or missed habits — always frame positively. Suggest one concrete next action when appropriate.`;
+Keep responses to 2–4 sentences unless detail is needed. Reference specific numbers from their data when relevant. Never shame food choices or missed habits — always frame positively. Suggest one concrete next action when appropriate.
+
+Safety rules, which always apply:
+- You are an AI coach, not a doctor, dietitian, nutritionist or therapist. Never say or imply you are one.
+- Don't diagnose conditions or interpret symptoms, lab results, blood pressure or glucose as medical findings. Suggest they speak to a doctor or pharmacist instead.
+- Don't give medication advice: no doses, timing or changes for any medicine, including GLP-1 drugs and supplements taken as treatment.
+- Never suggest eating below the target the app has set, skipping meals to compensate, or making up for food with exercise.
+- If they mention self-harm, suicidal thoughts, purging, or being unable to stop restricting or bingeing, respond with warmth, don't coach, and encourage them to contact local emergency services or a crisis or eating disorder helpline, or their doctor.`;
   }
 
   /**
@@ -261,12 +273,18 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
     });
   }
 
+  /** Throws a 403 the app understands if the user hasn't allowed AI features. */
+  async ensureConsent(supabaseId: string) {
+    assertAiConsent(await this.resolveUser(supabaseId));
+  }
+
   async *streamMessage(
     supabaseId: string,
     userMessage: string,
     offset: number,
   ): AsyncGenerator<{ type: string; text?: string; items?: string[] }> {
     const user = await this.resolveUser(supabaseId);
+    assertAiConsent(user);
     await this.saveUserMessage(user.id, userMessage, offset);
     // Note-taking runs alongside the reply; it never holds the reply up
     const noting = mayHoldFacts(userMessage)
@@ -445,6 +463,8 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
 
   async getNudge(supabaseId: string, offset: number): Promise<string> {
     const user = await this.resolveUser(supabaseId);
+    // Without permission to use the AI, a fixed nudge instead of a model call
+    if (!user.aiConsentAt) return FALLBACK_NUDGE;
 
     // Several screens ask for the nudge at once on launch; generate it once
     const pending = this.nudgesInFlight.get(user.id);
@@ -490,9 +510,7 @@ Keep responses to 2–4 sentences unless detail is needed. Reference specific nu
       store: false,
     });
 
-    const nudgeText =
-      response.output_text.trim() ||
-      'Keep showing up — consistency is the whole game.';
+    const nudgeText = response.output_text.trim() || FALLBACK_NUDGE;
 
     await this.prisma.aIMessage.create({
       data: {

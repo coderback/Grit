@@ -104,5 +104,28 @@ describe('adaptive targets', () => {
       suggestTarget({ ...est, tdee: 1300 }, 1400, 'lose_weight', 'aggressive')
         ?.suggested,
     ).toBe(1200);
+    // A man's floor is 1,500
+    expect(
+      suggestTarget({ ...est, tdee: 1600 }, 1700, 'lose_weight', 'aggressive', {
+        floor: 1500,
+      })?.suggested,
+    ).toBe(1500);
+  });
+
+  it('caps the planned deficit at 1% of body weight a week', () => {
+    const est = {
+      tdee: 2500,
+      confidence: 'high' as const,
+      loggedDays: 20,
+      weighIns: 10,
+      spanDays: 21,
+      avgIntake: 2300,
+      trendKgPerWeek: -0.2,
+    };
+    // Aggressive is 1 kg a week (1,100 kcal a day); a 50 kg person is capped at 550
+    const s = suggestTarget(est, 2000, 'lose_weight', 'aggressive', {
+      maxDeficit: 550,
+    });
+    expect(s?.ideal).toBe(1950);
   });
 });

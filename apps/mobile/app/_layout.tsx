@@ -24,6 +24,8 @@ import { Toast } from '@/components/ui/Toast';
 import { Colors, applyColorScheme } from '@/constants/colors';
 import { useThemeStore } from '@/stores/themeStore';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
+import { AiConsentSheet } from '@/components/ui/AiConsentSheet';
+import { ProfileGate } from '@/components/ProfileGate';
 import { CrashScreen } from '@/components/ui/CrashScreen';
 import { installGlobalCrashHandler, setCrashScreen } from '@/lib/crashReporter';
 
@@ -163,9 +165,13 @@ export default function RootLayout() {
           <Stack.Screen name="settings/privacy" />
           <Stack.Screen name="settings/health" />
           <Stack.Screen name="notifications" />
+          <Stack.Screen name="exercises" />
+          <Stack.Screen name="welcome-check" options={{ gestureEnabled: false }} />
         </Stack>
         <Toast />
         <OfflineBanner />
+        <AiConsentSheet />
+        {session && <ProfileGate />}
       </GestureHandlerRootView>
     </QueryClientProvider>
   );

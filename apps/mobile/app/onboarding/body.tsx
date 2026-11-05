@@ -171,7 +171,7 @@ export default function BodyScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.dark }}>
       <ScrollView contentContainerStyle={{ padding: 20, gap: 28, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        <ProgressBar step={3} total={11} />
+        <ProgressBar step={3} total={12} />
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Pressable accessibilityRole="button" accessibilityLabel="Back"
@@ -180,7 +180,7 @@ export default function BodyScreen() {
           >
             <Text style={{ color: Colors.text, fontSize: 18 }}>‹</Text>
           </Pressable>
-          <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>4 of 11</Text>
+          <Text style={{ fontSize: 13, color: Colors.muted, fontFamily: 'DMSans-Regular' }}>4 of 12</Text>
           <View style={{ width: 40 }} />
         </View>
 

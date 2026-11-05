@@ -20,6 +20,7 @@ import { confirmAction } from '@/lib/confirm';
 import { DateNavigator } from '@/components/ui/DateNavigator';
 import { EditFoodSheet } from '@/components/food/EditFoodSheet';
 import { SmartLogSheet } from '@/components/food/SmartLogSheet';
+import { useEnsureAiConsent } from '@/hooks/useAiConsent';
 import { useMe } from '@/hooks/useMe';
 import { ErrorNotice, useQueriesStatus } from '@/components/ui/QueryStatus';
 import { ScreenSkeleton } from '@/components/ui/Skeleton';
@@ -106,6 +107,7 @@ export default function FoodScreen() {
   const { refreshing, onRefresh } = usePullToRefresh([['food-logs', date], ['me'], ['food-recent'], ['food-favorites']]);
   const [editingLog, setEditingLog] = useState<FoodLog | null>(null);
   const [smartOpen, setSmartOpen] = useState(false);
+  const ensureAiConsent = useEnsureAiConsent();
   const [selectedFood, setSelectedFood] = useState<NormalizedFood | null>(null);
   const [selectedMeal, setSelectedMeal] = useState<(typeof MEAL_ORDER)[number] | undefined>();
 
@@ -180,7 +182,7 @@ export default function FoodScreen() {
           <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 28, letterSpacing: -0.5 }}>Food</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pressable accessibilityLabel="Smart log: describe or photograph a meal" accessibilityRole="button"
-              onPress={() => setSmartOpen(true)}
+              onPress={async () => { if (await ensureAiConsent()) setSmartOpen(true); }}
               style={({ pressed }) => ({
                 opacity: pressed ? 0.7 : 1,
                 height: 40, borderRadius: 12, paddingHorizontal: 12,

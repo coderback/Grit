@@ -24,7 +24,7 @@ export default function RevealScreen() {
     const age = ageFromDOB(dateOfBirth);
     const bmr = calcBMR(gender, weightKg, heightCm, age);
     const tdee = calcTDEE(bmr, activityLevel);
-    const calories = calcAdjustedCalories(tdee, primaryGoal, pace);
+    const calories = calcAdjustedCalories(tdee, primaryGoal, pace, { gender, weightKg });
     const macros = calcMacros(calories, goalFocus);
     const weeks = desiredWeightKg ? calcTimeline(weightKg, desiredWeightKg, pace) : null;
 
@@ -78,7 +78,7 @@ export default function RevealScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ width: '100%', marginBottom: 32 }}>
-          <ProgressBar step={11} total={11} />
+          <ProgressBar step={12} total={12} />
         </View>
 
         {/* Logo pulse ring */}

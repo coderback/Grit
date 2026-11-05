@@ -11,6 +11,7 @@ import { Prisma } from '@prisma/client';
 import OpenAI from 'openai';
 import { PrismaService } from '../prisma/prisma.service';
 import { localToday } from '../common/day';
+import { assertAiConsent } from '../common/ai-consent';
 import { ACTIVITY_TYPES } from '../activity/activity.constants';
 import { AI_MODEL } from '../ai/azure-openai';
 import { AIM_LABELS, FRICTION_LABELS } from '../ai/profile-labels';
@@ -107,6 +108,7 @@ export class WorkoutPlanService {
   /** Asks the coach for a new weekly plan and saves it, replacing any existing one. */
   async generate(supabaseId: string, dto: GeneratePlanDto, offset: number) {
     const user = await this.resolveUser(supabaseId);
+    assertAiConsent(user);
     const today = localToday(offset);
     const existing = await this.prisma.workoutPlan.findUnique({
       where: { userId: user.id },
