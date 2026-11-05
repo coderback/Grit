@@ -22,6 +22,7 @@ import {
 export const STREAK_ALERT_HOUR = 20; // 8pm local
 export const WEEKLY_ALERT_HOUR = 18; // 6pm local, on Sundays
 const MIN_STREAK = 2;
+const USER_PAGE = 500;
 
 /**
  * Alerts that depend on logged data, sent at a fixed local time. The job runs
@@ -59,36 +60,45 @@ export class AlertsService {
     }
   }
 
-  private usersAtLocalHour(
+  /**
+   * Everyone opted in for whom it's `hour` o'clock now, a page at a time so
+   * a large user base doesn't load into memory at once.
+   */
+  private async *usersAtLocalHour(
     now: Date,
     hour: number,
     pref: 'notifStreak' | 'notifProgress',
   ) {
-    return this.prisma.user.findMany({
-      where: {
-        [pref]: true,
-        OR: offsetRangesAtLocalHour(now, hour).map((r) => ({
-          utcOffset: { gte: r.gte, lt: r.lt },
-        })),
-      },
-      select: {
-        id: true,
-        utcOffset: true,
-        activeMinutesGoal: true,
-        notifOffTrackOnly: true,
-      },
-    });
+    let cursor: string | undefined;
+    for (;;) {
+      const page = await this.prisma.user.findMany({
+        where: {
+          [pref]: true,
+          OR: offsetRangesAtLocalHour(now, hour).map((r) => ({
+            utcOffset: { gte: r.gte, lt: r.lt },
+          })),
+        },
+        select: {
+          id: true,
+          utcOffset: true,
+          activeMinutesGoal: true,
+          notifOffTrackOnly: true,
+        },
+        orderBy: { id: 'asc' },
+        take: USER_PAGE,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      yield* page;
+      if (page.length < USER_PAGE) return;
+      cursor = page[page.length - 1].id;
+    }
   }
 
   /** 8pm: habits done yesterday, not yet today, with a streak worth keeping. */
   async sendStreakAlerts(now: Date): Promise<number> {
-    const users = await this.usersAtLocalHour(
-      now,
-      STREAK_ALERT_HOUR,
-      'notifStreak',
-    );
+    const users = this.usersAtLocalHour(now, STREAK_ALERT_HOUR, 'notifStreak');
     let sent = 0;
-    for (const user of users) {
+    for await (const user of users) {
       const today = localDateOf(now, user.utcOffset);
       const habits = await this.prisma.habit.findMany({
         where: {
@@ -136,13 +146,13 @@ export class AlertsService {
 
   /** Sunday 6pm: the week so far. With "only when off track", only if behind. */
   async sendWeeklyProgress(now: Date): Promise<number> {
-    const users = await this.usersAtLocalHour(
+    const users = this.usersAtLocalHour(
       now,
       WEEKLY_ALERT_HOUR,
       'notifProgress',
     );
     let sent = 0;
-    for (const user of users) {
+    for await (const user of users) {
       const today = localDateOf(now, user.utcOffset);
       if (new Date(`${today}T00:00:00Z`).getUTCDay() !== 0) continue; // Sundays
       const monday = weekStart(today);

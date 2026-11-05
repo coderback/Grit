@@ -53,7 +53,7 @@ export default function NotificationsScreen() {
           {ITEMS.map((item) => {
             const val = values[item.key] as boolean;
             return (
-              <Pressable
+              <Pressable accessibilityRole="switch" aria-checked={val}
                 key={item.key}
                 onPress={() => set({ [item.key]: !val } as any)}
                 style={{
@@ -91,7 +91,7 @@ export default function NotificationsScreen() {
         </View>
 
         {/* Off-track only toggle */}
-        <Pressable
+        <Pressable accessibilityRole="switch" aria-checked={notifOffTrackOnly}
           onPress={() => set({ notifOffTrackOnly: !notifOffTrackOnly })}
           style={{
             backgroundColor: Colors.surface,
@@ -117,7 +117,7 @@ export default function NotificationsScreen() {
           />
         </Pressable>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={async () => {
             // Ask now, while the user has just chosen to get notifications
             if (notifWorkout || notifMeal || notifProgress || notifStreak) {
@@ -139,7 +139,7 @@ export default function NotificationsScreen() {
           </Text>
         </Pressable>
 
-        <Pressable onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>← Back</Text>
         </Pressable>
       </ScrollView>

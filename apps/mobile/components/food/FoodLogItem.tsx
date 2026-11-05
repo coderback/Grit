@@ -70,7 +70,7 @@ export function FoodLogItem({ item, onDelete }: FoodLogItemProps) {
         {Math.round(item.calories)}
       </Text>
 
-      <Pressable
+      <Pressable accessibilityLabel={`Delete ${item.name}`} accessibilityRole="button"
         onPress={() => onDelete(item.id)}
         hitSlop={12}
         style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}

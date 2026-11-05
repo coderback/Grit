@@ -4,20 +4,12 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { createClient } from '@supabase/supabase-js';
-import { ConfigService } from '@nestjs/config';
 import type { AuthenticatedRequest } from '../common/current-user.decorator';
+import { TokenVerifier } from './token-verifier';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  private supabase;
-
-  constructor(private config: ConfigService) {
-    this.supabase = createClient(
-      this.config.getOrThrow<string>('SUPABASE_URL'),
-      this.config.getOrThrow<string>('SUPABASE_ANON_KEY'),
-    );
-  }
+  constructor(private verifier: TokenVerifier) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -27,17 +19,10 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Missing authorization header');
     }
 
-    const token = authHeader.slice(7);
-    const {
-      data: { user },
-      error,
-    } = await this.supabase.auth.getUser(token);
+    const user = await this.verifier.verify(authHeader.slice(7));
+    if (!user) throw new UnauthorizedException('Invalid or expired token');
 
-    if (error || !user) {
-      throw new UnauthorizedException('Invalid or expired token');
-    }
-
-    request.user = { supabaseId: user.id, email: user.email };
+    request.user = user;
     return true;
   }
 }

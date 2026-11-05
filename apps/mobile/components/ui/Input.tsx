@@ -3,7 +3,6 @@ import {
   TextInput,
   View,
   Text,
-  Pressable,
   type TextInputProps,
 } from 'react-native';
 import { Colors } from '@/constants/colors';

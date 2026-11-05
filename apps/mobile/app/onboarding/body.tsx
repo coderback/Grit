@@ -31,7 +31,7 @@ function UnitToggle({ options, value, onChange }: { options: string[]; value: st
   return (
     <View style={{ flexDirection: 'row', gap: 4 }}>
       {options.map(u => (
-        <Pressable
+        <Pressable accessibilityRole="button" aria-selected={value === u}
           key={u}
           onPress={() => onChange(u)}
           style={{
@@ -174,7 +174,7 @@ export default function BodyScreen() {
         <ProgressBar step={3} total={11} />
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable
+          <Pressable accessibilityRole="button" accessibilityLabel="Back"
             onPress={() => router.back()}
             style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}
           >
@@ -224,7 +224,7 @@ export default function BodyScreen() {
           <Text style={{ fontSize: 11, color: `${Colors.muted}70`, textAlign: 'center', fontFamily: 'DMSans-Regular' }}>← drag to adjust →</Text>
         </View>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={handleContinue}
           style={({ pressed }) => ({
             backgroundColor: Colors.orange,

@@ -310,7 +310,7 @@ export default function HomeScreen() {
             <Text style={{ fontSize: 12, fontFamily: 'DMSans-Medium', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 }}>
               Calories today
             </Text>
-            <Pressable onPress={() => router.push('/(tabs)/food')}>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/food')}>
               <Text style={{ fontSize: 13, fontFamily: 'DMSans-Medium', color: Colors.orange }}>Log food →</Text>
             </Pressable>
           </View>
@@ -365,7 +365,7 @@ export default function HomeScreen() {
 
         {/* Stats bento */}
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Pressable
+          <Pressable accessibilityRole="button"
             onPress={() => router.push('/(tabs)/activity')}
             style={({ pressed }) => ({
               flex: 1, backgroundColor: Colors.surface, borderRadius: 20,
@@ -392,7 +392,7 @@ export default function HomeScreen() {
             <Text style={{ fontSize: 11, color: Colors.muted, fontFamily: 'DMSans-Regular', marginTop: 4 }}>Goal: {activeGoal} min</Text>
           </Pressable>
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             onPress={() => router.push('/(tabs)/habits')}
             style={({ pressed }) => ({
               flex: 1, backgroundColor: Colors.surface, borderRadius: 20,
@@ -430,13 +430,13 @@ export default function HomeScreen() {
             <Text style={{ fontSize: 12, fontFamily: 'DMSans-Medium', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 }}>
               Today's meals
             </Text>
-            <Pressable onPress={() => router.push('/(tabs)/food')}>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/food')}>
               <Text style={{ fontSize: 13, color: Colors.orange, fontFamily: 'DMSans-Medium' }}>See all →</Text>
             </Pressable>
           </View>
           <View style={{ gap: 8 }}>
             {mealGroups.map((m) => (
-              <Pressable
+              <Pressable accessibilityRole="button"
                 key={m.meal}
                 onPress={() => router.push('/(tabs)/food')}
                 style={({ pressed }) => ({
@@ -459,7 +459,7 @@ export default function HomeScreen() {
                 </Svg>
               </Pressable>
             ))}
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={() => router.push('/(tabs)/food')}
               style={({ pressed }) => ({
                 backgroundColor: 'transparent', borderRadius: 14,

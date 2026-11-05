@@ -1,20 +1,21 @@
 /**
  * Health data integration — Apple HealthKit (iOS) + Google Health Connect (Android)
  *
- * ⚠️  REQUIRES BARE WORKFLOW
- * These packages use native modules that are NOT available in Expo Go or the
- * managed workflow. To activate:
- *   1. Run: npx expo prebuild
- *   2. For iOS: cd apps/mobile/ios && pod install
- *   3. Add entitlement in Xcode: HealthKit capability
- *   4. Uncomment the imports and real implementation below
+ * Not built yet, so react-native-health and react-native-health-connect are
+ * not installed: linking HealthKit into a build that never uses it gets App
+ * Store builds rejected. To build it:
+ *   1. npx expo install react-native-health react-native-health-connect
+ *   2. Add the HealthKit entitlement and NSHealthShareUsageDescription /
+ *      NSHealthUpdateUsageDescription in app.json, and the Health Connect
+ *      permissions and config plugin for Android
+ *   3. Uncomment the imports and real implementation below, and test on
+ *      real devices with a development build
  *
  * Until then, the hook returns empty/safe defaults so the rest of the app compiles.
  */
 
 import { useCallback } from 'react';
-import { Platform } from 'react-native';
-import { api } from '@/lib/api';
+// The real implementation also needs Platform (react-native) and api (@/lib/api)
 
 // ─── Bare-workflow implementation (uncomment after prebuild) ─────────────────
 // import AppleHealthKit, { HealthKitPermissions, HealthUnit } from 'react-native-health';

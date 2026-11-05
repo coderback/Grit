@@ -59,10 +59,10 @@ export default function BarcodeScannerScreen() {
           <Text style={styles.permissionBody}>
             GRIT uses the camera to scan food barcodes — free forever, never paywalled.
           </Text>
-          <Pressable onPress={requestPermission} style={styles.permissionBtn}>
+          <Pressable accessibilityRole="button" onPress={requestPermission} style={styles.permissionBtn}>
             <Text style={styles.permissionBtnText}>Allow camera access</Text>
           </Pressable>
-          <Pressable onPress={() => router.back()} style={{ marginTop: 12 }}>
+          <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ marginTop: 12 }}>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular' }}>
               Go back
             </Text>
@@ -89,7 +89,7 @@ export default function BarcodeScannerScreen() {
       {/* Overlay UI */}
       <SafeAreaView style={styles.overlay}>
         {/* Close button */}
-        <Pressable
+        <Pressable accessibilityLabel="Close scanner" accessibilityRole="button"
           onPress={() => router.back()}
           style={styles.closeBtn}
         >
@@ -115,7 +115,7 @@ export default function BarcodeScannerScreen() {
 
         {/* Rescan button */}
         {scannedCode && !showSheet && (
-          <Pressable
+          <Pressable accessibilityRole="button"
             onPress={() => setScannedCode(null)}
             style={styles.rescanBtn}
           >

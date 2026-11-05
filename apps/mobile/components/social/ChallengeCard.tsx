@@ -28,7 +28,7 @@ export function ChallengeCard({ challenge, myUserId }: ChallengeCardProps) {
   }
 
   return (
-    <Pressable
+    <Pressable accessibilityRole="button"
       onPress={() => router.push(`/challenge/${challenge.id}` as never)}
       style={({ pressed }) => ({
         backgroundColor: Colors.surface,

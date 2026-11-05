@@ -28,7 +28,7 @@ export default function JoinChallengeScreen() {
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14, textAlign: 'center' }}>
             {error}
           </Text>
-          <Pressable onPress={() => router.replace('/(tabs)/social')}>
+          <Pressable accessibilityRole="button" onPress={() => router.replace('/(tabs)/social')}>
             <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 15 }}>Go to challenges</Text>
           </Pressable>
         </>

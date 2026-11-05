@@ -33,7 +33,7 @@ export function Button({
   ];
 
   return (
-    <Pressable
+    <Pressable accessibilityRole="button"
       style={({ pressed }) => [
         baseContainer,
         fullWidth ? { width: '100%' as const } : null,

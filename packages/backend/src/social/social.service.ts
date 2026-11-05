@@ -382,6 +382,7 @@ export class SocialService {
       where: { blockerId: user.id },
       include: { blocked: { select: PUBLIC_USER } },
       orderBy: { createdAt: 'desc' },
+      take: 500,
     });
     return blocks.map((b) => ({ createdAt: b.createdAt, user: b.blocked }));
   }

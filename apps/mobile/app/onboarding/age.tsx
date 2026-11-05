@@ -80,7 +80,7 @@ export default function AgeScreen() {
         <ProgressBar step={2} total={11} />
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 28 }}>
-          <Pressable
+          <Pressable accessibilityRole="button" accessibilityLabel="Back"
             onPress={() => router.back()}
             style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' }}
           >
@@ -110,7 +110,7 @@ export default function AgeScreen() {
           <Text style={{ fontSize: 12, color: `${Colors.muted}60`, fontFamily: 'DMSans-Regular' }}>Scroll to adjust</Text>
         </View>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={handleContinue}
           style={({ pressed }) => ({
             backgroundColor: Colors.orange,

@@ -25,7 +25,7 @@ function ToggleRow({
   onToggle: () => void;
 }) {
   return (
-    <Pressable
+    <Pressable accessibilityRole="switch" aria-checked={value}
       onPress={onToggle}
       style={{
         backgroundColor: Colors.surface,
@@ -91,7 +91,7 @@ export default function AdvancedScreen() {
           </Text>
         </View>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={() => router.push('/onboarding/notifications')}
           style={({ pressed }) => ({
             backgroundColor: Colors.orange,
@@ -107,7 +107,7 @@ export default function AdvancedScreen() {
           </Text>
         </Pressable>
 
-        <Pressable onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>← Back</Text>
         </Pressable>
       </ScrollView>

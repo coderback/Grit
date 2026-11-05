@@ -59,26 +59,49 @@ display rounding.
   when they end; leave and delete.
 - **Recent and favourite foods** for logging again in a tap.
 
-## Phase 3 — Production readiness
+## Phase 3 — Production readiness ✅
 
-- **Backend:** drop the old `users.pushToken` column once no server
-  older than Phase 2 is running (kept so the live API doesn't break), a
-  real-device check of push alerts, health check, rate limiting, graceful shutdown, environment
-  validation at boot, structured logging and an exception filter, local JWT
-  verification instead of a Supabase call per request, missing indexes,
-  limits on unbounded lists.
-- **Mobile:** error boundary and crash reporting, offline handling,
-  App Store config fixes, accessibility labels throughout.
-- **Tests and CI:** service tests for the feed, leaderboard and
-  challenges; a mobile lint and test setup; GitHub Actions.
+- **Backend:** environment checked at boot, `GET /health` (used by
+  Railway), sign-in tokens verified locally against Supabase's published
+  key, rate limiting (300 requests a minute per session), request IDs
+  and one JSON log line per request, an exception filter that hides
+  internals, crash reports from the app (`POST /client-errors`), graceful
+  shutdown, missing indexes and caps on unbounded lists.
+- **Mobile:** a recovery screen instead of a blank app when a screen
+  crashes, offline handling (cached screens, a banner, saves fail fast),
+  store config fixes (HTTPS-only store builds, no microphone permission,
+  an iOS privacy manifest, unused HealthKit packages removed) and
+  accessibility roles, labels and states throughout.
+- **Tests and CI:** GitHub Actions runs the backend (migrations, drift
+  check, format, lint, types, unit and database tests, build) and the
+  mobile app (types, lint, unit tests) on every pull request. Database
+  tests cover the feed, leaderboard, privacy, alerts, challenges, weight
+  and quick foods.
+
+### After deploying Phase 3
+
+- Apply `20261105130000_drop_users_push_token` to Supabase. It removes
+  the old `users.pushToken` column, which Phase 2 servers still read, so
+  only apply it once Railway runs this version.
+
+## Later
+
+- A real-device check of push alerts, photo picking and the keyboard in
+  sheets.
+- Fuzzy user search (a `pg_trgm` index) once there are many users.
+- Commit `package-lock.json` (it's git-ignored today) so CI and Railway
+  install the same versions.
 
 ## Needs the account owner
 
 - Google and Apple sign-in: enable the providers in Supabase and use the
   Apple Developer account.
 - HealthKit / Health Connect: a development build tested on real devices.
-- Push notifications: an EAS project ID (the app needs one to get push
-  tokens), and an `EXPO_ACCESS_TOKEN` on the server if push security is
-  turned on. Crash reporting: a Sentry DSN.
+- Push notifications: the app already has an EAS project ID; set
+  `EXPO_ACCESS_TOKEN` on the server if push security is turned on for
+  the Expo project. Crash reports go to the backend logs; add Sentry
+  later if you want dashboards and alerting.
+- Railway: confirm the health check uses `/health` (set in
+  `railway.toml`) and optionally set `CORS_ORIGINS` to the web app's URL.
 - Password reset: add `grit://reset-password` (and the web app's
   `/reset-password` URL) to Supabase Auth's redirect URLs.

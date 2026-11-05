@@ -14,13 +14,6 @@ function ProgressBar({ step, total }: { step: number; total: number }) {
   );
 }
 
-const GOAL_LABELS: Record<string, string> = {
-  lose_weight: 'Lose Weight',
-  build_muscle: 'Build Muscle',
-  maintain: 'Maintain',
-  recomp: 'Recomp',
-};
-
 export default function RevealScreen() {
   const store = useOnboardingStore();
 
@@ -71,7 +64,7 @@ export default function RevealScreen() {
         <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 15 }}>
           Missing information — please go back.
         </Text>
-        <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ marginTop: 16 }}>
           <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 15 }}>← Back</Text>
         </Pressable>
       </SafeAreaView>
@@ -138,7 +131,7 @@ export default function RevealScreen() {
           ))}
         </View>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={() => router.push('/onboarding/signup')}
           style={({ pressed }) => ({
             width: '100%',
@@ -154,7 +147,7 @@ export default function RevealScreen() {
           </Text>
         </Pressable>
 
-        <Pressable onPress={() => router.back()} style={{ alignItems: 'center', paddingTop: 16, paddingBottom: 8 }}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ alignItems: 'center', paddingTop: 16, paddingBottom: 8 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>← Back</Text>
         </Pressable>
       </ScrollView>

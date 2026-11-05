@@ -1,6 +1,6 @@
 import '../global.css';
 import React, { useEffect } from 'react';
-import { Stack, SplashScreen, router, useSegments } from 'expo-router';
+import { Stack, SplashScreen, router, useSegments, usePathname } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
@@ -19,12 +19,22 @@ import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { Toast } from '@/components/ui/Toast';
+import { OfflineBanner } from '@/components/ui/OfflineBanner';
+import { CrashScreen } from '@/components/ui/CrashScreen';
+import { installGlobalCrashHandler, setCrashScreen } from '@/lib/crashReporter';
+
+installGlobalCrashHandler();
+
+/** A crash anywhere below shows a recovery screen instead of a blank app. */
+export const ErrorBoundary = CrashScreen;
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const { session, isLoading, onboardingLoading, setSession, onboardingComplete, loadOnboardingState, setOnboardingComplete } = useAuthStore();
   const segments = useSegments();
+  const pathname = usePathname();
+  useEffect(() => setCrashScreen(pathname), [pathname]);
   // Register for push only once signed in; the backend rejects anonymous calls
   usePushNotifications(!!session);
 
@@ -117,6 +127,7 @@ export default function RootLayout() {
           <Stack.Screen name="notifications" />
         </Stack>
         <Toast />
+        <OfflineBanner />
       </GestureHandlerRootView>
     </QueryClientProvider>
   );

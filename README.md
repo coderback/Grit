@@ -115,6 +115,7 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 | `progress` | `GET/POST /weight`, `DELETE /weight/:id`, `GET /stats/trends?days=7\|30\|90` |
 | `ai` | `POST /ai/message` (streamed), `GET /ai/messages`, `GET /ai/nudge` — AI coach |
 | `notifications` | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/read`, `POST/DELETE /notifications/register` (one row per phone), Expo push sending |
+| `app` | `GET /health`, `POST /client-errors` (crash reports from the app, no sign-in, throttled) |
 | `alerts` | Hourly job: challenge results, 8pm streak-at-risk and Sunday 6pm weekly check-in, in each user's local time |
 
 **Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · Follow · Block · WorkoutPlan · PushDevice · Notification · WeightLog · FavoriteFood
@@ -142,6 +143,9 @@ cd packages/backend && npm run start:dev
 
 # Unit tests, and database tests against DATABASE_URL (a throwaway Postgres)
 cd packages/backend && npm test && npm run test:db
+
+# Mobile lint and unit tests
+cd apps/mobile && npm run lint && npm test
 ```
 
 ### Environment
@@ -150,7 +154,9 @@ cd packages/backend && npm test && npm run test:db
 cp packages/backend/.env.example packages/backend/.env
 ```
 
-See [`packages/backend/.env.example`](./packages/backend/.env.example). The app refuses to boot without `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY`. `SUPABASE_SERVICE_KEY` and the Upstash vars are not read by the code yet. Optional: `EXPO_ACCESS_TOKEN` (if push security is on for the Expo project) and `PUSH_DISABLED=true` (don't send pushes, e.g. locally).
+See [`packages/backend/.env.example`](./packages/backend/.env.example). The app refuses to boot without `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY`. `SUPABASE_SERVICE_KEY` and the Upstash vars are not read by the code yet. Optional: `EXPO_ACCESS_TOKEN` (if push security is on for the Expo project), `PUSH_DISABLED=true` (don't send pushes, e.g. locally), `RATE_LIMIT_PER_MINUTE` (default 300 per signed-in session) and `CORS_ORIGINS` (comma-separated web origins; default any). The server checks its settings at boot and lists anything missing or malformed.
+
+Every response carries an `x-request-id` (also in error bodies), matching one log line per request. Logs are JSON when `NODE_ENV=production`. Sign-in tokens are verified locally against the Supabase project's published signing key. `GET /health` reports the API and database; `POST /client-errors` records crashes reported by the app.
 
 Profile photos go to a public Supabase Storage bucket, `avatars`, which the privacy migration creates along with rules that let each user write only to their own folder.
 
@@ -211,7 +217,13 @@ A cloud instance can't run a simulator. Use it for type-checking and linting, or
 
 ### Deploying the backend (Railway)
 
-[`packages/backend/railway.toml`](./packages/backend/railway.toml) builds with Nixpacks (`npm run build`) and starts `node dist/main`. Set the root directory to `packages/backend`, add the env vars above in Railway, and run `npx prisma migrate deploy` before or as part of each release.
+[`packages/backend/railway.toml`](./packages/backend/railway.toml) builds with Nixpacks (`npm run build`) and starts `node dist/main`. Set the root directory to `packages/backend`, add the env vars above in Railway, and run `npx prisma migrate deploy` before or as part of each release. Railway's health check calls `GET /health`, which also checks the database.
+
+**One migration waits for a deploy:** `20261105130000_drop_users_push_token` drops a column that Phase 2 servers read. Apply it only after Railway is running Phase 3 or later.
+
+### CI
+
+[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) runs on every pull request and push to `main`: the backend job applies the migrations to a throwaway Postgres, checks they match the schema, and runs prettier, eslint, tsc, unit tests, database tests and the build; the mobile job runs tsc, eslint and unit tests.
 
 ---
 

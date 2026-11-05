@@ -51,7 +51,7 @@ export default function PaceScreen() {
           {PACES.map((p) => {
             const selected = pace === p.value;
             return (
-              <Pressable
+              <Pressable accessibilityRole="button" aria-selected={selected}
                 key={p.value}
                 onPress={() => set({ pace: p.value })}
                 style={{
@@ -106,7 +106,7 @@ export default function PaceScreen() {
           </View>
         )}
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={() => { if (pace) router.push('/onboarding/friction'); }}
           disabled={!pace}
           style={({ pressed }) => ({
@@ -123,7 +123,7 @@ export default function PaceScreen() {
           </Text>
         </Pressable>
 
-        <Pressable onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>← Back</Text>
         </Pressable>
       </ScrollView>

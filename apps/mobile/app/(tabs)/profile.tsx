@@ -25,7 +25,7 @@ import { confirmAction, notify } from '../../lib/confirm';
 import Constants from 'expo-constants';
 import { Avatar } from '../../components/ui/Avatar';
 import { pickAndUploadAvatar, removeAvatarFile } from '../../lib/avatar';
-import { useHabits, useHabitSummary } from '../../hooks/useHabits';
+import { useHabitSummary } from '../../hooks/useHabits';
 import { useWeeklySummary } from '../../hooks/useActivityLog';
 
 type BackendUser = Me;
@@ -206,7 +206,6 @@ export default function ProfileScreen() {
     { label: 'Phase', value: isLoading ? '—' : labelCase(me?.primaryGoal).split(' ')[0], unit: '', color: Colors.teal },
   ];
 
-  const { data: habits } = useHabits();
   const { data: habitSummary } = useHabitSummary();
   const { refreshing, onRefresh } = usePullToRefresh([['me'], ['habits'], ['habit-streaks'], ['activity-week']]);
   const streak = habitSummary?.maxStreak ?? 0;
@@ -271,7 +270,7 @@ export default function ProfileScreen() {
                 <Text style={{ fontSize: 11, fontFamily: 'DMSans-Bold', color: Colors.orange }}>{streak > 0 ? `🔥 ${streak} day streak` : 'Start a streak today'}</Text>
               </View>
             </View>
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={openEdit}
               style={({ pressed }) => ({
                 backgroundColor: Colors.surface2,
@@ -319,7 +318,7 @@ export default function ProfileScreen() {
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <Text style={{ fontSize: 15, fontFamily: 'DMSans-Bold', color: Colors.text }}>This week</Text>
-            <Pressable onPress={() => router.push('/(tabs)/activity')} hitSlop={8}>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/activity')} hitSlop={8}>
               <Text style={{ fontSize: 12, color: Colors.orange, fontFamily: 'DMSans-Bold' }}>Details →</Text>
             </Pressable>
           </View>
@@ -367,7 +366,7 @@ export default function ProfileScreen() {
         ))}
 
         {/* Log out */}
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={handleLogout}
           style={({ pressed }) => ({
             flexDirection: 'row',

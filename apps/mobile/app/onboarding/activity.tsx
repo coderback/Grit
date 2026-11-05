@@ -48,7 +48,7 @@ export default function ActivityScreen() {
           {LEVELS.map((level) => {
             const selected = activityLevel === level.value;
             return (
-              <Pressable
+              <Pressable accessibilityRole="button" aria-selected={selected}
                 key={level.value}
                 onPress={() => set({ activityLevel: level.value })}
                 style={{
@@ -89,7 +89,7 @@ export default function ActivityScreen() {
           })}
         </View>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={() => {
             if (activityLevel) router.push('/onboarding/goal');
           }}
@@ -108,7 +108,7 @@ export default function ActivityScreen() {
           </Text>
         </Pressable>
 
-        <Pressable onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>← Back</Text>
         </Pressable>
       </ScrollView>

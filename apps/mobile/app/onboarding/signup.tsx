@@ -117,7 +117,7 @@ export default function SignupScreen() {
           </View>
         </View>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={handleSignup}
           disabled={loading}
           style={({ pressed }) => ({
@@ -141,14 +141,14 @@ export default function SignupScreen() {
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>
             Already have an account?
           </Text>
-          <Pressable onPress={() => router.push('/(auth)/login')}>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/(auth)/login')}>
             <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Medium', fontSize: 14 }}>
               Sign in
             </Text>
           </Pressable>
         </View>
 
-        <Pressable onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ alignItems: 'center', paddingBottom: 8 }}>
           <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 14 }}>← Back</Text>
         </Pressable>
       </ScrollView>
