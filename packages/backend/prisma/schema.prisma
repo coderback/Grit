@@ -635,6 +635,10 @@ model Food {
   source      String
   // Lowercased, accent-free name, brand and other names, for search
   searchText  String
+  // The same, for foods always searched in full: generic foods and dishes,
+  // and products GRIT users have logged or scanned. Null for the long tail
+  // of products, which a search only samples (see FoodDbService.search)
+  coreText    String?
   imageUrl    String?
   updatedAt   DateTime @updatedAt
 
@@ -648,6 +652,7 @@ model Food {
   favorites FavoriteFood[]
 
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([coreText(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("foods")
 }
 

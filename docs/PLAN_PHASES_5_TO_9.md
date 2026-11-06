@@ -408,7 +408,8 @@ with these differences:
     so remembered and saved foods keep their nutrients;
   - `SearchEvent` has `kind` (search or barcode), `resultCount` and
     `pickedId`, for first-search success, the barcode hit rate and the
-    verified share.
+    verified share;
+  - `Food.coreText` (see "Scale" below).
 - **Search** is trigram matching on `searchText` (every word must appear,
   plurals included, then a typo-tolerant search when that finds few), not
   full text plus trigram: one index serves every language and typos, and
@@ -417,6 +418,13 @@ with these differences:
   (`src/food/synonyms.ts`: yoghurt = yogurt, courgette = zucchini, prawn
   = shrimp…) rather than a file per language; `FoodName` holds other names,
   and they're searched too.
+- **Scale:** a common word ("chi", "milk") matches hundreds of thousands
+  of products, too many to rank. So `Food.coreText` marks the foods always
+  searched in full (generic foods, dishes, and products GRIT users have
+  logged or scanned) and other products are sampled. With the full Open
+  Food Facts import locally (3.4 million foods), search p95 is 131 ms.
+  Typesense or Meilisearch would be next if branded results for common
+  words need to be complete.
 - **Live Open Food Facts search stays** as a fallback (`FOOD_LIVE_SEARCH`)
   until its full import is in: the "no live calls except barcode misses"
   exit applies once it is.

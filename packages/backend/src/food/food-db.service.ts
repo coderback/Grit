@@ -29,6 +29,9 @@ const SEARCH_LIMIT = 25;
 const SEARCH_TIMEOUT_MS = 2500;
 // Below this, the typo-tolerant search runs too
 const ENOUGH_RESULTS = 5;
+// Products outside the core considered per search: enough to find a brand,
+// few enough to rank in a few milliseconds
+const PRODUCT_SAMPLE = 3000;
 // How many personal foods (from Smart log's memory) lead the results
 const MEMORY_RESULTS = 3;
 // The most remembered foods looked through for them
@@ -176,23 +179,25 @@ export class FoodDbService {
     opts: SearchOptions,
     limit: number,
   ): Promise<SearchRow[]> {
-    // Each word, or another word for the same food ("yoghurt" or "yogurt")
-    const match =
+    // Each word, or another word for the same food ("yoghurt" or "yogurt");
+    // without words, trigram word similarity (typos, word order)
+    const matchOn = (column: Prisma.Sql) =>
       words && words.length
         ? Prisma.join(
             words.map(
               (w) =>
                 Prisma.sql`(${Prisma.join(
                   wordForms(w).map(
-                    (form) =>
-                      Prisma.sql`f."searchText" LIKE ${likePattern(form)}`,
+                    (form) => Prisma.sql`${column} LIKE ${likePattern(form)}`,
                   ),
                   ' OR ',
                 )})`,
             ),
             ' AND ',
           )
-        : Prisma.sql`${key} OPERATOR(extensions.<%) f."searchText"`;
+        : Prisma.sql`${key} OPERATOR(extensions.<%) ${column}`;
+    const core = matchOn(Prisma.sql`f."coreText"`);
+    const all = matchOn(Prisma.sql`f."searchText"`);
     const kinds = opts.kinds?.length
       ? Prisma.sql`AND f.kind IN (${Prisma.join(opts.kinds)})`
       : Prisma.empty;
@@ -207,12 +212,19 @@ export class FoodDbService {
           WHERE "userId" = ${opts.userId} AND "foodId" IS NOT NULL`
       : Prisma.sql`SELECT NULL::text AS "foodId" WHERE false`;
 
+    // Candidates: every matching core food (generic foods, dishes, and
+    // products GRIT users have logged or scanned), the user's own foods,
+    // and a sample of the other products. A common word matches hundreds
+    // of thousands of products, and ranking them all is too slow
     const sql = Prisma.sql`
       WITH mine AS (${mine}),
-      hits AS (
-        SELECT f.id, f.kind, f.quality, f.popularity, f.countries, f."searchText"
-        FROM foods f
-        WHERE ${match} ${kinds}
+      cand AS (
+        SELECT f.id FROM foods f WHERE ${core} ${kinds}
+        UNION
+        SELECT f.id FROM mine m JOIN foods f ON f.id = m."foodId"
+        WHERE ${all} ${kinds}
+        UNION
+        (SELECT f.id FROM foods f WHERE ${all} ${kinds} LIMIT ${PRODUCT_SAMPLE})
       ),
       scored AS (
         SELECT h.id,
@@ -221,8 +233,8 @@ export class FoodDbService {
           extensions.similarity(${key}, h."searchText") AS sim,
           h."searchText" LIKE ${key + '%'} AS prefix,
           ${country} = ANY(h.countries) AS local,
-          h.kind, h.quality, h.popularity
-        FROM hits h
+          h.kind, h.quality, h.popularity, h.verified
+        FROM cand c JOIN foods h ON h.id = c.id
       )
       SELECT id, mine, wsim::float8 AS wsim,
         ((CASE WHEN mine THEN 1.0 ELSE 0 END)
@@ -230,7 +242,8 @@ export class FoodDbService {
          + 0.5 * sim + 0.2 * wsim
          + (CASE WHEN prefix THEN 0.3 ELSE 0 END)
          + (CASE WHEN kind = 'generic' THEN 0.05 ELSE 0 END)
-         + 0.2 * quality
+         + (CASE WHEN verified THEN 0.2 ELSE 0 END)
+         + 0.5 * quality
          + 0.1 * least(1.0, ln(1 + popularity) / ln(101)))::float8 AS score
       FROM scored
       ORDER BY score DESC, id
@@ -356,6 +369,8 @@ export class FoodDbService {
           verified: clean.verified,
           source: clean.source,
           searchText: clean.searchText,
+          // A product someone scanned is one people have: always searchable
+          coreText: clean.searchText,
           imageUrl: clean.imageUrl,
           barcodes: { create: clean.barcodes.map((code) => ({ code })) },
           servings: { create: clean.servings },
@@ -426,8 +441,9 @@ export class FoodDbService {
 
   /** Counts a log toward a food's popularity, which search ranking uses. */
   async countLog(foodId: string) {
+    // Logged foods join the core, which every search covers in full
     await this.prisma
-      .$executeRaw`UPDATE foods SET popularity = popularity + 1 WHERE id = ${foodId}`.catch(
+      .$executeRaw`UPDATE foods SET popularity = popularity + 1, "coreText" = "searchText" WHERE id = ${foodId}`.catch(
       (err: unknown) =>
         this.logger.warn(`Couldn't count a log for ${foodId}: ${String(err)}`),
     );

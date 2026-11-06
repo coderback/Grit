@@ -235,12 +235,16 @@ writing is on.
 - **Search** runs on GRIT's own data:
   - every word must appear (plurals and synonyms included: "yoghurt"
     finds "yogurt", "courgette" finds "zucchini"), with a typo-tolerant
-    search when that finds few, all on one trigram index;
+    search when that finds few, on trigram indexes;
+  - generic foods, dishes and every product a GRIT user has logged or
+    scanned (the "core") are always searched in full; the millions of
+    other products are sampled, so common words stay fast;
   - ranked by the user's own foods (logged, favourite, remembered), then
     their country's, how closely the name matches, quality and popularity;
   - results show the typical serving and a "Verified" label for
     government and manufacturer data;
-  - p95 of 41 ms locally on 48,000 foods (target 300 ms).
+  - p95 of 131 ms on 3.4 million foods, locally with the full Open Food
+    Facts import (target 300 ms); 41 ms on 48,000.
 - **Barcodes** are looked up locally first (UPC-A, EAN-13, EAN-8 and
   UPC-E all match), then on Open Food Facts; a product found there is
   saved, so the next scan is local. Every scan is recorded, for the

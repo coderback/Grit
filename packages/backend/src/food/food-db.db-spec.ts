@@ -5,7 +5,8 @@ import { QuickFoodsService } from './quick-foods.service';
 import { searchTextOf } from './food-text';
 import type { FoodRecord } from './food-record';
 
-// Foods here use a made-up word ("blorvak") so real imported data in the
+// Foods here use a made-up word ("blorvak") and made-up barcodes, so real
+// imported data in the
 // same database can't change the rankings. All of them have ids starting
 // "test_" and are removed afterwards.
 
@@ -102,7 +103,7 @@ beforeAll(async () => {
     countries: ['gb'],
     quality: 0.5,
     verified: false,
-    barcode: '0049000028911',
+    barcode: '0099999888775',
     basis: 'label',
     kcal: 46,
   });
@@ -228,15 +229,15 @@ describe('food database search', () => {
 
 describe('barcodes and single foods', () => {
   it('finds a barcode however it was written', async () => {
-    for (const code of ['049000028911', '0049000028911', '00049000028911']) {
+    for (const code of ['099999888775', '0099999888775', '00099999888775']) {
       await expect(foodDb.byBarcode(code)).resolves.toMatchObject({
         foodId: 'test_juice',
-        barcode: '0049000028911',
+        barcode: '0099999888775',
         verified: false,
         basis: 'label',
       });
     }
-    await expect(foodDb.byBarcode('12345670')).resolves.toBeNull();
+    await expect(foodDb.byBarcode('99999995')).resolves.toBeNull();
   });
 
   it('gives a single food with its measured and label nutrients, not estimates', async () => {
@@ -362,7 +363,7 @@ describe('logging a database food', () => {
       name: 'Blorvak juice',
       mealType: 'snack',
       calories: 115,
-      barcode: '049000028911',
+      barcode: '099999888775',
       servingQty: 250,
       servingUnit: 'ml',
     });
@@ -425,7 +426,7 @@ describe('logging a database food', () => {
 
   it('records barcode scans, hit or miss, for the hit rate by country', async () => {
     const user = await db.user();
-    await food.lookupBarcode('049000028911', {
+    await food.lookupBarcode('099999888775', {
       supabaseId: user.supabaseId,
       country: 'GB',
     });
@@ -437,7 +438,7 @@ describe('logging a database food', () => {
     expect(events).toEqual([
       expect.objectContaining({
         kind: 'barcode',
-        query: '0049000028911',
+        query: '0099999888775',
         resultCount: 1,
         country: 'GB',
       }),

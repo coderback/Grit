@@ -169,24 +169,34 @@ WHERE s.stage_id = w.stage_id`,
 
   foods: `
 INSERT INTO foods (id, name, brand, kind, category, ingredients, countries,
-  quality, verified, source, "searchText", "imageUrl", popularity, "updatedAt")
+  quality, verified, source, "searchText", "coreText", "imageUrl", popularity,
+  "updatedAt")
 SELECT food_id, name, brand, kind, category, ingredients, countries,
-  quality, verified, source, search_text, image_url, 0, now()
+  quality, verified, source, search_text,
+  -- Generic foods and dishes are always searched in full (the core);
+  -- products join it once someone logs or scans them
+  CASE WHEN kind <> 'branded' THEN search_text END,
+  image_url, 0, now()
 FROM s_food WHERE owns
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name, brand = EXCLUDED.brand, kind = EXCLUDED.kind,
   category = EXCLUDED.category, ingredients = EXCLUDED.ingredients,
   countries = EXCLUDED.countries, quality = EXCLUDED.quality,
   verified = EXCLUDED.verified, source = EXCLUDED.source,
-  "searchText" = EXCLUDED."searchText", "imageUrl" = EXCLUDED."imageUrl",
+  "searchText" = EXCLUDED."searchText",
+  "coreText" = CASE WHEN EXCLUDED.kind <> 'branded' OR foods."coreText" IS NOT NULL
+                    THEN EXCLUDED."searchText" END,
+  "imageUrl" = EXCLUDED."imageUrl",
   "updatedAt" = now()
 WHERE (foods.name, foods.brand, foods.kind, foods.category, foods.ingredients,
        foods.countries, foods.quality, foods.verified, foods.source,
-       foods."searchText", foods."imageUrl")
+       foods."searchText", foods."coreText", foods."imageUrl")
   IS DISTINCT FROM
       (EXCLUDED.name, EXCLUDED.brand, EXCLUDED.kind, EXCLUDED.category,
        EXCLUDED.ingredients, EXCLUDED.countries, EXCLUDED.quality,
        EXCLUDED.verified, EXCLUDED.source, EXCLUDED."searchText",
+       CASE WHEN EXCLUDED.kind <> 'branded' OR foods."coreText" IS NOT NULL
+            THEN EXCLUDED."searchText" END,
        EXCLUDED."imageUrl")
 RETURNING (xmax = 0) AS inserted`,
 
