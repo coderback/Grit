@@ -11,7 +11,9 @@ import { Pool, type PoolConfig } from 'pg';
 export function poolFromEnv(env: NodeJS.ProcessEnv = process.env): Pool {
   const raw = env.DIRECT_URL || env.DATABASE_URL;
   if (!raw) {
-    throw new Error('Set DIRECT_URL or DATABASE_URL to the database to import into');
+    throw new Error(
+      'Set DIRECT_URL or DATABASE_URL to the database to import into',
+    );
   }
   return new Pool(poolConfig(raw));
 }
@@ -20,7 +22,13 @@ export function poolConfig(raw: string): PoolConfig {
   const url = new URL(raw);
   const sslmode = url.searchParams.get('sslmode');
   // Prisma-only and libpq-only parameters that pg doesn't understand
-  for (const p of ['sslmode', 'pgbouncer', 'connection_limit', 'pool_timeout', 'schema']) {
+  for (const p of [
+    'sslmode',
+    'pgbouncer',
+    'connection_limit',
+    'pool_timeout',
+    'schema',
+  ]) {
     url.searchParams.delete(p);
   }
   const ssl =

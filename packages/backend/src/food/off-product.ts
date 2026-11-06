@@ -481,12 +481,18 @@ export function offRecord(
  * The printed serving without its weight, which the app adds back:
  * "2 tbsp (37 g)" → "2 tbsp"; "37 g" or nothing → "1 serving".
  */
+const WEIGHT = String.raw`[\d.,]+\s*(?:g|ml|gr|grams?)\b`;
+
 export function servingLabel(printed: string | undefined) {
-  const text = (printed ?? '')
-    .replace(/\(\s*[\d.,]+\s*(g|ml|gr|grams?)\s*\)/gi, '')
+  let text = (printed ?? '')
+    .replace(new RegExp(String.raw`\(\s*${WEIGHT}\s*\)`, 'gi'), '')
     .replace(/\s+/g, ' ')
     .trim();
-  if (!text || /^[\d.,]+\s*(g|ml|gr|grams?)$/i.test(text) || text.length > 60) {
+  // Weight first: "30g (2 biscuits)" → "2 biscuits"
+  const lead = text.match(new RegExp(String.raw`^${WEIGHT}\s*\((.+)\)$`, 'i'));
+  if (lead) text = lead[1].trim();
+  // A weight left anywhere ("1 x 25g bar", "37 g") → the plain label
+  if (!text || new RegExp(WEIGHT, 'i').test(text) || text.length > 60) {
     return '1 serving';
   }
   return text;

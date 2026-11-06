@@ -264,7 +264,13 @@ export function groundItem(
       category,
       // Their own numbers, so not second-guessed
       check: false,
-      ...(memory.foodId ? { foodId: memory.foodId } : {}),
+      // Its database food: the remembered link, else a match whose
+      // calories agree with the person's own numbers
+      ...(memory.foodId
+        ? { foodId: memory.foodId }
+        : database?.foodId && sameAsEaten(database.kcal, memory.kcal)
+          ? { foodId: database.foodId }
+          : {}),
     };
   }
   if (database) {
@@ -355,10 +361,11 @@ Don't give advice. Only food the person ate.`;
 /**
  * Whether a database food's calories are close enough to the reading's to
  * be the same thing as eaten: raw rice (365 kcal per 100 g) isn't cooked
- * rice (130). Within 35%, or 15 kcal for very light foods.
+ * rice (130), and raw chicken breast (120) isn't roasted (165). Within
+ * 20%, or 15 kcal for very light foods.
  */
 export function sameAsEaten(dbKcal: number, readKcal: number) {
   if (!(readKcal > 0)) return false;
   if (readKcal < 40) return Math.abs(dbKcal - readKcal) <= 15;
-  return Math.abs(dbKcal - readKcal) / readKcal <= 0.35;
+  return Math.abs(dbKcal - readKcal) / readKcal <= 0.2;
 }

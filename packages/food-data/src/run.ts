@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import type { FoodRecord, SourceId } from './record';
-import { emptyStats, removeMissing, writeFoods, type WriteStats } from './writer';
+import { removeMissing, writeFoods, type WriteStats } from './writer';
 
 /** One dataset to import: what the CLI runs and the tests drive. */
 export interface Job {

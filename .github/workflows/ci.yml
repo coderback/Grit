@@ -64,6 +64,53 @@ jobs:
       - name: Build
         run: npm run build && test -f dist/main.js
 
+  food-data:
+    name: Food data
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: grit
+          POSTGRES_PASSWORD: grit
+          POSTGRES_DB: grit
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U grit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # A throwaway database with the backend's migrations, for the importers'
+      # database tests (which work in a schema of their own)
+      DATABASE_URL: postgresql://grit:grit@localhost:5432/grit
+      DIRECT_URL: postgresql://grit:grit@localhost:5432/grit
+    defaults:
+      run:
+        working-directory: packages/food-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        working-directory: .
+        run: npm install --no-audit --no-fund
+      - name: Apply the backend's migrations
+        working-directory: packages/backend
+        run: npx prisma migrate deploy
+      - name: Format
+        run: npx prettier --check "src/**/*.ts"
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test -- --ci
+      - name: Database tests
+        run: npm run test:db -- --ci
+
   mobile:
     name: Mobile
     runs-on: ubuntu-latest

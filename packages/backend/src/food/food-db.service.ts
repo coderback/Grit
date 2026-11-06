@@ -30,6 +30,8 @@ const SEARCH_TIMEOUT_MS = 2500;
 const ENOUGH_RESULTS = 5;
 // How many personal foods (from Smart log's memory) lead the results
 const MEMORY_RESULTS = 3;
+// The most remembered foods looked through for them
+const MEMORY_CANDIDATES = 500;
 // Foods logged this recently count as the user's own
 const MINE_DAYS = 180;
 
@@ -105,11 +107,26 @@ export class FoodDbService {
     const words = queryWords(key);
     const country = opts.country?.toLowerCase() ?? '';
 
-    let rows = await this.rank(key, words, country, opts, limit);
+    // A ranking query that fails or runs out of time leaves fewer results,
+    // never none: the exact matches and the user's memories still come back
+    let rows: SearchRow[] = [];
+    try {
+      rows = await this.rank(key, words, country, opts, limit);
+    } catch (err) {
+      this.logger.warn(`Food search failed: ${String(err)}`);
+    }
     if (rows.length < ENOUGH_RESULTS) {
-      const fuzzy = await this.rank(key, null, country, opts, limit);
-      const seen = new Set(rows.map((r) => r.id));
-      rows = [...rows, ...fuzzy.filter((r) => !seen.has(r.id))].slice(0, limit);
+      try {
+        const fuzzy = await this.rank(key, null, country, opts, limit);
+        const seen = new Set(rows.map((r) => r.id));
+        rows = [...rows, ...fuzzy.filter((r) => !seen.has(r.id))]
+          // The user's own foods first, whichever query found them (stable,
+          // so exact matches still lead within each group)
+          .sort((a, b) => Number(b.mine) - Number(a.mine))
+          .slice(0, limit);
+      } catch (err) {
+        this.logger.warn(`Fuzzy food search failed: ${String(err)}`);
+      }
     }
 
     const foods = await this.prisma.food.findMany({
@@ -212,15 +229,19 @@ export class FoodDbService {
   /** The user's own remembered foods (Smart log) that match, without a database food. */
   private async memories(userId: string, words: string[], key: string) {
     const terms = words.length ? words : [key];
-    const memories = await this.prisma.foodMemory.findMany({
-      where: {
-        userId,
-        foodId: null,
-        AND: terms.map((w) => ({ key: { contains: w } })),
-      },
+    // Matched on the name the same way foods are (accents dropped, plurals
+    // stemmed); the stored memory key is normalised differently
+    const candidates = await this.prisma.foodMemory.findMany({
+      where: { userId, foodId: null },
       orderBy: [{ uses: 'desc' }, { updatedAt: 'desc' }],
-      take: MEMORY_RESULTS,
+      take: MEMORY_CANDIDATES,
     });
+    const memories = candidates
+      .filter((m) => {
+        const name = searchKey(m.name);
+        return terms.every((w) => name.includes(w));
+      })
+      .slice(0, MEMORY_RESULTS);
     return memories.map((m): NormalizedFood => ({
       offId: `memory:${m.id}`,
       name: m.name,

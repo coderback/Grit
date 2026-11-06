@@ -1,18 +1,21 @@
-import type { Pool, PoolClient } from 'pg';
-import { poolFromEnv } from './db';
+import type { PoolClient } from 'pg';
 import type { FoodRecord } from './record';
+import { testSchema } from './test-db';
 import { changedAnything, removeMissing, writeFoods } from './writer';
 
-// Runs against DATABASE_URL (a throwaway or dev database with the backend's
-// migrations applied). Every row these tests create has an externalId
-// starting "test-", and is removed afterwards.
+// Runs against DATABASE_URL (a database with the backend's migrations
+// applied), in copies of the food tables in a schema of their own (see
+// test-db.ts), so real imported foods with the same barcodes are never
+// merged with, or removed by, these tests.
 
-let pool: Pool;
+let db: Awaited<ReturnType<typeof testSchema>>;
 let client: PoolClient;
 
 const at = new Date('2026-01-01T00:00:00Z');
 
-function rec(over: Partial<FoodRecord> & Pick<FoodRecord, 'externalId'>): FoodRecord {
+function rec(
+  over: Partial<FoodRecord> & Pick<FoodRecord, 'externalId'>,
+): FoodRecord {
   return {
     source: 'off',
     fetchedAt: at,
@@ -22,21 +25,19 @@ function rec(over: Partial<FoodRecord> & Pick<FoodRecord, 'externalId'>): FoodRe
     countries: ['gb'],
     barcodes: [],
     servings: [{ label: '1 glass (250 ml)', grams: 250, typical: true }],
-    nutrients: { kcal: 45, protein_g: 1, carbs_g: 6.6, fat_g: 1.5, calcium_mg: 120 },
+    nutrients: {
+      kcal: 45,
+      protein_g: 1,
+      carbs_g: 6.6,
+      fat_g: 1.5,
+      calcium_mg: 120,
+    },
     basis: 'label',
     names: [{ name: 'Boisson à l’avoine', lang: 'fr' }],
     quality: 0.5,
     verified: false,
     ...over,
   };
-}
-
-async function cleanup() {
-  await client.query(
-    `DELETE FROM foods WHERE id IN (
-       SELECT "foodId" FROM food_sources WHERE "externalId" LIKE 'test-%')
-     OR id LIKE '%test-%'`,
-  );
 }
 
 /** Row versions of everything a food owns: unchanged means nothing was rewritten. */
@@ -56,22 +57,24 @@ async function versions(foodId: string) {
 }
 
 beforeAll(async () => {
-  pool = poolFromEnv();
-  client = await pool.connect();
-  await cleanup();
+  db = await testSchema('writer');
+  client = await db.pool.connect();
 });
 
 afterAll(async () => {
-  await cleanup();
-  client.release();
-  await pool.end();
+  client?.release();
+  await db?.drop();
 });
 
 describe('writing foods', () => {
   it('stores a food with its nutrients, servings, barcodes and names, and a re-run changes nothing', async () => {
     const records = [
       rec({ externalId: 'test-0001', barcodes: ['049000028911'] }),
-      rec({ externalId: 'test-0002', name: 'Test rye bread', barcodes: ['12345670'] }),
+      rec({
+        externalId: 'test-0002',
+        name: 'Test rye bread',
+        barcodes: ['12345670'],
+      }),
     ];
     const first = await writeFoods(client, records);
     expect(first).toMatchObject({ read: 2, skipped: 0, foodsInserted: 2 });
@@ -93,7 +96,10 @@ describe('writing foods', () => {
         // UPC-A as GTIN-13
         barcodes: ['0049000028911'],
       },
-      expect.objectContaining({ id: 'off_test-0002', barcodes: ['0000012345670'] }),
+      expect.objectContaining({
+        id: 'off_test-0002',
+        barcodes: ['0000012345670'],
+      }),
     ]);
 
     const before = await versions('off_test-0001');
@@ -117,7 +123,7 @@ describe('writing foods', () => {
       nutrientsChanged: 2,
       servingsChanged: 0,
     });
-    const { rows } = await client.query(
+    const { rows } = await client.query<{ nutrient: string; amount: number }>(
       `SELECT nutrient, amount FROM food_nutrients WHERE "foodId" = 'off_test-0001' ORDER BY nutrient`,
     );
     expect(rows.map((r) => [r.nutrient, r.amount])).toEqual([
@@ -178,14 +184,25 @@ describe('writing foods', () => {
 
   it('treats two records with the same barcode in one batch as one food', async () => {
     const stats = await writeFoods(client, [
-      rec({ externalId: 'test-0101', name: 'Test crisps', barcodes: ['5000000000017'] }),
-      rec({ externalId: 'test-0102', name: 'Test crisps (dup)', barcodes: ['05000000000017'] }),
+      rec({
+        externalId: 'test-0101',
+        name: 'Test crisps',
+        barcodes: ['5000000000017'],
+      }),
+      rec({
+        externalId: 'test-0102',
+        name: 'Test crisps (dup)',
+        barcodes: ['05000000000017'],
+      }),
     ]);
     expect(stats.foodsInserted).toBe(1);
-    const { rows } = await client.query(
+    const { rows } = await client.query<{ foodId: string }>(
       `SELECT "foodId", "externalId" FROM food_sources WHERE "externalId" IN ('test-0101', 'test-0102') ORDER BY "externalId"`,
     );
-    expect(rows.map((r) => r.foodId)).toEqual(['off_test-0101', 'off_test-0101']);
+    expect(rows.map((r) => r.foodId)).toEqual([
+      'off_test-0101',
+      'off_test-0101',
+    ]);
   });
 
   it("skips records without a name or calories, and drops values that can't be right", async () => {
@@ -199,7 +216,7 @@ describe('writing foods', () => {
       }),
     ]);
     expect(stats).toMatchObject({ read: 3, skipped: 2, foodsInserted: 1 });
-    const { rows } = await client.query(
+    const { rows } = await client.query<{ nutrient: string }>(
       `SELECT nutrient FROM food_nutrients WHERE "foodId" = 'off_test-0203' ORDER BY nutrient`,
     );
     expect(rows.map((r) => r.nutrient)).toEqual(['kcal', 'sodium_mg']);
@@ -207,17 +224,22 @@ describe('writing foods', () => {
 
   it("removes a source's rows that a full import no longer has", async () => {
     await writeFoods(client, [
-      rec({ source: 'cofid', kind: 'generic', externalId: 'test-c1', name: 'Test apple', basis: 'measured' }),
-      rec({ source: 'cofid', kind: 'generic', externalId: 'test-c2', name: 'Test pear', basis: 'measured' }),
+      rec({
+        source: 'cofid',
+        kind: 'generic',
+        externalId: 'test-c1',
+        name: 'Test apple',
+        basis: 'measured',
+      }),
+      rec({
+        source: 'cofid',
+        kind: 'generic',
+        externalId: 'test-c2',
+        name: 'Test pear',
+        basis: 'measured',
+      }),
     ]);
-    // Everything else stays seen, so a real CoFID import in this database is untouched
-    const { rows: all } = await client.query<{ externalId: string }>(
-      `SELECT "externalId" FROM food_sources WHERE source = 'cofid'`,
-    );
-    const seen = new Set(
-      all.map((r) => r.externalId).filter((id) => id !== 'test-c2'),
-    );
-    const removed = await removeMissing(client, 'cofid', seen);
+    const removed = await removeMissing(client, 'cofid', new Set(['test-c1']));
     expect(removed).toBe(2); // the source row and its food
     const { rows } = await client.query(
       `SELECT id FROM foods WHERE id IN ('cofid_test-c1', 'cofid_test-c2')`,

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { deviceLocale } from '@/lib/searchEvents';
 import { writeFoodsToHealth } from '@/lib/health/sync';
 import { invalidateFoodLogQueries, type FoodLog, type FoodServing } from '@/hooks/useFoodLog';
 
@@ -61,8 +62,11 @@ export interface FoodMemory {
 /** Reads a described or photographed meal into items. Nothing is logged yet. */
 export function useParseMeal() {
   return useMutation({
+    // The phone's country, so that country's foods are matched first
     mutationFn: (body: { text?: string; imageBase64?: string; imageType?: string }) =>
-      api.post<ParsedMeal>('/food/parse', body, { timeout: 90_000 }).then((r) => r.data),
+      api
+        .post<ParsedMeal>('/food/parse', { ...body, country: deviceLocale().country }, { timeout: 90_000 })
+        .then((r) => r.data),
   });
 }
 

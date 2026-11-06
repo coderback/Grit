@@ -18,7 +18,7 @@ export interface Archive {
   names: string[];
   /** Whether it has a file with this base name (case-insensitive) */
   has(name: string): boolean;
-  /** The file with this base name as a stream; throws when it's missing */
+  /** The file with this base name as a stream; rejects when it's missing */
   open(name: string): Promise<Readable>;
   /** The first file whose base name matches */
   find(pattern: RegExp): string | undefined;
@@ -40,8 +40,7 @@ async function openDirectory(dir: string): Promise<Archive> {
   // Shallowest first, so a file at the top wins over one in a subfolder
   entries.sort(
     (a, b) =>
-      a.parentPath.length - b.parentPath.length ||
-      a.name.localeCompare(b.name),
+      a.parentPath.length - b.parentPath.length || a.name.localeCompare(b.name),
   );
   for (const e of entries) {
     if (!e.isFile()) continue;
@@ -63,8 +62,9 @@ function fromFiles(
     find: (pattern) => [...files.keys()].find((n) => pattern.test(n)),
     open: (name) => {
       const file = files.get(key(name));
-      if (!file) throw new Error(`${path} has no ${name}`);
-      return Promise.resolve(createReadStream(file));
+      return file
+        ? Promise.resolve(createReadStream(file))
+        : Promise.reject(new Error(`${path} has no ${name}`));
     },
     close,
   };
@@ -94,15 +94,14 @@ async function openZip(path: string): Promise<Archive> {
     names: [...entries.keys()],
     has: (name) => entries.has(key(name)),
     find: (pattern) => [...entries.keys()].find((n) => pattern.test(n)),
-    open: (name) => {
-      const entry = entries.get(key(name));
-      if (!entry) throw new Error(`${path} has no ${name}`);
-      return new Promise<Readable>((resolve, reject) =>
+    open: (name) =>
+      new Promise<Readable>((resolve, reject) => {
+        const entry = entries.get(key(name));
+        if (!entry) return reject(new Error(`${path} has no ${name}`));
         zip.openReadStream(entry, (err, stream) =>
           err ? reject(err) : resolve(stream),
-        ),
-      );
-    },
+        );
+      }),
     close: () => zip.close(),
   };
 }

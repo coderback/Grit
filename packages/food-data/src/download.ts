@@ -1,4 +1,5 @@
-import { createWriteStream, existsSync } from 'fs';
+import { createHash } from 'crypto';
+import { createReadStream, createWriteStream, existsSync } from 'fs';
 import { mkdir, rename, rm, stat } from 'fs/promises';
 import { basename, join, resolve } from 'path';
 import { Readable } from 'stream';
@@ -46,6 +47,8 @@ export interface DownloadOptions {
   name?: string;
   /** Download again even when cached */
   refresh?: boolean;
+  /** The file's expected SHA-256 (hex), checked after downloading */
+  sha256?: string;
   log?: (line: string) => void;
 }
 
@@ -65,11 +68,15 @@ export async function download(
   const path = join(dir, name);
   if (!options.refresh && existsSync(path) && (await stat(path)).size > 0) {
     options.log?.(`Using cached ${path}`);
+    if (options.sha256) await checkSha256(path, options.sha256);
     return path;
   }
 
   const res = await get(url);
-  const total = Number(res.headers.get('content-length')) || 0;
+  // A compressed transfer's length isn't the file's
+  const total = res.headers.get('content-encoding')
+    ? 0
+    : Number(res.headers.get('content-length')) || 0;
   options.log?.(
     `Downloading ${url}${total ? ` (${(total / 1e6).toFixed(1)} MB)` : ''}`,
   );
@@ -95,6 +102,24 @@ export async function download(
     await rm(part, { force: true });
     throw new Error(`Download of ${url} failed: ${(err as Error).message}`);
   }
+  if (options.sha256) {
+    try {
+      await checkSha256(part, options.sha256);
+    } catch (err) {
+      await rm(part, { force: true });
+      throw err;
+    }
+  }
   await rename(part, path);
   return path;
+}
+
+/** Throws unless the file's SHA-256 is `expected`. */
+export async function checkSha256(path: string, expected: string) {
+  const hash = createHash('sha256');
+  await pipeline(createReadStream(path), hash);
+  const actual = hash.digest('hex');
+  if (actual !== expected.toLowerCase()) {
+    throw new Error(`${path} has SHA-256 ${actual}, expected ${expected}`);
+  }
 }

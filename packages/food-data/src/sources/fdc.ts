@@ -31,7 +31,8 @@ export const FDC_DATASETS = ['foundation', 'sr', 'fndds', 'branded'] as const;
 export type FdcDataset = (typeof FDC_DATASETS)[number];
 
 /** Where USDA lists its downloads, and the files it serves. */
-export const FDC_INDEX_URL = 'https://fdc.nal.usda.gov/download-datasets';
+// With the slash: without it USDA redirects to plain http
+export const FDC_INDEX_URL = 'https://fdc.nal.usda.gov/download-datasets/';
 export const FDC_FILES_URL = 'https://fdc.nal.usda.gov/fdc-datasets/';
 
 const FILE_PATTERNS: Record<FdcDataset, RegExp> = {
@@ -52,7 +53,9 @@ export const FDC_DEFAULT_FILES: Record<FdcDataset, string> = {
 };
 
 /** The newest file of each dataset linked from USDA's download page. */
-export function latestFdcFiles(html: string): Partial<Record<FdcDataset, string>> {
+export function latestFdcFiles(
+  html: string,
+): Partial<Record<FdcDataset, string>> {
   const out: Partial<Record<FdcDataset, string>> = {};
   for (const dataset of FDC_DATASETS) {
     let best: [string, string] | null = null;
@@ -128,7 +131,9 @@ export const FDC_NUTRIENT_IDS = new Set([
 ]);
 
 /** FDC values (nutrient id → amount per 100 g) in GRIT's codes and units. */
-export function fdcNutrients(values: ReadonlyMap<number, number>): NutrientValues {
+export function fdcNutrients(
+  values: ReadonlyMap<number, number>,
+): NutrientValues {
   const out: NutrientValues = {};
   for (const [code, ids] of NUTRIENT_IDS) {
     for (const id of ids) {
@@ -150,7 +155,8 @@ export function fdcNutrients(values: ReadonlyMap<number, number>): NutrientValue
 
 function amountOf(v: unknown): number | undefined {
   if (v === null || v === undefined || v === '') return undefined;
-  const n = typeof v === 'number' ? v : parseFloat(String(v as string));
+  const n =
+    typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) : NaN;
   return Number.isFinite(n) ? n : undefined;
 }
 
@@ -191,6 +197,13 @@ const UNIT_NAMES: Record<string, string> = {
   milliliter: 'ml',
   liter: 'l',
 };
+
+/** "1 tablespoon" → "1 tbsp", as Foundation's units are written. */
+const abbreviate = (label: string) =>
+  label
+    .replace(/\btablespoons?\b/gi, 'tbsp')
+    .replace(/\bteaspoons?\b/gi, 'tsp')
+    .replace(/\bmilliliters?\b/gi, 'ml');
 
 const tidy = (s: string | null | undefined) =>
   (s ?? '')
@@ -274,7 +287,11 @@ function servingsOf(portions: (Portion | null)[]) {
     .filter((p): p is Portion => !!p)
     .sort((a, b) => a.seq - b.seq);
   if (list.length && !list.some((p) => p.typical)) list[0].typical = true;
-  return list.map(({ label, grams, typical }) => ({ label, grams, typical }));
+  return list.map(({ label, grams, typical }) => ({
+    label: abbreviate(label),
+    grams,
+    typical,
+  }));
 }
 
 // ── Foundation, SR Legacy and FNDDS ──────────────────────────────────────────

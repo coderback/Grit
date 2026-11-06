@@ -313,7 +313,10 @@ describe('oftenLow', () => {
     const result = oftenLow([low, low, noData, noData], woman);
     expect(result).toEqual([]);
     expect(anyJudged([noData])).toBe(false);
-    expect(anyJudged([low])).toBe(true);
+    // One judged day isn't enough to say nothing was often low
+    expect(anyJudged([low])).toBe(false);
+    expect(anyJudged([low, low, low])).toBe(true);
+    expect(anyJudged([low], 1)).toBe(true);
   });
 
   it('only ever lists target nutrients', () => {
@@ -361,7 +364,10 @@ describe('nutrientTargets', () => {
 describe('display rounding', () => {
   it('shows one decimal under 10 and whole numbers above', () => {
     expect(displayAmount(9.44)).toBe(9.4);
-    expect(displayAmount(0.06)).toBe(0.1);
+    expect(displayAmount(0.06)).toBe(0.06);
+    expect(displayAmount(0.14)).toBe(0.14);
+    expect(displayAmount(0.144)).toBe(0.14);
+    expect(displayAmount(0)).toBe(0);
     expect(displayAmount(12.9)).toBe(13);
     expect(displayAmount(1750.4)).toBe(1750);
     expect(roundShare(723 / 1519)).toBe(0.48);

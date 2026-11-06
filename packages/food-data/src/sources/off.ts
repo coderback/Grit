@@ -8,7 +8,6 @@ import {
   offRecord,
   type OffProductDoc,
 } from '../../../backend/src/food/off-product';
-import { csvObjects } from '../csv';
 import type { FoodRecord } from '../record';
 
 /**
@@ -82,32 +81,63 @@ const CSV_FIELDS = [
   'image_small_url',
 ] as const;
 
+/** Which columns of the CSV export go where, from its header. */
+export interface OffCsvPlan {
+  fields: [string, number][];
+  nutriments: [string, number][];
+}
+
+export function offCsvPlan(header: string[]): OffCsvPlan {
+  const names = header.map((h, i) => (i === 0 ? h.replace(/^\uFEFF/, '') : h));
+  const fields: [string, number][] = [];
+  const nutriments: [string, number][] = [];
+  names.forEach((name, i) => {
+    if ((CSV_FIELDS as readonly string[]).includes(name))
+      fields.push([name, i]);
+    else if (name.endsWith('_100g')) nutriments.push([name, i]);
+  });
+  if (!fields.some(([name]) => name === 'code')) {
+    throw new Error(
+      "This isn't Open Food Facts' CSV export: it has no code column",
+    );
+  }
+  return { fields, nutriments };
+}
+
 /** A CSV export row as a product document, with nutrients in `nutriments`. */
-export function offCsvDoc(row: Record<string, string>): OffProductDoc {
+export function offCsvDoc(row: string[], plan: OffCsvPlan): OffProductDoc {
   const doc: OffProductDoc = {};
-  for (const field of CSV_FIELDS) {
-    const v = row[field];
-    if (v) doc[field] = v;
+  for (const [name, i] of plan.fields) {
+    const v = row[i];
+    if (v) doc[name] = v;
   }
   const nutriments: Record<string, string> = {};
-  for (const [key, value] of Object.entries(row)) {
-    if (value && key.endsWith('_100g')) nutriments[key] = value;
+  for (const [name, i] of plan.nutriments) {
+    const v = row[i];
+    if (v) nutriments[name] = v;
   }
   doc.nutriments = nutriments;
   return doc;
 }
 
 /**
- * Product documents from the CSV export: tab-separated and unquoted (a
- * stray quote is text).
+ * Product documents from the CSV export. It's tab-separated and unquoted
+ * (a quote is just text), so rows are split on newlines and tabs: what
+ * csv-parse does with `quote: false`, about five times faster on OFF's
+ * 4.9M rows.
  */
-export async function* offCsvDocs(input: Readable): AsyncGenerator<OffProductDoc> {
-  for await (const row of csvObjects(input, {
-    delimiter: '\t',
-    quote: false,
-    relax_column_count: true,
-  })) {
-    yield offCsvDoc(row);
+export async function* offCsvDocs(
+  input: Readable,
+): AsyncGenerator<OffProductDoc> {
+  let plan: OffCsvPlan | null = null;
+  for await (const line of createInterface({ input, crlfDelay: Infinity })) {
+    if (!line) continue;
+    const row = line.split('\t');
+    if (!plan) {
+      plan = offCsvPlan(row);
+      continue;
+    }
+    yield offCsvDoc(row, plan);
   }
 }
 
@@ -180,7 +210,9 @@ export interface DeltaFile {
 export function parseDeltaIndex(text: string): DeltaFile[] {
   const files: DeltaFile[] = [];
   for (const line of text.split(/\r?\n/)) {
-    const m = /^openfoodfacts_products_(\d+)_(\d+)\.json\.gz$/.exec(line.trim());
+    const m = /^openfoodfacts_products_(\d+)_(\d+)\.json\.gz$/.exec(
+      line.trim(),
+    );
     if (m) files.push({ name: m[0], from: Number(m[1]), to: Number(m[2]) });
   }
   return files.sort((a, b) => a.from - b.from || a.to - b.to);

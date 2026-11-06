@@ -294,19 +294,28 @@ export function oftenLow(
 }
 
 /** Whether any target nutrient could be judged on any of these judged days. */
-export function anyJudged(days: readonly NutrientDay[]) {
-  return days.some((d) =>
-    NUTRIENTS.some(
-      (n) =>
-        n.kind === 'target' &&
-        (d.coverage[n.code] ?? 0) >= MIN_NUTRIENT_COVERAGE,
-    ),
+export function anyJudged(
+  days: readonly NutrientDay[],
+  minDays = OFTEN_LOW_MIN_DAYS,
+) {
+  // As many days as "often low" needs, so "none were often low" is never
+  // said about too little data
+  return NUTRIENTS.some(
+    (n) =>
+      n.kind === 'target' &&
+      days.filter((d) => (d.coverage[n.code] ?? 0) >= MIN_NUTRIENT_COVERAGE)
+        .length >= Math.max(1, minDays),
   );
 }
 
-/** Rounded for display: one decimal under 10, whole numbers above. */
+/**
+ * Rounded for display: whole numbers from 10, one decimal from 1, and two
+ * significant figures below (0.14 mg of thiamin isn't 0.1).
+ */
 export function displayAmount(amount: number) {
-  return amount < 10 ? Math.round(amount * 10) / 10 : Math.round(amount);
+  if (amount >= 10) return Math.round(amount);
+  if (amount >= 1) return Math.round(amount * 10) / 10;
+  return Number(amount.toPrecision(2));
 }
 
 /** A 0–1 share to two decimals. */

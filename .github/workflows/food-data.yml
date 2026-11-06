@@ -1,0 +1,68 @@
+name: Food data
+
+# Imports into GRIT's food database (packages/food-data). Runs by hand for
+# full imports (USDA after each release, twice a year; Open Food Facts;
+# CoFID), and daily for Open Food Facts' changes to products already in the
+# database. Needs the DIRECT_URL repository secret: a session-mode
+# connection, not Supabase's transaction pooler on port 6543 (see the
+# package README). Without it, the workflow does nothing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: What to import
+        type: choice
+        options: [off-delta, fdc, off, cofid]
+        default: off-delta
+      options:
+        description: 'Options, e.g. "--dataset foundation,sr,fndds --full", "--min-scans 5 --countries gb,us", "--only-existing", "--dry-run"'
+        type: string
+        default: ''
+  schedule:
+    # Daily, after OFF publishes its delta (about 06:30 UTC)
+    - cron: '43 7 * * *'
+
+# One import at a time; a second one waits rather than racing the first
+concurrency:
+  group: food-data
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    name: Import
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      SOURCE: ${{ github.event_name == 'schedule' && 'off-delta' || inputs.source }}
+      OPTIONS: ${{ github.event_name == 'schedule' && '--only-existing' || inputs.options }}
+    steps:
+      - name: Check for the database secret
+        id: secret
+        run: |
+          if [ -z "$DIRECT_URL" ]; then
+            echo "::notice title=Food data::The DIRECT_URL secret isn't set, so nothing was imported."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.secret.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.secret.outputs.ready == 'true'
+        with:
+          node-version: 22
+      - name: Install
+        if: steps.secret.outputs.ready == 'true'
+        run: npm install --no-audit --no-fund
+      - name: Import
+        if: steps.secret.outputs.ready == 'true'
+        run: |
+          # The options are words for the importer, never shell: no globbing
+          set -f
+          echo "Importing $SOURCE $OPTIONS"
+          npm run import -w packages/food-data -- "$SOURCE" $OPTIONS

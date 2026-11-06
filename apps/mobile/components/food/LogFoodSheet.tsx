@@ -96,7 +96,8 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
   const { data: favorites } = useFavoriteFoods();
   const { mutate: saveFavorite, isPending: savingFavorite } = useSaveFavorite();
   const { mutate: removeFavorite, isPending: removingFavorite } = useRemoveFavorite();
-  const favName = isManual ? name.trim() : food?.name ?? '';
+  // Logs and favourites take names of up to 200 characters
+  const favName = isManual ? name.trim() : (food?.name ?? '').slice(0, 200).trim();
   const favorite = favorites?.find((f) => f.key === foodKey(favName, food?.brand));
   function toggleFavorite() {
     if (!food || !favName) return;
@@ -144,7 +145,7 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
     }
     try {
       await logFood({
-        name: isManual ? name.trim() : food.name,
+        name: isManual ? name.trim() : food.name.slice(0, 200).trim(),
         brand: food.brand ?? undefined,
         barcode: food.barcode ?? undefined,
         mealType,

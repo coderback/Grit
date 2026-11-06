@@ -72,6 +72,7 @@ export class MealParseService {
   private async lookupDatabase(
     item: ModelItem,
     country?: string,
+    opts: { live?: boolean } = {},
   ): Promise<DbMatch | undefined> {
     const name = item.name.trim();
     const brand = item.brand?.trim();
@@ -83,15 +84,20 @@ export class MealParseService {
           limit: 5,
         });
         const brandWord = queryWords(searchKey(brand))[0] ?? searchKey(brand);
+        // The product as eaten: a dry pack's label (rice at 357 kcal per
+        // 100 g) isn't the cooked rice someone ate
         const hit = branded.find(
           (h) =>
             h.calories > 0 &&
-            searchKey(`${h.brand ?? ''} ${h.name}`).includes(brandWord),
+            searchKey(`${h.brand ?? ''} ${h.name}`).includes(brandWord) &&
+            sameAsEaten(h.calories, item.kcalPer100g),
         );
         if (hit) return matchOf(hit);
-        if (process.env.FOOD_LIVE_SEARCH !== 'off') {
+        if (opts.live !== false && process.env.FOOD_LIVE_SEARCH !== 'off') {
           const live = await this.food.searchLive(`${brand} ${name}`);
-          const first = live.find((h) => h.calories > 0);
+          const first = live.find(
+            (h) => h.calories > 0 && sameAsEaten(h.calories, item.kcalPer100g),
+          );
           if (first) return matchOf(first);
         }
       }
@@ -103,14 +109,12 @@ export class MealParseService {
         country,
         limit: 8,
       });
-      const pick = generic.find((h) => {
-        const text = searchKey(h.name);
-        return (
+      const pick = generic.find(
+        (h) =>
           h.basis === 'measured' &&
-          words.every((w) => text.includes(w)) &&
-          sameAsEaten(h.calories, item.kcalPer100g)
-        );
-      });
+          hasWords(h.name, words) &&
+          sameAsEaten(h.calories, item.kcalPer100g),
+      );
       return pick ? matchOf(pick) : undefined;
     } catch (err) {
       // The database being down just means we fall back to the estimate
@@ -210,12 +214,23 @@ export class MealParseService {
         },
       ]),
     );
+    // Remembered foods already linked to the database need no lookup. One
+    // that isn't is matched against the person's own calories, so it can
+    // gain a link (and its micronutrients) without changing their numbers
     const database = await Promise.all(
-      modelItems.map((i, n) =>
-        byKey.has(keys[n])
-          ? Promise.resolve(undefined)
-          : this.lookupDatabase(i, dto.country),
-      ),
+      modelItems.map((i, n) => {
+        const memory = byKey.get(keys[n]);
+        if (memory?.foodId) return Promise.resolve(undefined);
+        return memory
+          ? this.lookupDatabase(
+              { ...i, kcalPer100g: memory.kcal },
+              dto.country,
+              {
+                live: false,
+              },
+            )
+          : this.lookupDatabase(i, dto.country);
+      }),
     );
 
     const items = modelItems.map((item, n) => {
@@ -311,12 +326,16 @@ export class MealParseService {
           caffeinePer100g: per100.caffeine ?? null,
           alcoholPer100g: per100.alcohol ?? null,
           usualGrams: item.grams,
-          foodId: link.foodId,
         };
         await tx.foodMemory.upsert({
           where: { userId_key: { userId, key } },
-          create: { userId, key, ...values },
-          update: { ...values, uses: { increment: 1 } },
+          create: { userId, key, ...values, foodId: link.foodId },
+          // An app that doesn't send foodId (older builds) keeps the link
+          update: {
+            ...values,
+            ...(link.foodId ? { foodId: link.foodId } : {}),
+            uses: { increment: 1 },
+          },
         });
       }
       return { logged: logs.length, logs };
@@ -377,4 +396,13 @@ function matchOf(f: NormalizedFood): DbMatch {
     ...(f.basis ? { basis: f.basis } : {}),
     ...(f.verified !== undefined ? { verified: f.verified } : {}),
   };
+}
+
+/**
+ * Every word starts a word of the name: "pea" finds "Peas, green" but not
+ * "Pears"; "egg" (from "eggs") finds "Egg, whole".
+ */
+function hasWords(name: string, words: string[]) {
+  const text = ` ${searchKey(name)}`;
+  return words.every((w) => text.includes(` ${w}`));
 }

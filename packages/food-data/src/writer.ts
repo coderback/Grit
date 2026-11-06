@@ -3,7 +3,12 @@ import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
 import type { PoolClient } from 'pg';
 import { from as copyFrom } from 'pg-copy-streams';
-import { cleanRecord, RANK_SQL, type CleanRecord, type FoodRecord } from './record';
+import {
+  cleanRecord,
+  RANK_SQL,
+  type CleanRecord,
+  type FoodRecord,
+} from './record';
 
 /**
  * Writes food records into GRIT's food database, idempotently:
@@ -66,7 +71,13 @@ function cell(v: unknown): string {
     const items = v.map((i) => `"${String(i).replace(/(["\\])/g, '\\$1')}"`);
     return cell(`{${items.join(',')}}`);
   }
-  return String(v as string | number | boolean)
+  const text =
+    typeof v === 'string'
+      ? v
+      : typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint'
+        ? String(v)
+        : JSON.stringify(v);
+  return text
     .replace(/\\/g, '\\\\')
     .replace(/\t/g, '\\t')
     .replace(/\n/g, '\\n')
@@ -240,7 +251,11 @@ WHERE (food_sources."foodId", food_sources."fetchedAt")
 };
 
 /** Merges one batch of cleaned records. Runs inside the caller's transaction. */
-async function mergeBatch(client: PoolClient, batch: CleanRecord[], stats: WriteStats) {
+async function mergeBatch(
+  client: PoolClient,
+  batch: CleanRecord[],
+  stats: WriteStats,
+) {
   await client.query(STAGE_SQL);
 
   const foods: unknown[][] = [];
@@ -250,9 +265,22 @@ async function mergeBatch(client: PoolClient, batch: CleanRecord[], stats: Write
   const names: unknown[][] = [];
   batch.forEach((r, i) => {
     foods.push([
-      i, r.id, r.source, r.externalId, r.fetchedAt, r.name, r.brand, r.kind,
-      r.category, r.ingredients, r.countries, r.quality, r.verified,
-      r.searchText, r.imageUrl, r.rank,
+      i,
+      r.id,
+      r.source,
+      r.externalId,
+      r.fetchedAt,
+      r.name,
+      r.brand,
+      r.kind,
+      r.category,
+      r.ingredients,
+      r.countries,
+      r.quality,
+      r.verified,
+      r.searchText,
+      r.imageUrl,
+      r.rank,
     ]);
     for (const code of r.barcodes) barcodes.push([i, code]);
     for (const s of r.servings) servings.push([i, s.label, s.grams, s.typical]);
@@ -262,14 +290,42 @@ async function mergeBatch(client: PoolClient, batch: CleanRecord[], stats: Write
     for (const n of r.names) names.push([i, n.name, n.lang]);
   });
 
-  await copyRows(client, 's_food', [
-    'stage_id', 'id', 'source', 'external_id', 'fetched_at', 'name', 'brand',
-    'kind', 'category', 'ingredients', 'countries', 'quality', 'verified',
-    'search_text', 'image_url', 'rank',
-  ], foods);
+  await copyRows(
+    client,
+    's_food',
+    [
+      'stage_id',
+      'id',
+      'source',
+      'external_id',
+      'fetched_at',
+      'name',
+      'brand',
+      'kind',
+      'category',
+      'ingredients',
+      'countries',
+      'quality',
+      'verified',
+      'search_text',
+      'image_url',
+      'rank',
+    ],
+    foods,
+  );
   await copyRows(client, 's_barcode', ['stage_id', 'code'], barcodes);
-  await copyRows(client, 's_serving', ['stage_id', 'label', 'grams', 'typical'], servings);
-  await copyRows(client, 's_nutrient', ['stage_id', 'nutrient', 'amount', 'basis'], nutrients);
+  await copyRows(
+    client,
+    's_serving',
+    ['stage_id', 'label', 'grams', 'typical'],
+    servings,
+  );
+  await copyRows(
+    client,
+    's_nutrient',
+    ['stage_id', 'nutrient', 'amount', 'basis'],
+    nutrients,
+  );
   await copyRows(client, 's_name', ['stage_id', 'name', 'lang'], names);
 
   await client.query(MERGE_SQL.bySource);
@@ -283,10 +339,14 @@ async function mergeBatch(client: PoolClient, batch: CleanRecord[], stats: Write
     if (row.inserted) stats.foodsInserted++;
     else stats.foodsUpdated++;
   }
-  stats.nutrientsChanged += (await client.query(MERGE_SQL.dropNutrients)).rowCount ?? 0;
-  stats.nutrientsChanged += (await client.query(MERGE_SQL.nutrients)).rowCount ?? 0;
-  stats.servingsChanged += (await client.query(MERGE_SQL.dropServings)).rowCount ?? 0;
-  stats.servingsChanged += (await client.query(MERGE_SQL.servings)).rowCount ?? 0;
+  stats.nutrientsChanged +=
+    (await client.query(MERGE_SQL.dropNutrients)).rowCount ?? 0;
+  stats.nutrientsChanged +=
+    (await client.query(MERGE_SQL.nutrients)).rowCount ?? 0;
+  stats.servingsChanged +=
+    (await client.query(MERGE_SQL.dropServings)).rowCount ?? 0;
+  stats.servingsChanged +=
+    (await client.query(MERGE_SQL.servings)).rowCount ?? 0;
   stats.barcodesAdded += (await client.query(MERGE_SQL.barcodes)).rowCount ?? 0;
   stats.namesAdded += (await client.query(MERGE_SQL.names)).rowCount ?? 0;
   stats.sourcesChanged += (await client.query(MERGE_SQL.sources)).rowCount ?? 0;

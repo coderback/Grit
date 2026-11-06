@@ -103,7 +103,8 @@ export function round4(n: number) {
  * 100 g of protein, carbs and fat in 100 g).
  */
 export function cleanRecord(r: FoodRecord): CleanRecord | null {
-  const name = text(r.name, 300);
+  // As long as a log's or favourite's name may be
+  const name = text(r.name, 200);
   if (!name) return null;
 
   const nutrients: NutrientValues = {};

@@ -182,6 +182,8 @@ describe('meal parsing', () => {
     // Raw rice isn't cooked rice
     expect(sameAsEaten(365, 130)).toBe(false);
     expect(sameAsEaten(130, 140)).toBe(true);
+    // Raw chicken breast isn't roasted
+    expect(sameAsEaten(120, 165)).toBe(false);
     // Light foods: a few kcal either way
     expect(sameAsEaten(15, 25)).toBe(true);
     expect(sameAsEaten(60, 20)).toBe(false);

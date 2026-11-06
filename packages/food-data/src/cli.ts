@@ -1,7 +1,10 @@
+import { resolve } from 'path';
 import { parseArgs } from 'util';
 import { poolFromEnv } from './db';
 import { download, fetchText } from './download';
 import {
+  cofidFile,
+  cofidJob,
   deltaFilesIn,
   downloadFdc,
   fdcFilesIn,
@@ -32,6 +35,8 @@ Sources:
   fdc         USDA FoodData Central: Foundation + SR Legacy, FNDDS, Branded
   off         Open Food Facts, a full export (the JSONL by default; or --file a CSV)
   off-delta   Open Food Facts' daily changes since the last import
+  cofid       UK CoFID 2021 (McCance and Widdowson's)
+  (cnf, ciqual and fineli are not written yet)
 
 Options:
   --file <path>       a local file instead of downloading (repeatable for fdc)
@@ -100,8 +105,14 @@ async function main(argv: string[]) {
     throw new Error(`One source at a time (got ${positionals.join(', ')})`);
   }
 
-  const files = values.file ?? [];
+  // Paths as typed where npm was run (`npm run -w` runs in this package)
+  const here = process.env.INIT_CWD || process.cwd();
+  const files = (values.file ?? []).map((f) => resolve(here, f));
+  if (values.dir) values.dir = resolve(here, values.dir);
   const limit = int(values.limit, 'limit');
+  if (values.batch !== undefined && !int(values.batch, 'batch')) {
+    throw new Error('--batch must be at least 1');
+  }
   const dryRun = !!values['dry-run'];
   const run = {
     batchSize: int(values.batch, 'batch'),
@@ -190,7 +201,8 @@ async function main(argv: string[]) {
         }),
       ];
     } else if (source === 'off-delta') {
-      if (values.full) throw new Error('--full is for full imports, not deltas');
+      if (values.full)
+        throw new Error('--full is for full imports, not deltas');
       let paths: string[];
       if (files.length || values.dir) {
         paths = [];
@@ -248,8 +260,21 @@ async function main(argv: string[]) {
             }),
           ]
         : [];
+    } else if (source === 'cofid') {
+      if (files.length > 1) throw new Error('cofid takes one --file');
+      const path = await cofidFile({
+        file: files[0],
+        dir: values.dir,
+        refresh: values.refresh,
+        log,
+      });
+      jobs = [cofidJob(path, log)];
+    } else if (['cnf', 'ciqual', 'fineli'].includes(source)) {
+      throw new Error(`The ${source} importer isn't written yet`);
     } else {
-      throw new Error(`Unknown source "${source}": use fdc, off or off-delta`);
+      throw new Error(
+        `Unknown source "${source}": use fdc, off, off-delta or cofid`,
+      );
     }
 
     if (dryRun) log('Dry run: nothing will be saved.');

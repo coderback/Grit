@@ -116,6 +116,14 @@ const LOG_FIELDS = {
   grams: true,
 } satisfies Prisma.FoodLogSelect;
 
+/** new ÷ old calories when an edit really changed them, else null. */
+export function calorieRatio(before: number, after: number | undefined) {
+  if (after === undefined || !(before > 0) || Math.abs(after - before) <= 0.5) {
+    return null;
+  }
+  return after / before;
+}
+
 /**
  * When a log's calories are edited, its nutrient snapshot scales with them
  * (usually the portion was different). Undefined leaves it unchanged.
@@ -125,17 +133,15 @@ export function scaledSnapshot(
   before: number,
   after: number | undefined,
 ): Prisma.InputJsonValue | undefined {
+  const ratio = calorieRatio(before, after);
   if (
-    after === undefined ||
+    !ratio ||
     !snapshot ||
     typeof snapshot !== 'object' ||
-    Array.isArray(snapshot) ||
-    !(before > 0) ||
-    Math.abs(after - before) <= 0.5
+    Array.isArray(snapshot)
   ) {
     return undefined;
   }
-  const ratio = after / before;
   const out: NutrientSnapshot = {};
   for (const [code, v] of Object.entries(snapshot)) {
     if (!isNutrientCode(code) || !v || typeof v !== 'object') continue;
@@ -418,7 +424,12 @@ export class FoodService {
   // ── Food log CRUD ─────────────────────────────────────────────────────────
 
   async logFood(supabaseId: string, dto: CreateFoodLogDto) {
-    const userId = await this.resolveUserId(supabaseId);
+    const user = await this.prisma.user.findUnique({
+      where: { supabaseId },
+      select: { id: true, consentFoodData: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    const userId = user.id;
     const link = await this.foodLink(dto);
     const log = await this.prisma.foodLog.create({
       data: {
@@ -441,7 +452,11 @@ export class FoodService {
         loggedAt: dto.loggedAt ? new Date(dto.loggedAt) : new Date(),
       },
     });
-    if (link.foodId) await this.db.countLog(link.foodId);
+    // Popularity shapes everyone's search ranking, so it only counts logs
+    // from people who chose to help improve GRIT's food data
+    if (link.foodId && user.consentFoodData) {
+      await this.db.countLog(link.foodId);
+    }
     return log;
   }
 
@@ -610,6 +625,15 @@ export class FoodService {
     const changed = (['calories', 'proteinG', 'carbsG', 'fatG'] as const).some(
       (k) => dto[k] !== undefined && Math.abs(dto[k] - before[k]) > 0.5,
     );
+    // A calorie edit usually means a different portion: the snapshot and
+    // the grams scale together, so logging it again from Recent matches
+    const ratio = calorieRatio(before.calories, dto.calories);
+    const grams =
+      ratio && before.grams ? Math.round(before.grams * ratio * 10) / 10 : null;
+    const gramPortion =
+      before.grams != null &&
+      before.servingQty === before.grams &&
+      ['g', 'ml'].includes(before.servingUnit.trim().toLowerCase());
     return this.prisma.foodLog.update({
       where: { id },
       data: {
@@ -621,6 +645,14 @@ export class FoodService {
           before.calories,
           dto.calories,
         ),
+        ...(grams
+          ? {
+              grams,
+              ...(gramPortion && dto.servingQty === undefined
+                ? { servingQty: grams }
+                : {}),
+            }
+          : {}),
       },
     });
   }

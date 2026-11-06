@@ -89,6 +89,11 @@ describe('MealParseService (database)', () => {
           brand: 'Fage',
           grams: 150,
           quantityStated: true,
+          kcalPer100g: 95,
+          proteinPer100g: 9,
+          carbsPer100g: 4,
+          fatPer100g: 5,
+          category: 'dairy',
         }),
         // Calories that don't match the macros get corrected
         item({
@@ -235,6 +240,108 @@ describe('MealParseService (database)', () => {
       source: 'memory',
       foodId: 'test_mp_cooked',
     });
+  });
+
+  it('skips a dry pack for a cooked reading, links remembered foods, and keeps the link', async () => {
+    const seed = (
+      id: string,
+      name: string,
+      kcal: number,
+      over: { brand?: string; kind?: string } = {},
+    ) =>
+      db.prisma.food.create({
+        data: {
+          id,
+          name,
+          brand: over.brand ?? null,
+          kind: over.kind ?? 'generic',
+          source: over.kind === 'branded' ? 'off' : 'fdc',
+          countries: ['gb'],
+          verified: over.kind !== 'branded',
+          quality: 1,
+          searchText: searchTextOf(name, over.brand),
+          nutrients: {
+            create: [
+              { nutrient: 'kcal', amount: kcal, basis: 'measured' },
+              { nutrient: 'protein_g', amount: 2.7, basis: 'measured' },
+              { nutrient: 'carbs_g', amount: 28, basis: 'measured' },
+              { nutrient: 'fat_g', amount: 0.3, basis: 'measured' },
+            ],
+          },
+        },
+      });
+    await seed('test_mp_pack', 'Blorvak basmati rice', 357, {
+      brand: 'Testpack',
+      kind: 'branded',
+    });
+    await seed('test_mp_rice', 'Blorvak basmati rice, cooked', 130);
+
+    const u = await db.user();
+    const reading = {
+      items: [
+        item({
+          name: 'blorvak basmati rice',
+          brand: 'Testpack',
+          grams: 200,
+          quantityStated: true,
+          kcalPer100g: 130,
+          proteinPer100g: 2.7,
+          carbsPer100g: 28,
+          fatPer100g: 0.3,
+        }),
+      ],
+      question: null,
+    };
+    const meals = new MealParseService(
+      db.prisma,
+      food,
+      fakeModel(reading).client,
+      'test',
+      new FoodDbService(db.prisma),
+    );
+    // The pack's 357 kcal is dry rice: the cooked rice is used instead
+    const first = await meals.parse(u.supabaseId, { text: 'rice' }, 0);
+    expect(first.items[0]).toMatchObject({
+      source: 'database',
+      foodId: 'test_mp_rice',
+    });
+
+    // A remembered food without a link gains one that agrees with its calories
+    await db.prisma.foodMemory.create({
+      data: {
+        userId: u.id,
+        key: memoryKey('blorvak basmati rice'),
+        name: 'blorvak basmati rice',
+        kcalPer100g: 128,
+        proteinPer100g: 2.7,
+        carbsPer100g: 28,
+        fatPer100g: 0.3,
+        usualGrams: 180,
+      },
+    });
+    const remembered = await meals.parse(u.supabaseId, { text: 'rice' }, 0);
+    expect(remembered.items[0]).toMatchObject({
+      source: 'memory',
+      foodId: 'test_mp_rice',
+      per100: { kcal: 128 }, // still their own numbers
+    });
+
+    // Logged with the link, then again by an app that doesn't send foodId
+    const confirmed = {
+      name: 'blorvak basmati rice',
+      grams: 180,
+      kcalPer100g: 128,
+      proteinPer100g: 2.7,
+      carbsPer100g: 28,
+      fatPer100g: 0.3,
+    };
+    await meals.log(u.supabaseId, {
+      mealType: 'dinner',
+      items: [{ ...confirmed, foodId: 'test_mp_rice' }],
+    });
+    await meals.log(u.supabaseId, { mealType: 'dinner', items: [confirmed] });
+    const [memory] = await meals.listMemories(u.supabaseId);
+    expect(memory).toMatchObject({ foodId: 'test_mp_rice', uses: 3 });
   });
 
   it('logs confirmed items in grams and learns them', async () => {

@@ -57,6 +57,14 @@ function NutrientRow({ n, isToday, inProgress }: { n: DayNutrient; isToday: bool
  * targets for the user's age and sex. Only foods from GRIT's database carry
  * this data, so the screen says how much of the day it's based on.
  */
+/**
+ * Whether there's anything to show: vitamins and minerals, or sodium,
+ * saturated fat and fibre (which branded labels carry even without them).
+ */
+function hasAnyData(data: { coverage: number; nutrients: { kind: string; coverage: number }[] }) {
+  return data.coverage > 0 || data.nutrients.some((n) => n.kind !== 'none' && n.coverage > 0);
+}
+
 export default function NutrientsScreen() {
   const params = useLocalSearchParams<{ date?: string }>();
   const today = localDateStr();
@@ -91,7 +99,7 @@ export default function NutrientsScreen() {
           <ErrorNotice what="your nutrients" onRetry={() => refetch()} />
         ) : isLoading || !data ? (
           <ActivityIndicator color={Colors.orange} />
-        ) : !(data.coverage > 0) ? (
+        ) : !hasAnyData(data) ? (
           <View style={{ ...card, alignItems: 'center', padding: 24, gap: 8 }}>
             <Text style={{ fontSize: 32 }}>🥦</Text>
             <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 16, textAlign: 'center' }}>
@@ -105,7 +113,9 @@ export default function NutrientsScreen() {
           <>
             <View style={card}>
               <Text style={{ color: Colors.text, fontFamily: 'DMSans-Bold', fontSize: 15 }}>
-                {coverageNote(data.coverage, date, today, yesterday)}
+                {data.coverage > 0
+                  ? coverageNote(data.coverage, date, today, yesterday)
+                  : 'No vitamin and mineral data for this day'}
               </Text>
               {data.coverage < 0.995 && (
                 <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 12, lineHeight: 17 }}>

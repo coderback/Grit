@@ -285,6 +285,11 @@ describe('barcodes and single foods', () => {
 describe('logging a database food', () => {
   it("keeps a snapshot of the eaten amount's nutrients and counts the food's popularity", async () => {
     const user = await db.user();
+    // Popularity shapes everyone's ranking: only with "Improve GRIT's food data" on
+    await db.prisma.user.update({
+      where: { id: user.id },
+      data: { consentFoodData: true },
+    });
     const before = await db.prisma.food.findUniqueOrThrow({
       where: { id: 'test_raw_us' },
     });
@@ -312,6 +317,20 @@ describe('logging a database food', () => {
     });
     expect(after.popularity).toBe(before.popularity + 1);
 
+    // Someone who hasn't opted in logs it too: their log isn't counted
+    const other = await db.user();
+    await food.logFood(other.supabaseId, {
+      name: 'Blorvaks, raw, with skin',
+      mealType: 'snack',
+      calories: 52,
+      foodId: 'test_raw_us',
+      grams: 100,
+    });
+    const unchanged = await db.prisma.food.findUniqueOrThrow({
+      where: { id: 'test_raw_us' },
+    });
+    expect(unchanged.popularity).toBe(after.popularity);
+
     // Editing the calories scales the snapshot with them
     const edited = await food.updateFoodLog(user.supabaseId, log.id, {
       calories: 156,
@@ -319,6 +338,8 @@ describe('logging a database food', () => {
     expect(edited.nutrients).toMatchObject({
       iron_mg: { amount: 0.36, basis: 'measured' },
     });
+    // ...and the grams with it, so logging it again from Recent matches
+    expect(edited).toMatchObject({ grams: 300, servingQty: 300 });
 
     // The Food tab doesn't carry snapshots
     const day = await food.getFoodLogsForDate(
@@ -327,7 +348,7 @@ describe('logging a database food', () => {
       0,
     );
     expect(day.logs[0]).not.toHaveProperty('nutrients');
-    expect(day.logs[0]).toMatchObject({ foodId: 'test_raw_us', grams: 150 });
+    expect(day.logs[0]).toMatchObject({ foodId: 'test_raw_us', grams: 300 });
   });
 
   it('links a scanned barcode logged in grams, and ignores a food that no longer exists', async () => {
