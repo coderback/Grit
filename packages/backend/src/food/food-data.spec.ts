@@ -16,7 +16,7 @@ import {
   offRecord,
   servingLabel,
 } from './off-product';
-import { queryWords } from './food-db.service';
+import { queryWords, wordForms } from './food-db.service';
 
 describe('search text', () => {
   it('drops case, accents and punctuation', () => {
@@ -29,6 +29,17 @@ describe('search text', () => {
     expect(
       searchTextOf('Eggplant, raw', 'Acme', ['Aubergine', 'eggplant raw']),
     ).toBe('eggplant raw acme aubergine');
+  });
+
+  it('searches other words for the same food', () => {
+    expect(wordForms('yoghurt')).toEqual(['yoghurt', 'yogurt', 'yoghourt']);
+    expect(wordForms('zucchini')).toEqual(['zucchini', 'courgette']);
+    // Plurals are stemmed first, so "prawns" finds shrimp too
+    expect(queryWords('prawns').flatMap(wordForms)).toEqual([
+      'prawn',
+      'shrimp',
+    ]);
+    expect(wordForms('apple')).toEqual(['apple']);
   });
 
   it('matches plurals by a stem the singular also has', () => {

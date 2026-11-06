@@ -14,7 +14,7 @@ import { localToday } from '../common/day';
 import { assertAiConsent } from '../common/ai-consent';
 import { giveBackParse, takeParse } from '../common/parse-quota';
 import { FoodService } from '../food/food.service';
-import { FoodDbService, queryWords } from '../food/food-db.service';
+import { FoodDbService, queryWords, wordForms } from '../food/food-db.service';
 import { searchKey } from '../food/food-text';
 import type { NormalizedFood } from '../food/food.types';
 import type { NutrientSnapshot } from '../food/nutrients';
@@ -404,5 +404,5 @@ function matchOf(f: NormalizedFood): DbMatch {
  */
 function hasWords(name: string, words: string[]) {
   const text = ` ${searchKey(name)}`;
-  return words.every((w) => text.includes(` ${w}`));
+  return words.every((w) => wordForms(w).some((f) => text.includes(` ${f}`)));
 }

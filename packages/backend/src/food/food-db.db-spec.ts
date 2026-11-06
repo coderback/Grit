@@ -106,6 +106,7 @@ beforeAll(async () => {
     basis: 'label',
     kcal: 46,
   });
+  await seed('test_yogurt', 'Blorvak yogurt, plain', { kcal: 61 });
   await seed('test_dup_ca', 'Blorvak, raw', {
     source: 'cnf',
     countries: ['ca'],
@@ -152,6 +153,10 @@ describe('food database search', () => {
 
     const brand = await foodDb.search('juicy co blorvak');
     expect(brand[0].name).toBe('Blorvak juice');
+
+    // A UK spelling finds the US one
+    const yoghurt = await foodDb.search('blorvak yoghurt');
+    expect(yoghurt[0].name).toBe('Blorvak yogurt, plain');
 
     // A typo: not every word matches, so the similarity search finds it
     const typo = await foodDb.search('blorvac pie');

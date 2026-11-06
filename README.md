@@ -11,7 +11,8 @@ grit/
 ├── apps/
 │   └── mobile/          # Expo (React Native) app
 └── packages/
-    └── backend/         # NestJS REST API
+    ├── backend/         # NestJS REST API
+    └── food-data/       # Importers for GRIT's food database (USDA, Open Food Facts, UK CoFID)
 ```
 
 ---
@@ -118,8 +119,9 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 |---|---|
 | `auth` | Guard that verifies Supabase access tokens, `POST /auth/sync` |
 | `users` | `GET/PUT/DELETE /users/me` (delete removes the account and its Supabase sign-in), `POST/DELETE /users/me/ai-consent`; safety rules (18+, calorie floors, no weight-loss goals after a "yes", no pro-eating-disorder names) |
-| `food` | `GET/POST /food-logs` (with the day's calorie budget and macro targets), `GET /food-logs/week?date=`, `PATCH/DELETE /food-logs/:id`, Open Food Facts search + barcode proxy, `GET /food/recent`, `GET/POST /food/favorites`, `DELETE /food/favorites/:id`, `POST /food/search-events`; caffeine and alcohol per log |
-| `meal-parse` | `POST /food/parse` (text and/or photo → items), `POST /food/parse/log`, `GET /food/memories`, `DELETE /food/memories/:id` |
+| `food` | `GET/POST /food-logs` (with the day's calorie budget and macro targets; a database food's log keeps a snapshot of the amount's nutrients), `GET /food-logs/week?date=`, `PATCH/DELETE /food-logs/:id`, `GET /food/search?q=&country=` (GRIT's food database first, Open Food Facts live while it's missing products), `GET /food/barcode/:code?country=` (local first; a product found live is saved), `GET /food/item/:id`, `GET /food/recent`, `GET/POST /food/favorites`, `DELETE /food/favorites/:id`, `POST /food/search-events`; caffeine and alcohol per log |
+| `meal-parse` | `POST /food/parse` (text and/or photo → items, matched to measured foods in the database, then branded ones, then estimated), `POST /food/parse/log`, `GET /food/memories`, `DELETE /food/memories/:id` |
+| `nutrients` | `GET /nutrients/day?date=` (vitamins, minerals, fibre, sodium and saturated fat against US Dietary Reference Intakes, with how much of the day's calories have data), `GET /nutrients/week?date=` (nutrients low on most days) |
 | `health` | `POST /health/import` (workouts with heart rate and distance, daily steps and sleep, weigh-ins, and recovery and cycle metrics from Apple Health / Health Connect; workout calories from heart rate when the device gives none), `GET /health/recent` (with recovery metrics against their 30-day average), `GET /health/cycle` |
 | `workouts` | `POST /workouts` (a finished workout, saved once per `clientId`), `GET /workouts`, `GET/PUT/DELETE /workouts/:id`, `POST /workouts/prepare` (last time, records and the progression rules' targets), `POST /workouts/parse` (Say it), `GET /workouts/exercises/:id/history` |
 | `activity` | `GET/POST /activity-logs`, `GET /activity-logs/week?date=`, `PATCH/DELETE /activity-logs/:id`, `POST /activity-logs/:id/kudos` |
@@ -132,9 +134,9 @@ The `preview` profile outputs a plain `.apk` (~10–15 min cloud build via EAS).
 | `ai` | `POST /ai/message` (streamed), `GET /ai/messages`, `GET /ai/nudge`, `GET/POST/DELETE /ai/memories`, `DELETE /ai/memories/:id` — AI coach and its notes |
 | `notifications` | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/read`, `POST/DELETE /notifications/register` (one row per phone), Expo push sending |
 | `app` | `GET /health`, `POST /client-errors` (crash reports from the app, no sign-in, throttled) |
-| `alerts` | Hourly job: challenge results, 1pm coach check-ins, 8pm streak-at-risk and Sunday 6pm weekly check-in (with any target suggestion), in each user's local time |
+| `alerts` | Hourly job: challenge results, 1pm coach check-ins (including a nutrient low on 5 of the last 7 days), 8pm streak-at-risk and Sunday 6pm weekly check-in (with any target suggestion), in each user's local time |
 
-**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · CoachMemory · Follow · Block · WorkoutPlan · PushDevice · Notification · WeightLog · FavoriteFood · FoodMemory · HealthDay · HealthMetric · SearchEvent · Exercise · WorkoutSession · WorkoutSet
+**Data models:** User · FoodLog · ActivityLog · Kudos · Habit · HabitLog · Challenge · ChallengeParticipant · AIMessage · CoachMemory · Follow · Block · WorkoutPlan · PushDevice · Notification · WeightLog · FavoriteFood · FoodMemory · HealthDay · HealthMetric · SearchEvent · Exercise · WorkoutSession · WorkoutSet · Food · FoodBarcode · FoodServing · FoodNutrient · FoodName · FoodSource (GRIT's food database: shared, filled by `packages/food-data`, values per 100 g)
 
 See [`docs/ROADMAP.md`](./docs/ROADMAP.md) for what's done and what's next.
 
@@ -172,7 +174,7 @@ cd apps/mobile && npm run lint && npm test
 cp packages/backend/.env.example packages/backend/.env
 ```
 
-See [`packages/backend/.env.example`](./packages/backend/.env.example). The app refuses to boot without `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY`. `SUPABASE_SERVICE_KEY` and the Upstash vars are not read by the code yet. Optional: `EXPO_ACCESS_TOKEN` (if push security is on for the Expo project), `PUSH_DISABLED=true` (don't send pushes, e.g. locally), `RATE_LIMIT_PER_MINUTE` (default 300 per signed-in session) and `CORS_ORIGINS` (comma-separated web origins; default any). The server checks its settings at boot and lists anything missing or malformed.
+See [`packages/backend/.env.example`](./packages/backend/.env.example). The app refuses to boot without `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY`. `SUPABASE_SERVICE_KEY` and the Upstash vars are not read by the code yet. Optional: `EXPO_ACCESS_TOKEN` (if push security is on for the Expo project), `PUSH_DISABLED=true` (don't send pushes, e.g. locally), `RATE_LIMIT_PER_MINUTE` (default 300 per signed-in session), `CORS_ORIGINS` (comma-separated web origins; default any) and `FOOD_LIVE_SEARCH=off` (stop asking Open Food Facts live during search once its products are imported; barcode misses still ask). The server checks its settings at boot and lists anything missing or malformed.
 
 Every response carries an `x-request-id` (also in error bodies), matching one log line per request. Logs are JSON when `NODE_ENV=production`. Sign-in tokens are verified locally against the Supabase project's published signing key. `GET /health` reports the API and database; `POST /client-errors` records crashes reported by the app.
 
@@ -239,7 +241,11 @@ A cloud instance can't run a simulator. Use it for type-checking and linting, or
 
 ### CI
 
-[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) runs on every pull request and push to `main`: the backend job applies the migrations to a throwaway Postgres, checks they match the schema, and runs prettier, eslint, tsc, unit tests, database tests and the build; the mobile job runs tsc, eslint and unit tests.
+[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) runs on every pull request and push to `main`: the backend job applies the migrations to a throwaway Postgres, checks they match the schema, and runs prettier, eslint, tsc, unit tests, database tests and the build; the mobile job runs tsc, eslint and unit tests; the food-data job runs the importers' lint, typecheck, unit tests and database tests.
+
+### Food data
+
+GRIT's food database is filled by the importers in [`packages/food-data`](./packages/food-data/README.md): USDA FoodData Central (public domain), Open Food Facts (ODbL) and the UK's CoFID (Open Government Licence). Each is idempotent, so a re-run changes nothing. The [Food data workflow](./.github/workflows/food-data.yml) runs them against the database in the `DIRECT_URL` repository secret: by hand for full imports, and daily for Open Food Facts' changes. Sources are credited in the app under Profile → Food data sources.
 
 ---
 

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { cleanRecord, round4, type FoodRecord } from './food-record';
 import { barcodeCandidates, searchKey } from './food-text';
+import { synonymsOf } from './synonyms';
 import type { NormalizedFood } from './food.types';
 import {
   isNutrientCode,
@@ -92,6 +93,11 @@ export function queryWords(key: string): string[] {
 
 const likePattern = (w: string) => `%${w.replace(/[\\%_]/g, '\\$&')}%`;
 
+/** A query word and its synonyms (see synonyms.ts). */
+export function wordForms(word: string): string[] {
+  return [word, ...synonymsOf(word)];
+}
+
 @Injectable()
 export class FoodDbService {
   private readonly logger = new Logger(FoodDbService.name);
@@ -170,10 +176,20 @@ export class FoodDbService {
     opts: SearchOptions,
     limit: number,
   ): Promise<SearchRow[]> {
+    // Each word, or another word for the same food ("yoghurt" or "yogurt")
     const match =
       words && words.length
         ? Prisma.join(
-            words.map((w) => Prisma.sql`f."searchText" LIKE ${likePattern(w)}`),
+            words.map(
+              (w) =>
+                Prisma.sql`(${Prisma.join(
+                  wordForms(w).map(
+                    (form) =>
+                      Prisma.sql`f."searchText" LIKE ${likePattern(form)}`,
+                  ),
+                  ' OR ',
+                )})`,
+            ),
             ' AND ',
           )
         : Prisma.sql`${key} OPERATOR(extensions.<%) f."searchText"`;
@@ -239,7 +255,7 @@ export class FoodDbService {
     const memories = candidates
       .filter((m) => {
         const name = searchKey(m.name);
-        return terms.every((w) => name.includes(w));
+        return terms.every((w) => wordForms(w).some((f) => name.includes(f)));
       })
       .slice(0, MEMORY_RESULTS);
     return memories.map((m): NormalizedFood => ({
