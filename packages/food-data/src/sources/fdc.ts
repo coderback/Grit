@@ -558,20 +558,23 @@ function dayOf(date: string | undefined) {
  * Reads several CSV files of one release in step. USDA writes Branded's
  * branded_food.csv, food.csv and food_nutrient.csv in the same food order
  * (not sorted by fdc_id), food_nutrient.csv grouped by food, so they're
- * joined as streams without holding them in memory. A food out of step
- * is an error, never a silent mismatch.
+ * joined as streams without holding them in memory. A file out of step is
+ * an error, never a silent mismatch: food.csv has a row for every food
+ * (`everyFood`), and food_nutrient.csv may skip a food but never thousands
+ * in a row.
  */
 class Follower<C extends string> {
   private iter: AsyncGenerator<{ row: string[]; col: Record<C, number> }>;
   private pending: string[] | null = null;
   private idCol = -1;
   private done = false;
-  private passed = new Set<string>();
+  private misses = 0;
 
   constructor(
     private name: string,
     input: Readable,
     columns: readonly C[],
+    private everyFood: boolean,
   ) {
     this.iter = csvTable(input, [...columns, 'fdc_id' as C]);
   }
@@ -593,19 +596,16 @@ class Follower<C extends string> {
         }
         this.pending = next.value.row;
       }
-      const id = this.pending[this.idCol];
-      if (id !== fdcId) {
-        if (this.passed.has(id)) {
-          throw new Error(
-            `${this.name} isn't in the same food order as branded_food.csv (fdc_id ${id})`,
-          );
-        }
-        break;
-      }
+      if (this.pending[this.idCol] !== fdcId) break;
       rows.push(this.pending);
       this.pending = null;
     }
-    this.passed.add(fdcId);
+    this.misses = rows.length ? 0 : this.misses + 1;
+    if (this.misses > (this.everyFood ? 0 : 10_000)) {
+      throw new Error(
+        `${this.name} isn't in branded_food.csv's food order (at fdc_id ${fdcId})`,
+      );
+    }
     return rows;
   }
 
@@ -638,9 +638,12 @@ const BRANDED_COLUMNS = [
  * then the highest fdc_id. Kept as GTIN → day × 1e8 + fdc_id.
  */
 async function latestVersions(archive: Archive) {
-  const published = new Follower('food.csv', await archive.open('food.csv'), [
-    'publication_date',
-  ] as const);
+  const published = new Follower(
+    'food.csv',
+    await archive.open('food.csv'),
+    ['publication_date'] as const,
+    true,
+  );
   let pubCol = -1;
   const best = new Map<string, number>();
   try {
@@ -676,13 +679,17 @@ export async function* brandedRecords(
   const latest = await latestVersions(archive);
   options.log?.(`Branded: ${latest.size} products with a GTIN`);
 
-  const foods = new Follower('food.csv', await archive.open('food.csv'), [
-    'description',
-  ] as const);
+  const foods = new Follower(
+    'food.csv',
+    await archive.open('food.csv'),
+    ['description'] as const,
+    true,
+  );
   const nutrients = new Follower(
     'food_nutrient.csv',
     await archive.open('food_nutrient.csv'),
     ['nutrient_id', 'amount'] as const,
+    false,
   );
   let descCol = -1;
   let nIdCol = -1;

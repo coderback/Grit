@@ -66,7 +66,7 @@ function cell(v: unknown): string {
     const items = v.map((i) => `"${String(i).replace(/(["\\])/g, '\\$1')}"`);
     return cell(`{${items.join(',')}}`);
   }
-  return String(v)
+  return String(v as string | number | boolean)
     .replace(/\\/g, '\\\\')
     .replace(/\t/g, '\\t')
     .replace(/\n/g, '\\n')
@@ -299,6 +299,11 @@ export interface WriteOptions {
   dryRun?: boolean;
   /** Called after each batch */
   onProgress?: (stats: WriteStats) => void;
+  /**
+   * Filled with the externalId of every record written (that passed
+   * cleaning): what a full import passes to removeMissing.
+   */
+  seen?: Set<string>;
 }
 
 /**
@@ -336,10 +341,23 @@ export async function writeFoods(
       continue;
     }
     batch.set(`${clean.source}:${clean.externalId}`, clean);
+    options.seen?.add(clean.externalId);
     if (batch.size >= batchSize) await flush();
   }
   await flush();
   return stats;
+}
+
+export interface RemoveOptions {
+  dryRun?: boolean;
+  /**
+   * Only this source's rows whose externalId starts with it: one dataset of
+   * a source, e.g. "fndds:" of fdc, so a dataset's full import never
+   * removes another dataset's rows.
+   */
+  prefix?: string;
+  /** Fail (removing nothing) when more source rows than this would go */
+  maxRemove?: number;
 }
 
 /**
@@ -352,26 +370,70 @@ export async function removeMissing(
   client: PoolClient,
   source: string,
   seen: Set<string>,
+  options: RemoveOptions = {},
+): Promise<number> {
+  return removeWhere(
+    client,
+    source,
+    [...seen],
+    'NOT EXISTS (SELECT 1 FROM s_ids s WHERE s.external_id = fs."externalId")',
+    options,
+  );
+}
+
+/**
+ * Removes these rows of a source (products withdrawn from it), and the
+ * foods no other source describes.
+ */
+export async function removeSources(
+  client: PoolClient,
+  source: string,
+  externalIds: Iterable<string>,
   options: { dryRun?: boolean } = {},
+): Promise<number> {
+  const ids = [...new Set(externalIds)];
+  if (!ids.length) return 0;
+  return removeWhere(
+    client,
+    source,
+    ids,
+    'EXISTS (SELECT 1 FROM s_ids s WHERE s.external_id = fs."externalId")',
+    options,
+  );
+}
+
+async function removeWhere(
+  client: PoolClient,
+  source: string,
+  ids: string[],
+  match: string,
+  options: RemoveOptions,
 ): Promise<number> {
   await client.query('BEGIN');
   try {
     await client.query(
-      'CREATE TEMP TABLE s_seen (external_id text PRIMARY KEY) ON COMMIT DROP',
+      'CREATE TEMP TABLE s_ids (external_id text PRIMARY KEY) ON COMMIT DROP',
     );
     await copyRows(
       client,
-      's_seen',
+      's_ids',
       ['external_id'],
-      [...seen].map((id) => [id]),
+      ids.map((id) => [id]),
     );
     const gone = await client.query<{ foodId: string }>(
       `DELETE FROM food_sources fs
        WHERE fs.source = $1
-         AND NOT EXISTS (SELECT 1 FROM s_seen s WHERE s.external_id = fs."externalId")
+         AND starts_with(fs."externalId", $2)
+         AND ${match}
        RETURNING fs."foodId"`,
-      [source],
+      [source, options.prefix ?? ''],
     );
+    const count = gone.rowCount ?? 0;
+    if (options.maxRemove !== undefined && count > options.maxRemove) {
+      throw new Error(
+        `Refusing to remove ${count} ${source}${options.prefix ? ` ${options.prefix}` : ''} rows (the limit is ${options.maxRemove})`,
+      );
+    }
     const foodIds = [...new Set(gone.rows.map((r) => r.foodId))];
     // Foods no source describes any more
     const orphans = await client.query(
@@ -381,7 +443,7 @@ export async function removeMissing(
       [foodIds],
     );
     await client.query(options.dryRun ? 'ROLLBACK' : 'COMMIT');
-    return (gone.rowCount ?? 0) + (orphans.rowCount ?? 0);
+    return count + (orphans.rowCount ?? 0);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
