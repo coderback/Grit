@@ -13,14 +13,14 @@ npm run import -w packages/food-data -- --help
 
 ## Sources
 
-| Source | Reads | Keyed by (`food_sources.externalId`) | Licence |
-|---|---|---|---|
-| `fdc` Foundation + SR Legacy | Foundation **JSON** zip (the 2026-10-29 CSV zip is missing its food files), SR Legacy CSV zip | `ndb:<NDB number>`: one food per NDB from both datasets | Public domain (CC0) |
-| `fdc` FNDDS | Survey **JSON** zip (the CSV's `nutrient_id` holds nutrient numbers) | `fndds:<food code>` | Public domain |
-| `fdc` Branded | Branded CSV zip (431 MB; 2.0M rows, 26M nutrient rows), streamed | `branded:<GTIN-13>` (`branded:fdc<id>` without a GTIN) | Public domain |
-| `off` | the JSONL export (default, streamed: about 13 GB gzip) or `--file` the CSV export | the OFF code, as OFF writes it | **ODbL** (database), DbCL (contents), CC BY-SA (images) |
-| `off-delta` | OFF's daily delta files (JSONL), since the last import | the OFF code | ODbL |
-| `cofid` | McCance and Widdowson's CoFID 2021 workbook (checked by SHA-256) | the food code (`13-669~<name>` for the one code used twice) | Open Government Licence v3.0 |
+| Source                       | Reads                                                                                         | Keyed by (`food_sources.externalId`)                        | Licence                                                 |
+| ---------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------- |
+| `fdc` Foundation + SR Legacy | Foundation **JSON** zip (the 2026-10-29 CSV zip is missing its food files), SR Legacy CSV zip | `ndb:<NDB number>`: one food per NDB from both datasets     | Public domain (CC0)                                     |
+| `fdc` FNDDS                  | Survey **JSON** zip (the CSV's `nutrient_id` holds nutrient numbers)                          | `fndds:<food code>`                                         | Public domain                                           |
+| `fdc` Branded                | Branded CSV zip (431 MB; 2.0M rows, 26M nutrient rows), streamed                              | `branded:<GTIN-13>` (`branded:fdc<id>` without a GTIN)      | Public domain                                           |
+| `off`                        | the JSONL export (default, streamed: about 13 GB gzip) or `--file` the CSV export             | the OFF code, as OFF writes it                              | **ODbL** (database), DbCL (contents), CC BY-SA (images) |
+| `off-delta`                  | OFF's daily delta files (JSONL), since the last import                                        | the OFF code                                                | ODbL                                                    |
+| `cofid`                      | McCance and Widdowson's CoFID 2021 workbook (checked by SHA-256)                              | the food code (`13-669~<name>` for the one code used twice) | Open Government Licence v3.0                            |
 
 CNF (Canada), CIQUAL (France) and Fineli (Finland) aren't written yet: their
 files couldn't be downloaded here, and the importers will be built from the
@@ -86,7 +86,7 @@ real files.
   `fetchedAt` (a product's `last_modified_t`) already in the database, less
   two days (`--overlap-days`), since products saved live by the barcode
   lookup can be newer than the last delta; re-reading is harmless. `--since
-  <unix seconds>` overrides it. With `--only-existing` only products already
+<unix seconds>` overrides it. With `--only-existing` only products already
   in the database are updated (for a small database). A product that has
   become obsolete loses its OFF row, and its food when nothing else
   describes it. Deltas never report deleted products: a monthly full import
@@ -113,19 +113,19 @@ real files.
 
 ## Options
 
-| Option | |
-|---|---|
-| `--file <path>` | a local file instead of downloading (repeatable for `fdc`; the dataset is told by USDA's file name) |
-| `--dir <path>` | a folder of local files: USDA's or CoFID's files by name, or OFF delta files |
-| `--dataset <list>` | `fdc`: `foundation,sr,fndds,branded` (default `foundation,sr,fndds`) |
-| `--limit <n>` | stop after n records: a sample |
-| `--dry-run` | run everything in transactions that are rolled back, and report what would change |
-| `--full` | after a complete import, remove this dataset's rows the source no longer lists, and the foods only they described. Scoped by `externalId` prefix (`ndb:`, `fndds:`, `branded:`), so one dataset's full import never removes another's. Refused with `--limit`, filters or `--only-existing`, and when nothing was read |
-| `--max-remove <n>` | with `--full`, refuse to remove more than n rows (default 10% of the dataset, at least 100), so a truncated file can't empty a dataset |
-| `--batch <n>` | records per transaction (default 2000) |
-| `--refresh` | download again even when cached |
-| `--min-scans`, `--countries`, `--only-existing`, `--format jsonl\|csv` | `off`, `off-delta` |
-| `--since`, `--overlap-days` | `off-delta` |
+| Option                                                                 |                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--file <path>`                                                        | a local file instead of downloading (repeatable for `fdc`; the dataset is told by USDA's file name)                                                                                                                                                                                                                    |
+| `--dir <path>`                                                         | a folder of local files: USDA's or CoFID's files by name, or OFF delta files                                                                                                                                                                                                                                           |
+| `--dataset <list>`                                                     | `fdc`: `foundation,sr,fndds,branded` (default `foundation,sr,fndds`)                                                                                                                                                                                                                                                   |
+| `--limit <n>`                                                          | stop after n records: a sample                                                                                                                                                                                                                                                                                         |
+| `--dry-run`                                                            | run everything in transactions that are rolled back, and report what would change                                                                                                                                                                                                                                      |
+| `--full`                                                               | after a complete import, remove this dataset's rows the source no longer lists, and the foods only they described. Scoped by `externalId` prefix (`ndb:`, `fndds:`, `branded:`), so one dataset's full import never removes another's. Refused with `--limit`, filters or `--only-existing`, and when nothing was read |
+| `--max-remove <n>`                                                     | with `--full`, refuse to remove more than n rows (default 10% of the dataset, at least 100), so a truncated file can't empty a dataset                                                                                                                                                                                 |
+| `--batch <n>`                                                          | records per transaction (default 2000)                                                                                                                                                                                                                                                                                 |
+| `--refresh`                                                            | download again even when cached                                                                                                                                                                                                                                                                                        |
+| `--min-scans`, `--countries`, `--only-existing`, `--format jsonl\|csv` | `off`, `off-delta`                                                                                                                                                                                                                                                                                                     |
+| `--since`, `--overlap-days`                                            | `off-delta`                                                                                                                                                                                                                                                                                                            |
 
 Paths are taken relative to where npm was run. The importer prints progress
 every few seconds and the final counts (as a line and as JSON), and exits
@@ -165,7 +165,32 @@ required, implausible values dropped), copied into temporary tables with
 
 ## Sizes (measured locally)
 
-FILLED_IN_BELOW
+Local Postgres 16, after importing everything below (`pg_total_relation_size`
+of the six food tables, indexes included; per dataset from the per-row sizes):
+
+| Imported                                             | Foods  | Nutrient rows | Size       | Time (first run / re-run)                                |
+| ---------------------------------------------------- | ------ | ------------- | ---------- | -------------------------------------------------------- |
+| `fdc` Foundation + SR Legacy                         | 7,970  | 198,085       | ≈ 42 MB    | 10 s / 9 s                                               |
+| `fdc` FNDDS                                          | 5,431  | 152,063       | ≈ 35 MB    | 7 s / 6 s                                                |
+| `cofid`                                              | 2,854  | 69,073        | ≈ 13 MB    | 5 s / 5 s                                                |
+| `fdc --dataset branded --limit 5000` (sample)        | 4,941  | 51,244        | ≈ 15 MB    | 76 s / 77 s (70 s of it is the pass over the whole file) |
+| `off --file products.csv.gz --min-scans 20` (sample) | 27,111 | 226,565       | ≈ 70 MB    | 2.5 min to read all 4.9M rows                            |
+| **All food tables**                                  | 48,307 | 697,030       | **167 MB** |                                                          |
+
+Per row: about 156 bytes per nutrient value, 650 per food, 275 per serving,
+260 per source and 160 per barcode. So:
+
+- **USDA generic foods + CoFID (about 16k foods, 90 MB) fit Supabase Free
+  (500 MB)** next to the app's own data.
+- **USDA Branded** in full: about 1.6M products (2.0M rows, 390k of them
+  older versions) at about 3 KB each: **4–5 GB**.
+- **Open Food Facts** in full: 2.7–3.7M products with a name and calories
+  at about 2.5 KB each: **7–9 GB**. Filtered, e.g. `--min-scans 5` or
+  `--countries gb,us`, it's a fraction of that.
+- So everything is well over the plan's 2–4 GB and over Supabase Pro's
+  included 8 GB disk. `food_nutrients` (one row per value) is two thirds of
+  it; storing a food's values in one column would cut that several times.
+  Decide before the full Branded and OFF imports.
 
 ## Refresh schedule
 
@@ -177,7 +202,7 @@ FILLED_IN_BELOW
   import.
 - **USDA**: after each release (Foundation and Branded in April and
   October/December; FNDDS every two years): `fdc` (and `fdc --dataset
-  branded`), then the same with `--full` to remove foods USDA dropped. The
+branded`), then the same with `--full` to remove foods USDA dropped. The
   Action can run them by hand (Actions → Food data → Run workflow).
 - **CoFID**: when gov.uk publishes a new edition (none since 2021); update
   `COFID_URL` and `COFID_SHA256` in `src/sources/cofid.ts`.
@@ -196,7 +221,7 @@ nothing.
   images under CC BY-SA. GRIT must credit Open Food Facts ("Contains data
   from Open Food Facts, available under the Open Database License", with a
   link) where the data appears. Merging OFF rows with other sources by
-  barcode very likely makes GRIT's food tables a *derivative database* under
+  barcode very likely makes GRIT's food tables a _derivative database_ under
   the ODbL's share-alike terms. **The plan requires a lawyer to confirm how
   GRIT uses OFF (decision 3) before the first production OFF import.**
   `food_sources (source = 'off')` keeps every OFF-derived row traceable and
