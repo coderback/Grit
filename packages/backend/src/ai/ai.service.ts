@@ -37,11 +37,43 @@ import {
   planMemoryUpdate,
   type MemoryUpdate,
 } from './coach-memory';
+import { nutrientInfo } from '../food/nutrients';
+import {
+  anyJudged,
+  isJudgedDay,
+  nutrientDay,
+  nutrientDays,
+  nutrientTargets,
+  oftenLow,
+  type NutrientAmounts,
+  type NutrientDay,
+} from '../nutrients/nutrient-days';
 
 const DAILY_LIMIT = 10;
 const FALLBACK_NUDGE = 'Keep showing up — consistency is the whole game.';
 // How long a finished reply waits for the note-taking call before moving on
 const MEMORY_WAIT_MS = 5000;
+// Often-low nutrients named in the coach's context, at most
+const MAX_LOW_IN_CONTEXT = 5;
+
+/**
+ * The coach's line on vitamins, minerals and fibre over the last 7 days, or
+ * null when nothing could be judged. Data plus how to talk about it: "low",
+ * everyday foods, no supplements and nothing diagnostic.
+ */
+function oftenLowLine(judgedDays: NutrientDay[], targets: NutrientAmounts) {
+  if (!anyJudged(judgedDays)) return null;
+  const low = oftenLow(judgedDays, targets).slice(0, MAX_LOW_IN_CONTEXT);
+  if (!low.length) {
+    return '- No nutrients were often low on days with enough food data (measured values only)';
+  }
+  const items = low.map((o) => {
+    const info = nutrientInfo(o.code)!;
+    const name = info.name.charAt(0).toLowerCase() + info.name.slice(1);
+    return `${name} (${o.lowDays} of ${o.days} days, about ${o.avgPercent}% of ${targets[o.code]} ${info.unit})`;
+  });
+  return `- Often low on days with enough food data (measured values only): ${items.join(', ')}. If it comes up, suggest everyday foods that fit their diet; say "low", never "deficient"; don't suggest supplements.`;
+}
 
 @Injectable()
 export class AIService {
@@ -104,7 +136,12 @@ export class AIService {
       // The last 7 full days, for averages
       this.prisma.foodLog.findMany({
         where: { userId, loggedAt: { gte: weekAgo, lt: today } },
-        select: { loggedAt: true, calories: true, proteinG: true },
+        select: {
+          loggedAt: true,
+          calories: true,
+          proteinG: true,
+          nutrients: true,
+        },
       }),
       this.prisma.coachMemory.findMany({
         where: { userId },
@@ -131,6 +168,8 @@ export class AIService {
       0,
     );
     const todayAlcohol = todayFood.reduce((s, f) => s + (f.alcoholG ?? 0), 0);
+    // Share of today's calories from logs with vitamin or mineral data
+    const todayDataShare = nutrientDay(todayDate, todayFood).dataCoverage;
 
     const completedHabitIds = new Set(habitLogs.map((l) => l.habitId));
 
@@ -206,6 +245,17 @@ export class AIService {
         ]
       : ['- No food logged in the last 7 days'];
 
+    // Vitamins, minerals and fibre, judged only on fully logged days
+    if (user) {
+      const line = oftenLowLine(
+        nutrientDays(weekFood, offset).filter((d) =>
+          isJudgedDay(d, user.calorieGoal),
+        ),
+        nutrientTargets(user, dateMarker(todayDate)),
+      );
+      if (line) weekLines.push(line);
+    }
+
     const checkIn = user
       ? await this.adaptive.checkIn(user.supabaseId, offset).catch(() => null)
       : null;
@@ -238,7 +288,7 @@ ${weekLines.join('\n')}
 Today's nutrition:
 - Calories: ${Math.round(todayCalories)} / ${user?.calorieGoal} kcal
 - Protein: ${Math.round(todayProtein)}g | Carbs: ${Math.round(todayCarbs)}g | Fat: ${Math.round(todayFat)}g
-- Meals logged: ${todayFood.length}${todayCaffeine >= 1 ? `\n- Caffeine: ${Math.round(todayCaffeine)} mg` : ''}${todayAlcohol >= 1 ? `\n- Alcohol: ${Math.round(todayAlcohol)} g` : ''}
+- Meals logged: ${todayFood.length}${todayCalories > 0 ? `\n- Vitamin and mineral data (measured values only) covers ${Math.round(todayDataShare * 100)}% of today's calories` : ''}${todayCaffeine >= 1 ? `\n- Caffeine: ${Math.round(todayCaffeine)} mg` : ''}${todayAlcohol >= 1 ? `\n- Alcohol: ${Math.round(todayAlcohol)} g` : ''}
 
 Habits today:
 ${habitLines}

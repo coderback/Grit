@@ -39,6 +39,8 @@ export class QuickFoodsService {
           fatG: true,
           servingQty: true,
           servingUnit: true,
+          foodId: true,
+          grams: true,
           mealType: true,
           loggedAt: true,
         },
@@ -68,7 +70,16 @@ export class QuickFoodsService {
   async save(supabaseId: string, dto: SaveFavoriteDto) {
     const user = await this.resolveUser(supabaseId);
     const key = foodKey(dto.name, dto.brand);
+    // A food that has since left the database is saved without its link
+    const food = dto.foodId
+      ? await this.prisma.food.findUnique({
+          where: { id: dto.foodId },
+          select: { id: true },
+        })
+      : null;
     const data = {
+      foodId: food?.id ?? null,
+      grams: dto.grams ?? null,
       name: dto.name.trim(),
       brand: dto.brand?.trim() || null,
       barcode: dto.barcode || null,

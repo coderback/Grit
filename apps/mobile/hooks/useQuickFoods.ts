@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { QuickFood } from '@/lib/quickFoods';
+import { favoriteBody, type QuickFood } from '@/lib/quickFoods';
 
 export type { QuickFood } from '@/lib/quickFoods';
 export { foodKey, portionAsFood, portionLabel } from '@/lib/quickFoods';
@@ -39,12 +39,8 @@ function invalidate(qc: ReturnType<typeof useQueryClient>) {
 export function useSaveFavorite() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (f: QuickFood) =>
-      api.post<FavoriteFood>('/food/favorites', {
-        ...f,
-        brand: f.brand ?? undefined,
-        barcode: f.barcode ?? undefined,
-      }).then((r) => r.data),
+    // A recent food carries extra keys (timesLogged...); send only the favourite's fields
+    mutationFn: (f: QuickFood) => api.post<FavoriteFood>('/food/favorites', favoriteBody(f)).then((r) => r.data),
     meta: { errorMessage: "Couldn't save that favourite. Check your connection." },
     onSuccess: () => invalidate(qc),
   });

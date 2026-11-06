@@ -2,6 +2,8 @@ import type OpenAI from 'openai';
 import { TestDb } from '../test-utils/db';
 import { localToday } from '../common/day';
 import type { FoodService } from '../food/food.service';
+import { FoodDbService } from '../food/food-db.service';
+import { searchTextOf } from '../food/food-text';
 import { DAILY_PARSES, MealParseService } from './meal-parse.service';
 import { memoryKey } from './meal-parse';
 
@@ -39,8 +41,9 @@ const item = (over: Record<string, unknown> = {}) => ({
 
 describe('MealParseService (database)', () => {
   const db = new TestDb();
+  // Open Food Facts' live search, for branded items GRIT's database lacks
   const food = {
-    searchFoods: (q: string) =>
+    searchLive: (q: string) =>
       Promise.resolve(
         q.toLowerCase().includes('fage')
           ? [
@@ -50,7 +53,19 @@ describe('MealParseService (database)', () => {
           : [],
       ),
   } as unknown as FoodService;
-  afterAll(() => db.cleanup());
+  // An empty food database, so real data imported here can't change these tests
+  const emptyDb = {
+    search: () => Promise.resolve([]),
+    exists: () => Promise.resolve(false),
+    snapshot: () => Promise.resolve(null),
+    countLog: () => Promise.resolve(),
+  } as unknown as FoodDbService;
+  afterAll(async () => {
+    await db.prisma.food.deleteMany({
+      where: { id: { startsWith: 'test_mp_' } },
+    });
+    await db.cleanup();
+  });
 
   it('grounds items in memory, then the database, then the estimate', async () => {
     const u = await db.user();
@@ -87,7 +102,13 @@ describe('MealParseService (database)', () => {
       ],
       question: 'Was the porridge made with milk or water?',
     });
-    const meals = new MealParseService(db.prisma, food, client, 'test');
+    const meals = new MealParseService(
+      db.prisma,
+      food,
+      client,
+      'test',
+      emptyDb,
+    );
     const out = await meals.parse(
       u.supabaseId,
       { text: 'oats, fage yogurt and honey', imageBase64: 'aGVsbG8=' },
@@ -116,6 +137,103 @@ describe('MealParseService (database)', () => {
     expect(req.input[0].content[1]).toMatchObject({
       type: 'input_image',
       image_url: 'data:image/jpeg;base64,aGVsbG8=',
+    });
+  });
+
+  it('matches plain foods to measured database foods, and logs their nutrients', async () => {
+    // A made-up food, so real imported data can't interfere
+    const seed = (id: string, name: string, kcal: number, iron: number) =>
+      db.prisma.food.create({
+        data: {
+          id,
+          name,
+          kind: 'generic',
+          source: 'fdc',
+          countries: ['us'],
+          verified: true,
+          quality: 1,
+          searchText: searchTextOf(name),
+          nutrients: {
+            create: [
+              { nutrient: 'kcal', amount: kcal, basis: 'measured' },
+              { nutrient: 'protein_g', amount: 2.5, basis: 'measured' },
+              { nutrient: 'carbs_g', amount: 12, basis: 'measured' },
+              { nutrient: 'fat_g', amount: 1.5, basis: 'measured' },
+              { nutrient: 'iron_mg', amount: iron, basis: 'measured' },
+            ],
+          },
+        },
+      });
+    await seed('test_mp_dry', 'Blorvak porridge oats, dry', 379, 4.2);
+    await seed(
+      'test_mp_cooked',
+      'Blorvak porridge, cooked with water',
+      71,
+      0.9,
+    );
+
+    const u = await db.user();
+    const reading = {
+      items: [
+        item({
+          name: 'blorvak porridge',
+          grams: 250,
+          quantityStated: true,
+          kcalPer100g: 75,
+          proteinPer100g: 2.6,
+          carbsPer100g: 12.5,
+          fatPer100g: 1.6,
+        }),
+        // Nothing in the database has these words
+        item({ name: 'zzqx sprinkles', grams: 5 }),
+      ],
+      question: null,
+    };
+    const meals = new MealParseService(
+      db.prisma,
+      food,
+      fakeModel(reading).client,
+      'test',
+      new FoodDbService(db.prisma),
+    );
+    const out = await meals.parse(u.supabaseId, { text: 'porridge' }, 0);
+    // The cooked porridge, not the dry oats: its calories match the reading's
+    expect(out.items[0]).toMatchObject({
+      source: 'database',
+      foodId: 'test_mp_cooked',
+      basis: 'measured',
+      verified: true,
+      per100: { kcal: 71 },
+    });
+    expect(out.items[1]).toMatchObject({ source: 'estimate' });
+    expect(out.items[1]).not.toHaveProperty('foodId');
+
+    await meals.log(u.supabaseId, {
+      mealType: 'breakfast',
+      items: [
+        {
+          name: 'blorvak porridge',
+          foodId: 'test_mp_cooked',
+          grams: 250,
+          kcalPer100g: 71,
+          proteinPer100g: 2.5,
+          carbsPer100g: 12,
+          fatPer100g: 1.5,
+        },
+      ],
+    });
+    const [log] = await db.prisma.foodLog.findMany({ where: { userId: u.id } });
+    expect(log).toMatchObject({ foodId: 'test_mp_cooked', grams: 250 });
+    expect(log.nutrients).toMatchObject({
+      iron_mg: { amount: 2.25, basis: 'measured' },
+      kcal: { amount: 177.5, basis: 'measured' },
+    });
+
+    // Remembered with its food, so the next reading keeps the link
+    const again = await meals.parse(u.supabaseId, { text: 'porridge' }, 0);
+    expect(again.items[0]).toMatchObject({
+      source: 'memory',
+      foodId: 'test_mp_cooked',
     });
   });
 

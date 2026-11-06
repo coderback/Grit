@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import OpenAI from 'openai';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,15 +14,20 @@ import { localToday } from '../common/day';
 import { assertAiConsent } from '../common/ai-consent';
 import { giveBackParse, takeParse } from '../common/parse-quota';
 import { FoodService } from '../food/food.service';
+import { FoodDbService, queryWords } from '../food/food-db.service';
+import { searchKey } from '../food/food-text';
+import type { NormalizedFood } from '../food/food.types';
+import type { NutrientSnapshot } from '../food/nutrients';
 import {
   groundItem,
   mealInstructions,
   MEAL_SCHEMA,
   memoryKey,
+  sameAsEaten,
   totals,
+  type DbMatch,
   type Memory,
   type ModelItem,
-  type Per100,
 } from './meal-parse';
 import type { LogParsedMealDto, ParseMealDto } from './meal-parse.dto';
 
@@ -32,12 +38,17 @@ const MAX_ITEMS = 12;
 export class MealParseService {
   private readonly logger = new Logger(MealParseService.name);
 
+  private readonly db: FoodDbService;
+
   constructor(
     private prisma: PrismaService,
     private food: FoodService,
     private openai: OpenAI,
     @Inject(AI_MODEL) private model: string,
-  ) {}
+    @Optional() db?: FoodDbService,
+  ) {
+    this.db = db ?? new FoodDbService(prisma);
+  }
 
   private async resolveUserId(supabaseId: string) {
     const user = await this.prisma.user.findUnique({
@@ -48,22 +59,62 @@ export class MealParseService {
     return user.id;
   }
 
-  /** The first database product with calories for a branded item. */
-  private async lookupBranded(item: ModelItem): Promise<Per100 | undefined> {
-    if (!item.brand) return undefined;
+  /**
+   * The database food for an item, if a good one exists:
+   * - branded items: the top branded product whose brand matches;
+   * - plain foods: the best measured food whose name has every word the
+   *   reading used and whose calories are close to the reading's (so raw
+   *   rice isn't used for cooked rice).
+   * While GRIT's database is missing products (FOOD_LIVE_SEARCH isn't
+   * "off"), a branded item it can't match is looked up live, as before.
+   * Any failure falls back to the estimate.
+   */
+  private async lookupDatabase(
+    item: ModelItem,
+    country?: string,
+  ): Promise<DbMatch | undefined> {
+    const name = item.name.trim();
+    const brand = item.brand?.trim();
     try {
-      const hits = await this.food.searchFoods(`${item.brand} ${item.name}`);
-      const hit = hits.find((h) => h.calories > 0);
-      return hit
-        ? {
-            kcal: hit.calories,
-            protein: hit.proteinG,
-            carbs: hit.carbsG,
-            fat: hit.fatG,
-          }
-        : undefined;
-    } catch {
+      if (brand) {
+        const branded = await this.db.search(`${brand} ${name}`, {
+          kinds: ['branded'],
+          country,
+          limit: 5,
+        });
+        const brandWord = queryWords(searchKey(brand))[0] ?? searchKey(brand);
+        const hit = branded.find(
+          (h) =>
+            h.calories > 0 &&
+            searchKey(`${h.brand ?? ''} ${h.name}`).includes(brandWord),
+        );
+        if (hit) return matchOf(hit);
+        if (process.env.FOOD_LIVE_SEARCH !== 'off') {
+          const live = await this.food.searchLive(`${brand} ${name}`);
+          const first = live.find((h) => h.calories > 0);
+          if (first) return matchOf(first);
+        }
+      }
+
+      const words = queryWords(searchKey(name));
+      if (!words.length) return undefined;
+      const generic = await this.db.search(name, {
+        kinds: ['generic', 'dish'],
+        country,
+        limit: 8,
+      });
+      const pick = generic.find((h) => {
+        const text = searchKey(h.name);
+        return (
+          h.basis === 'measured' &&
+          words.every((w) => text.includes(w)) &&
+          sameAsEaten(h.calories, item.kcalPer100g)
+        );
+      });
+      return pick ? matchOf(pick) : undefined;
+    } catch (err) {
       // The database being down just means we fall back to the estimate
+      this.logger.warn(`Smart log database lookup failed: ${String(err)}`);
       return undefined;
     }
   }
@@ -155,12 +206,15 @@ export class MealParseService {
           caffeine: m.caffeinePer100g ?? undefined,
           alcohol: m.alcoholPer100g ?? undefined,
           usualGrams: m.usualGrams,
+          foodId: m.foodId,
         },
       ]),
     );
     const database = await Promise.all(
       modelItems.map((i, n) =>
-        byKey.has(keys[n]) ? Promise.resolve(undefined) : this.lookupBranded(i),
+        byKey.has(keys[n])
+          ? Promise.resolve(undefined)
+          : this.lookupDatabase(i, dto.country),
       ),
     );
 
@@ -204,10 +258,16 @@ export class MealParseService {
   async log(supabaseId: string, dto: LogParsedMealDto) {
     const userId = await this.resolveUserId(supabaseId);
     const loggedAt = dto.loggedAt ? new Date(dto.loggedAt) : new Date();
+    // Each matched food's nutrients for the amount eaten, worked out before
+    // the transaction; a food that's gone just isn't linked
+    const links = await Promise.all(
+      dto.items.map((item) => this.foodLink(item.foodId, item.grams)),
+    );
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const logs = [];
-      for (const item of dto.items) {
+      for (const [n, item] of dto.items.entries()) {
+        const link = links[n];
         const per100 = {
           kcal: item.kcalPer100g,
           protein: item.proteinPer100g,
@@ -233,6 +293,9 @@ export class MealParseService {
               caffeineMg: t.caffeineMg,
               alcoholG: t.alcoholG,
               loggedAt,
+              foodId: link.foodId,
+              grams: item.grams,
+              nutrients: link.nutrients ?? undefined,
             },
           }),
         );
@@ -248,6 +311,7 @@ export class MealParseService {
           caffeinePer100g: per100.caffeine ?? null,
           alcoholPer100g: per100.alcohol ?? null,
           usualGrams: item.grams,
+          foodId: link.foodId,
         };
         await tx.foodMemory.upsert({
           where: { userId_key: { userId, key } },
@@ -257,6 +321,26 @@ export class MealParseService {
       }
       return { logged: logs.length, logs };
     });
+    for (const link of links) {
+      if (link.foodId) await this.db.countLog(link.foodId);
+    }
+    return result;
+  }
+
+  private async foodLink(
+    foodId: string | undefined,
+    grams: number,
+  ): Promise<{ foodId: string | null; nutrients: NutrientSnapshot | null }> {
+    if (!foodId) return { foodId: null, nutrients: null };
+    try {
+      if (!(await this.db.exists(foodId))) {
+        return { foodId: null, nutrients: null };
+      }
+      return { foodId, nutrients: await this.db.snapshot(foodId, grams) };
+    } catch (err) {
+      this.logger.warn(`Couldn't link a Smart log item: ${String(err)}`);
+      return { foodId: null, nutrients: null };
+    }
   }
 
   /** The foods GRIT has learned, most used first. */
@@ -278,4 +362,19 @@ export class MealParseService {
     if (!count) throw new NotFoundException('Food not found');
     return { ok: true };
   }
+}
+
+/** What Smart log takes from a database food, per 100 g. */
+function matchOf(f: NormalizedFood): DbMatch {
+  return {
+    kcal: f.calories,
+    protein: f.proteinG,
+    carbs: f.carbsG,
+    fat: f.fatG,
+    ...(f.caffeineMg !== undefined ? { caffeine: f.caffeineMg } : {}),
+    ...(f.alcoholG !== undefined ? { alcohol: f.alcoholG } : {}),
+    ...(f.foodId ? { foodId: f.foodId } : {}),
+    ...(f.basis ? { basis: f.basis } : {}),
+    ...(f.verified !== undefined ? { verified: f.verified } : {}),
+  };
 }

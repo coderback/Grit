@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { writeFoodsToHealth } from '@/lib/health/sync';
-import type { FoodLog } from '@/hooks/useFoodLog';
+import { invalidateFoodLogQueries, type FoodLog, type FoodServing } from '@/hooks/useFoodLog';
 
 export type ItemSource = 'memory' | 'database' | 'estimate';
 
@@ -30,6 +30,13 @@ export interface ParsedItem {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  // Phase 7, all optional: a match in GRIT's food database
+  foodId?: string;
+  basis?: 'measured' | 'label';
+  /** From a government table or the manufacturer's own data */
+  verified?: boolean;
+  servings?: FoodServing[];
+  category?: string;
 }
 
 export interface ParsedMeal {
@@ -76,13 +83,14 @@ export function useLogParsedMeal() {
         caffeinePer100g?: number;
         alcoholPer100g?: number;
         remember?: boolean;
+        /** The database food it matched; the server works out its nutrients */
+        foodId?: string;
       }[];
     }) => api.post<{ logged: number; logs: FoodLog[] }>('/food/parse/log', body).then((r) => r.data),
     onSuccess: (res) => {
       writeFoodsToHealth(res.logs ?? []);
-      for (const key of ['food-logs', 'food-recent', 'food-week', 'trends', 'adaptive', 'food-memories']) {
-        qc.invalidateQueries({ queryKey: [key] });
-      }
+      invalidateFoodLogQueries(qc);
+      qc.invalidateQueries({ queryKey: ['food-memories'] });
     },
   });
 }

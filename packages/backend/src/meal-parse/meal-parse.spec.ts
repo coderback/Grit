@@ -3,6 +3,7 @@ import {
   groundItem,
   memoryKey,
   saneEstimate,
+  sameAsEaten,
   totals,
   type ModelItem,
 } from './meal-parse';
@@ -34,12 +35,15 @@ describe('meal parsing', () => {
 
   it("uses the person's own food and usual portion first", () => {
     const mem = { kcal: 380, protein: 12, carbs: 62, fat: 8, usualGrams: 60 };
-    expect(groundItem(item(), mem, undefined)).toMatchObject({
+    const grounded = groundItem(item(), mem, undefined);
+    expect(grounded).toMatchObject({
       source: 'memory',
       grams: 60,
       portion: 'your usual 60 g',
-      per100: mem,
+      per100: { kcal: 380, protein: 12, carbs: 62, fat: 8 },
     });
+    // The usual portion isn't a per-100 g value
+    expect(grounded.per100).not.toHaveProperty('usualGrams');
     // An amount they stated wins over the usual
     expect(
       groundItem(
@@ -120,5 +124,67 @@ describe('meal parsing', () => {
       undefined,
     );
     expect(odd.category).toBe('other');
+  });
+
+  it("carries a database food's id, and trusts verified values", () => {
+    const db = {
+      kcal: 389,
+      protein: 60, // outside the usual range for oats, but from a government table
+      carbs: 66,
+      fat: 7,
+      foodId: 'fdc_173904',
+      basis: 'measured' as const,
+      verified: true,
+    };
+    const grounded = groundItem(item(), undefined, db);
+    expect(grounded).toMatchObject({
+      source: 'database',
+      foodId: 'fdc_173904',
+      basis: 'measured',
+      verified: true,
+      check: false,
+    });
+    // Unverified data out of range is still flagged
+    expect(
+      groundItem(item(), undefined, { ...db, verified: false }).check,
+    ).toBe(true);
+  });
+
+  it('keeps database values within what a log accepts', () => {
+    const grounded = groundItem(item(), undefined, {
+      kcal: 1700, // kJ labelled as kcal
+      protein: 10,
+      carbs: 120,
+      fat: 5,
+    });
+    expect(grounded.per100).toMatchObject({ kcal: 900, carbs: 100 });
+  });
+
+  it("counts alcohol's calories in an estimate", () => {
+    // Wine: 83 kcal per 100 g, almost all from alcohol
+    const wine = groundItem(
+      item({
+        name: 'red wine',
+        category: 'drinks',
+        kcalPer100g: 83,
+        proteinPer100g: 0.1,
+        carbsPer100g: 2.6,
+        fatPer100g: 0,
+        alcoholGPer100g: 10.6,
+      }),
+      undefined,
+      undefined,
+    );
+    expect(wine.per100.kcal).toBe(83);
+  });
+
+  it('only uses a database food that matches the calories as eaten', () => {
+    // Raw rice isn't cooked rice
+    expect(sameAsEaten(365, 130)).toBe(false);
+    expect(sameAsEaten(130, 140)).toBe(true);
+    // Light foods: a few kcal either way
+    expect(sameAsEaten(15, 25)).toBe(true);
+    expect(sameAsEaten(60, 20)).toBe(false);
+    expect(sameAsEaten(50, 0)).toBe(false);
   });
 });

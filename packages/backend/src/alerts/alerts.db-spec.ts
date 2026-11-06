@@ -271,5 +271,115 @@ describe('AlertsService (database)', () => {
       await alerts.sendCoachCheckIns(new Date('2026-11-08T13:05:00Z'));
       expect(await inbox(sunday.id)).toHaveLength(0);
     });
+
+    describe('nutrient_low', () => {
+      const iron = (amount: number) => ({
+        iron_mg: { amount, basis: 'measured' },
+      });
+      // Fully logged, enough protein, and 2.7 mg of iron (under 2/3 of 8 mg)
+      const LOW: [string, number, number][] = [
+        ['White toast', 300, 1.0],
+        ['Cheddar', 400, 0.2],
+        ['Pasta', 500, 1.5],
+      ];
+      const FINE: [string, number, number][] = [
+        ['Steak', 600, 12],
+        ['Lentil curry', 600, 6.6],
+      ];
+      async function logDay(
+        userId: string,
+        date: string,
+        foods: [string, number, number][],
+      ) {
+        await db.prisma.foodLog.createMany({
+          data: foods.map(([name, calories, ironMg], i) => ({
+            userId,
+            name,
+            mealType: 'lunch',
+            calories,
+            proteinG: 60,
+            loggedAt: new Date(`${date}T0${7 + i}:00:00Z`),
+            nutrients: iron(ironMg),
+          })),
+        });
+      }
+      // The 7 days before Wednesday 4 November, oldest first
+      const week = [
+        '2026-10-28',
+        '2026-10-29',
+        '2026-10-30',
+        '2026-10-31',
+        '2026-11-01',
+        '2026-11-02',
+        '2026-11-03',
+      ];
+      async function logWeek(userId: string, lowDays: number) {
+        for (const [i, d] of week.entries()) {
+          await logDay(userId, d, i < lowDays ? LOW : FINE);
+        }
+      }
+
+      it('sends one when the same nutrient was low on 5 of the last 7 logged days', async () => {
+        const u = await db.user();
+        await logWeek(u.id, 5);
+
+        await alerts.sendCoachCheckIns(lunchtime);
+        const items = await inbox(u.id);
+        expect(items.map((n) => [n.type, n.title, n.body])).toEqual([
+          [
+            'coach_checkin',
+            'Iron has been running low',
+            'Iron was low on 5 of your last 7 logged days. Good sources include beef, lentils, beans, spinach or fortified cereal: adding one to a meal a day helps.',
+          ],
+        ]);
+        expect(items[0].data).toEqual({
+          screen: 'food',
+          rule: 'nutrient_low',
+          nutrient: 'iron_mg',
+        });
+        expect(`${items[0].title} ${items[0].body}`).not.toMatch(
+          /deficien|diagnos/i,
+        );
+
+        // Once a week
+        await alerts.sendCoachCheckIns(new Date('2026-11-05T13:05:00Z'));
+        expect(await inbox(u.id)).toHaveLength(1);
+      });
+
+      it('stays quiet at 4 of 7, for today, without data, and after an eating disorder answer', async () => {
+        // Low on 4 days, and today so far: today doesn't count
+        const four = await db.user();
+        await logWeek(four.id, 4);
+        await logDay(four.id, '2026-11-04', LOW);
+
+        // Low every day, but asked not to hear about foods as good or bad
+        const ed = await db.user();
+        await db.prisma.user.update({
+          where: { id: ed.id },
+          data: { edScreen: 'yes' },
+        });
+        await logWeek(ed.id, 7);
+
+        // Logged every day, without nutrient data
+        const manual = await db.user();
+        for (const d of week) {
+          await db.prisma.foodLog.createMany({
+            data: [7, 8].map((h) => ({
+              userId: manual.id,
+              name: 'x',
+              mealType: 'lunch',
+              calories: 600,
+              proteinG: 60,
+              loggedAt: new Date(`${d}T0${h}:00:00Z`),
+            })),
+          });
+        }
+
+        await alerts.sendCoachCheckIns(lunchtime);
+        expect(await inbox(four.id)).toHaveLength(0);
+        expect(await inbox(ed.id)).toHaveLength(0);
+        expect(await inbox(manual.id)).toHaveLength(0);
+      });
+    });
   });
 });

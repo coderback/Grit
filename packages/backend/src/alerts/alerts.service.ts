@@ -13,7 +13,14 @@ import {
 } from '../common/day';
 import { calculateStreak } from '../habits/habits.streak';
 import { macroTargets } from '../common/nutrition';
-import { checkInsFor } from './coach-checkins';
+import { NUTRIENT_LOW_WINDOW, checkInsFor } from './coach-checkins';
+import {
+  isJudgedDay,
+  lowOnDay,
+  nutrientDays,
+  nutrientTargets,
+  percentOfTarget,
+} from '../nutrients/nutrient-days';
 import {
   isOffTrack,
   offsetRangesAtLocalHour,
@@ -234,11 +241,19 @@ export class AlertsService {
             goalFocus: true,
             dietType: true,
             primaryGoal: true,
+            gender: true,
+            dateOfBirth: true,
+            edScreen: true,
           },
         }),
         this.prisma.foodLog.findMany({
           where: { userId: user.id, loggedAt: { gte: since14, lte: now } },
-          select: { loggedAt: true, proteinG: true },
+          select: {
+            loggedAt: true,
+            proteinG: true,
+            calories: true,
+            nutrients: true,
+          },
         }),
         this.prisma.activityLog.findMany({
           where: { userId: user.id, loggedAt: { gte: since14, lte: now } },
@@ -262,6 +277,19 @@ export class AlertsService {
         protein.set(d, (protein.get(d) ?? 0) + f.proteinG);
       }
 
+      // Nutrients low on each of the latest fully logged days before today
+      const targets = nutrientTargets(profile, todayStart);
+      const judgedDays =
+        profile.edScreen === 'yes'
+          ? []
+          : nutrientDays(
+              food.filter((f) => f.loggedAt < todayStart),
+              offset,
+            )
+              .filter((d) => isJudgedDay(d, profile.calorieGoal))
+              .reverse()
+              .slice(0, NUTRIENT_LOW_WINDOW);
+
       const checkIns = checkInsFor({
         today,
         foodDays: food.map((f) => localDateOf(f.loggedAt, offset)),
@@ -278,6 +306,20 @@ export class AlertsService {
           weightKg: w.weightKg,
         })),
         primaryGoal: profile.primaryGoal,
+        nutrientDays: judgedDays.map((d) => {
+          const low = lowOnDay(d, targets);
+          return {
+            date: d.date,
+            low,
+            percent: Object.fromEntries(
+              low.map((code) => [
+                code,
+                percentOfTarget(d, code, targets[code]!),
+              ]),
+            ),
+          };
+        }),
+        edScreen: profile.edScreen,
       });
 
       // The first one not already sent this week
@@ -286,7 +328,11 @@ export class AlertsService {
           type: 'coach_checkin',
           title: c.title,
           body: c.body,
-          data: { screen: c.screen, rule: c.rule },
+          data: {
+            screen: c.screen,
+            rule: c.rule,
+            ...(c.nutrient ? { nutrient: c.nutrient } : {}),
+          },
           dedupeKey: `coach:${c.rule}:${weekStart(today)}`,
         });
         if (delivered) {

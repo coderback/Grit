@@ -1,8 +1,11 @@
 import {
   BadGatewayException,
   Injectable,
+  Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -19,6 +22,10 @@ import type {
   UpdateFoodLogDto,
 } from './food.dto';
 import type { NormalizedFood, OFFProduct, SearchHit } from './food.types';
+import { FoodDbService, MIN_QUERY_LENGTH } from './food-db.service';
+import { normaliseBarcode } from './food-text';
+import { isNutrientCode, type NutrientSnapshot } from './nutrients';
+import { offRecord } from './off-product';
 
 // Open Food Facts asks every client to identify itself and can be slow, so
 // requests carry a User-Agent and a timeout.
@@ -47,6 +54,24 @@ const SEARCH_FIELDS =
 const SEARCH_CACHE_TTL_MS = 10 * 60_000;
 const SEARCH_CACHE_MAX = 500;
 
+// The most results a search returns
+const SEARCH_RESULTS = 25;
+
+/**
+ * Whether search also asks Open Food Facts live: "fallback" (the default)
+ * when GRIT's database finds fewer than LIVE_BELOW results, or "off" once
+ * the full Open Food Facts import is in. Barcode misses always ask live.
+ */
+const LIVE_BELOW = 5;
+const liveSearchMode = () =>
+  process.env.FOOD_LIVE_SEARCH === 'off' ? 'off' : 'fallback';
+
+export interface SearchContext {
+  supabaseId?: string;
+  /** ISO 3166-1 alpha-2, e.g. "GB" */
+  country?: string;
+}
+
 function toNumber(value: number | string | undefined): number | undefined {
   const n = typeof value === 'string' ? parseFloat(value) : value;
   return n !== undefined && Number.isFinite(n) ? n : undefined;
@@ -69,6 +94,63 @@ export function drinkValues(n: OFFProduct['nutriments'] = {}) {
   };
 }
 
+// Every FoodLog column but the nutrient snapshot
+const LOG_FIELDS = {
+  id: true,
+  userId: true,
+  name: true,
+  brand: true,
+  barcode: true,
+  mealType: true,
+  calories: true,
+  proteinG: true,
+  carbsG: true,
+  fatG: true,
+  servingQty: true,
+  servingUnit: true,
+  loggedAt: true,
+  caffeineMg: true,
+  alcoholG: true,
+  corrected: true,
+  foodId: true,
+  grams: true,
+} satisfies Prisma.FoodLogSelect;
+
+/**
+ * When a log's calories are edited, its nutrient snapshot scales with them
+ * (usually the portion was different). Undefined leaves it unchanged.
+ */
+export function scaledSnapshot(
+  snapshot: Prisma.JsonValue | null,
+  before: number,
+  after: number | undefined,
+): Prisma.InputJsonValue | undefined {
+  if (
+    after === undefined ||
+    !snapshot ||
+    typeof snapshot !== 'object' ||
+    Array.isArray(snapshot) ||
+    !(before > 0) ||
+    Math.abs(after - before) <= 0.5
+  ) {
+    return undefined;
+  }
+  const ratio = after / before;
+  const out: NutrientSnapshot = {};
+  for (const [code, v] of Object.entries(snapshot)) {
+    if (!isNutrientCode(code) || !v || typeof v !== 'object') continue;
+    const { amount, basis } = v as { amount?: unknown; basis?: unknown };
+    if (
+      typeof amount !== 'number' ||
+      (basis !== 'measured' && basis !== 'label')
+    ) {
+      continue;
+    }
+    out[code] = { amount: Number((amount * ratio).toPrecision(4)), basis };
+  }
+  return out;
+}
+
 @Injectable()
 export class FoodService {
   private searchCache = new Map<
@@ -76,7 +158,15 @@ export class FoodService {
     { expiresAt: number; results: NormalizedFood[] }
   >();
 
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(FoodService.name);
+  private readonly db: FoodDbService;
+
+  constructor(
+    private prisma: PrismaService,
+    @Optional() db?: FoodDbService,
+  ) {
+    this.db = db ?? new FoodDbService(prisma);
+  }
 
   // ── Open Food Facts helpers ────────────────────────────────────────────────
 
@@ -141,7 +231,49 @@ export class FoodService {
     return data.products ?? [];
   }
 
-  async searchFoods(query: string): Promise<NormalizedFood[]> {
+  /**
+   * Food search: GRIT's own database first (the user's foods, then their
+   * country's, then the best data), then Open Food Facts live while the
+   * database is missing products (see FOOD_LIVE_SEARCH).
+   */
+  async searchFoods(
+    query: string,
+    ctx: SearchContext = {},
+  ): Promise<NormalizedFood[]> {
+    const terms = query.trim();
+    if (terms.length < MIN_QUERY_LENGTH) return [];
+
+    const userId = ctx.supabaseId
+      ? await this.userIdOf(ctx.supabaseId)
+      : undefined;
+    let local: NormalizedFood[] = [];
+    try {
+      local = await this.db.search(terms, { userId, country: ctx.country });
+    } catch (err) {
+      // A slow or failed database search falls back to the live search
+      this.logger.warn(`Food database search failed: ${String(err)}`);
+    }
+    if (local.length >= LIVE_BELOW || liveSearchMode() === 'off') {
+      return local;
+    }
+
+    let live: NormalizedFood[];
+    try {
+      live = await this.searchLive(terms);
+    } catch (err) {
+      if (local.length) return local;
+      throw err;
+    }
+    // Live results the database already has (same barcode) are left out
+    const have = new Set(
+      local.map((f) => normaliseBarcode(f.barcode)).filter(Boolean),
+    );
+    const extra = live.filter((f) => !have.has(normaliseBarcode(f.barcode)));
+    return [...local, ...extra].slice(0, SEARCH_RESULTS);
+  }
+
+  /** Open Food Facts' own search, cached for 10 minutes. */
+  async searchLive(query: string): Promise<NormalizedFood[]> {
     const terms = query.trim();
     if (terms.length < 2) return [];
 
@@ -183,7 +315,34 @@ export class FoodService {
     return results;
   }
 
-  async lookupBarcode(barcode: string): Promise<NormalizedFood> {
+  /**
+   * A barcode from GRIT's database, else from Open Food Facts live. A
+   * product found live is saved, so the next scan is local. Every scan is
+   * recorded, for the barcode hit rate by country.
+   */
+  async lookupBarcode(
+    barcode: string,
+    ctx: SearchContext = {},
+  ): Promise<NormalizedFood> {
+    let found: NormalizedFood | null = null;
+    try {
+      found = await this.lookupBarcodeOnce(barcode);
+      return found;
+    } finally {
+      if (ctx.supabaseId) {
+        void this.recordScan(ctx, barcode, !!found);
+      }
+    }
+  }
+
+  private async lookupBarcodeOnce(barcode: string): Promise<NormalizedFood> {
+    try {
+      const local = await this.db.byBarcode(barcode);
+      if (local) return local;
+    } catch (err) {
+      this.logger.warn(`Food database barcode lookup failed: ${String(err)}`);
+    }
+
     let data: { status: number; product?: OFFProduct };
     try {
       ({ data } = await off.get<{ status: number; product?: OFFProduct }>(
@@ -201,7 +360,48 @@ export class FoodService {
       throw new NotFoundException(`No product found for barcode ${barcode}`);
     }
 
+    const product = { ...data.product, code: data.product.code || barcode };
+    try {
+      const record = offRecord(product);
+      const saved = record ? await this.db.saveRecord(record) : null;
+      if (saved) return saved;
+    } catch (err) {
+      this.logger.warn(`Couldn't save barcode ${barcode}: ${String(err)}`);
+    }
     return this.normalize({ ...data.product, code: barcode });
+  }
+
+  private async recordScan(ctx: SearchContext, code: string, hit: boolean) {
+    try {
+      const userId = await this.userIdOf(ctx.supabaseId!);
+      if (!userId) return;
+      await this.prisma.searchEvent.create({
+        data: {
+          userId,
+          kind: 'barcode',
+          query: normaliseBarcode(code) ?? code,
+          resultCount: hit ? 1 : 0,
+          country: ctx.country ?? null,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`Couldn't record a barcode scan: ${String(err)}`);
+    }
+  }
+
+  /** One database food, with its nutrients per 100 g. */
+  async getFood(id: string): Promise<NormalizedFood> {
+    const food = await this.db.byId(id);
+    if (!food) throw new NotFoundException('Food not found');
+    return food;
+  }
+
+  private async userIdOf(supabaseId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { supabaseId },
+      select: { id: true },
+    });
+    return user?.id;
   }
 
   // ── User resolver ─────────────────────────────────────────────────────────
@@ -219,8 +419,12 @@ export class FoodService {
 
   async logFood(supabaseId: string, dto: CreateFoodLogDto) {
     const userId = await this.resolveUserId(supabaseId);
-    return this.prisma.foodLog.create({
+    const link = await this.foodLink(dto);
+    const log = await this.prisma.foodLog.create({
       data: {
+        foodId: link.foodId,
+        grams: link.grams,
+        nutrients: link.nutrients ?? undefined,
         userId,
         name: dto.name,
         brand: dto.brand,
@@ -237,6 +441,41 @@ export class FoodService {
         loggedAt: dto.loggedAt ? new Date(dto.loggedAt) : new Date(),
       },
     });
+    if (link.foodId) await this.db.countLog(link.foodId);
+    return log;
+  }
+
+  /**
+   * The database food a log comes from and the grams eaten: the app's
+   * foodId, else the barcode's food. With both, a snapshot of the amount's
+   * nutrients, so later fixes to the food data don't change past days.
+   */
+  private async foodLink(dto: CreateFoodLogDto): Promise<{
+    foodId: string | null;
+    grams: number | null;
+    nutrients: NutrientSnapshot | null;
+  }> {
+    const unit = dto.servingUnit?.trim().toLowerCase();
+    const grams =
+      dto.grams ??
+      ((unit === 'g' || unit === 'ml') && dto.servingQty
+        ? dto.servingQty
+        : null);
+    try {
+      let foodId: string | null = null;
+      if (dto.foodId && (await this.db.exists(dto.foodId))) {
+        foodId = dto.foodId;
+      } else if (!dto.foodId && dto.barcode && grams) {
+        foodId = await this.db.idForBarcode(dto.barcode);
+      }
+      const nutrients =
+        foodId && grams ? await this.db.snapshot(foodId, grams) : null;
+      return { foodId, grams: grams ?? null, nutrients };
+    } catch (err) {
+      // Logging must not fail because the food database did
+      this.logger.warn(`Couldn't link a log to its food: ${String(err)}`);
+      return { foodId: null, grams: grams ?? null, nutrients: null };
+    }
   }
 
   async getFoodLogsForDate(supabaseId: string, date: string, offset: number) {
@@ -259,6 +498,8 @@ export class FoodService {
       this.prisma.foodLog.findMany({
         where: { userId: user.id, loggedAt: { gte: start, lt: end } },
         orderBy: { loggedAt: 'asc' },
+        // Nutrient snapshots are for GET /nutrients/day, not every Food tab load
+        select: LOG_FIELDS,
       }),
       user.earnbackCalories
         ? this.prisma.activityLog.aggregate({
@@ -375,6 +616,11 @@ export class FoodService {
         ...dto,
         loggedAt: dto.loggedAt ? new Date(dto.loggedAt) : undefined,
         corrected: before.corrected || changed,
+        nutrients: scaledSnapshot(
+          before.nutrients,
+          before.calories,
+          dto.calories,
+        ),
       },
     });
   }
@@ -388,6 +634,8 @@ export class FoodService {
         query: dto.query.trim().toLowerCase().slice(0, 200),
         position: dto.position ?? null,
         pickedName: dto.pickedName ?? null,
+        pickedId: dto.pickedId ?? null,
+        resultCount: dto.resultCount ?? null,
         country: dto.country ?? null,
         lang: dto.lang ?? null,
       },

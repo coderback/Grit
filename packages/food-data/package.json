@@ -1,0 +1,30 @@
+{
+  "name": "food-data",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Importers for GRIT's food database (USDA FoodData Central, Open Food Facts and national food tables)",
+  "license": "UNLICENSED",
+  "scripts": {
+    "import": "tsx src/cli.ts",
+    "test": "node ../../node_modules/jest/bin/jest.js --config ./jest.config.json",
+    "test:db": "node ../../node_modules/jest/bin/jest.js --config ./jest-db.json --runInBand",
+    "lint": "eslint \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "engines": {
+    "node": ">=22.11.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "@types/pg-copy-streams": "^1.2.5",
+    "@types/yauzl": "^2.10.3",
+    "tsx": "^4.23.15"
+  },
+  "dependencies": {
+    "csv-parse": "^5.6.0",
+    "exceljs": "^4.4.0",
+    "pg": "^8.23.1",
+    "pg-copy-streams": "^6.0.6",
+    "yauzl": "^3.4.0"
+  }
+}

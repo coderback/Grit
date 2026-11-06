@@ -156,10 +156,19 @@ model FoodLog {
   // Set when the user changed the numbers of a food they picked, which
   // measures how often the food data is wrong
   corrected   Boolean  @default(false)
+  // The database food this came from, and how many grams were eaten
+  foodId      String?
+  grams       Float?
+  // The eaten amount's nutrients when logged, e.g. { "iron_mg": { "amount":
+  // 1.2, "basis": "measured" } }: a snapshot, so later fixes to the food
+  // data don't change past days
+  nutrients   Json?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  food Food? @relation(fields: [foodId], references: [id], onDelete: SetNull)
 
   @@index([userId, loggedAt])
+  @@index([foodId])
   @@map("food_logs")
 }
 
@@ -411,8 +420,13 @@ model FavoriteFood {
   servingQty  Float    @default(1)
   servingUnit String   @default("serving")
   createdAt   DateTime @default(now())
+  // The database food and the portion's grams, when known, so re-logging
+  // it keeps its nutrients
+  foodId      String?
+  grams       Float?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  food Food? @relation(fields: [foodId], references: [id], onDelete: SetNull)
 
   @@unique([userId, key])
   @@map("favorite_foods")
@@ -456,8 +470,11 @@ model FoodMemory {
   alcoholPer100g  Float?
   uses            Int      @default(1)
   updatedAt       DateTime @updatedAt
+  // The database food it was matched to, so later logs keep its nutrients
+  foodId          String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  food Food? @relation(fields: [foodId], references: [id], onDelete: SetNull)
 
   @@unique([userId, key])
   @@map("food_memories")
@@ -466,15 +483,20 @@ model FoodMemory {
 // One food search and what the user picked from it, if anything. Measures
 // first-search success and where searches miss, by country and language.
 model SearchEvent {
-  id         String   @id @default(cuid())
-  userId     String
-  query      String
+  id          String   @id @default(cuid())
+  userId      String
+  query       String
   // The chosen result's position (0-based) and name, or null if none was picked
-  position   Int?
-  pickedName String?
-  country    String?
-  lang       String?
-  createdAt  DateTime @default(now())
+  position    Int?
+  pickedName  String?
+  country     String?
+  lang        String?
+  createdAt   DateTime @default(now())
+  // search | barcode (a scan: query is the code, resultCount 0 or 1)
+  kind        String   @default("search")
+  resultCount Int?
+  // The database food picked, when it came from GRIT's own food data
+  pickedId    String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -584,4 +606,121 @@ model HealthMetric {
   @@unique([userId, day, metric, type])
   @@index([userId, metric, day])
   @@map("health_metrics")
+}
+
+// ── GRIT's food database (Phase 7) ───────────────────────────────────────────
+// Shared by everyone and filled by the importers in packages/food-data, not
+// by users. Nutrients are per 100 g, in the units listed in
+// src/food/nutrients.ts.
+
+// One food, however many products and sources describe it
+model Food {
+  id          String   @id @default(cuid())
+  name        String
+  brand       String?
+  // generic | branded | dish | restaurant | user
+  kind        String
+  category    String?
+  // As printed, for branded foods
+  ingredients String?
+  // Where it's sold or which national table lists it, e.g. ["gb", "us"]
+  countries   String[]
+  // 0–1: how complete and trustworthy the entry is
+  quality     Float    @default(0)
+  // How many times GRIT users have logged it
+  popularity  Int      @default(0)
+  // From a government table or a manufacturer's own data
+  verified    Boolean  @default(false)
+  // The source whose values are shown: fdc | off | cofid | cnf | ciqual | fineli
+  source      String
+  // Lowercased, accent-free name, brand and other names, for search
+  searchText  String
+  imageUrl    String?
+  updatedAt   DateTime @updatedAt
+
+  barcodes  FoodBarcode[]
+  servings  FoodServing[]
+  nutrients FoodNutrient[]
+  names     FoodName[]
+  sources   FoodSource[]
+  logs      FoodLog[]
+  memories  FoodMemory[]
+  favorites FavoriteFood[]
+
+  @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("foods")
+}
+
+model FoodBarcode {
+  // Normalised to GTIN-13 (see food-data's barcode.ts)
+  code   String @id
+  foodId String
+  food   Food   @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@index([foodId])
+  @@map("food_barcodes")
+}
+
+// "1 slice = 28 g", "1 cup = 240 g"
+model FoodServing {
+  id      String  @id @default(cuid())
+  foodId  String
+  label   String
+  grams   Float
+  // The default portion
+  typical Boolean @default(false)
+  food    Food    @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@unique([foodId, label])
+  @@map("food_servings")
+}
+
+model FoodNutrient {
+  foodId   String
+  // A code from src/food/nutrients.ts, e.g. "iron_mg"
+  nutrient String
+  // Per 100 g
+  amount   Float
+  // measured | label | estimated
+  basis    String
+  // A range, for estimates (Phase 9)
+  low      Float?
+  high     Float?
+  food     Food   @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@id([foodId, nutrient])
+  @@map("food_nutrients")
+}
+
+// Local and alternative names, per language: "aubergine" (en-GB) for
+// eggplant, "eba" (yo) for garri paste
+model FoodName {
+  id     String @id @default(cuid())
+  foodId String
+  name   String
+  // BCP 47, e.g. "en-GB", "fr", "fi"
+  lang   String
+  food   Food   @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@unique([foodId, lang, name])
+  @@index([name])
+  @@map("food_names")
+}
+
+// Where each food came from, so values can be traced, refreshed, or removed
+// with their source
+model FoodSource {
+  id         String   @id @default(cuid())
+  foodId     String
+  // fdc | off | cofid | cnf | ciqual | fineli
+  source     String
+  externalId String
+  // When the source last changed this row (its release date, or the
+  // product's last edit), so re-importing the same data changes nothing
+  fetchedAt  DateTime
+  food       Food     @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@unique([source, externalId])
+  @@index([foodId])
+  @@map("food_sources")
 }

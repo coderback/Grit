@@ -19,6 +19,7 @@ import { ACTIVITY_LABELS, LogActivitySheet } from '@/components/activity/LogActi
 import { DateNavigator } from '@/components/ui/DateNavigator';
 import { TrendsCard } from '@/components/stats/TrendsCard';
 import { AdaptiveCard } from '@/components/stats/AdaptiveCard';
+import { LowNutrientsCard } from '@/components/stats/LowNutrientsCard';
 import { LogWeightSheet } from '@/components/stats/LogWeightSheet';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Colors } from '@/constants/colors';
@@ -129,7 +130,7 @@ export default function ActivityScreen() {
   const { data: habitSummary } = useHabitSummary();
   const [showSheet, setShowSheet] = useState(false);
   const [showWeight, setShowWeight] = useState(false);
-  const { refreshing, onRefresh } = usePullToRefresh([['activity-week'], ['food-week'], ['me'], ['habits'], ['habit-streaks'], ['trends'], ['weight'], ['adaptive']]);
+  const { refreshing, onRefresh } = usePullToRefresh([['activity-week'], ['food-week'], ['me'], ['habits'], ['habit-streaks'], ['trends'], ['weight'], ['adaptive'], ['nutrients-week']]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -254,6 +255,9 @@ export default function ActivityScreen() {
             </View>
           </View>
         </View>
+
+        {/* Vitamins and minerals low on most days of this week (hidden if none) */}
+        <LowNutrientsCard week={isThisWeek ? undefined : week} />
 
         {/* Activity bar chart */}
         <View style={{ backgroundColor: Colors.surface, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 18, marginBottom: 12 }}>

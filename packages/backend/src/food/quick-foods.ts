@@ -11,6 +11,9 @@ export interface QuickFood {
   fatG: number;
   servingQty: number;
   servingUnit: string;
+  /** The database food and the portion's grams, when known (Phase 7) */
+  foodId: string | null;
+  grams: number | null;
 }
 
 /** Same food = same name and brand, ignoring case and spacing. */
@@ -57,6 +60,8 @@ export function recentFoods(logs: LogRow[], limit: number) {
       fatG: l.fatG,
       servingQty: l.servingQty,
       servingUnit: l.servingUnit,
+      foodId: l.foodId,
+      grams: l.grams,
       timesLogged: 1,
       lastMealType: l.mealType,
       lastLoggedAt: l.loggedAt,

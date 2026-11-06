@@ -1,5 +1,9 @@
+import type { NutrientCode } from './nutrients';
+
 export interface NormalizedFood {
-  offId: string; // Open Food Facts product id / barcode
+  // The database food's id, or the Open Food Facts code for live results.
+  // Never empty for a database food: the app treats '' as a manual entry.
+  offId: string;
   name: string;
   brand: string | null;
   barcode: string | null;
@@ -14,6 +18,22 @@ export interface NormalizedFood {
   caffeineMg?: number;
   /** Alcohol, g per 100 g, from the label's % vol */
   alcoholG?: number;
+
+  // Phase 7, from GRIT's own food database. All optional, so older app
+  // builds keep working; live Open Food Facts results have none of them.
+  foodId?: string;
+  kind?: 'generic' | 'branded' | 'dish' | 'user';
+  /** fdc | off | cofid | cnf | ciqual | fineli, or memory for Smart log's */
+  source?: string;
+  /** From a government table or a manufacturer's own data */
+  verified?: boolean;
+  basis?: 'measured' | 'label';
+  /** Portions; labels carry no weight ("1 slice"), the app adds it */
+  servings?: { label: string; grams: number; typical: boolean }[];
+  /** Per 100 g, measured or label values only (single foods, not search) */
+  nutrients?: Partial<Record<NutrientCode, number>>;
+  /** The user has logged it before, or Smart log remembers it */
+  mine?: boolean;
 }
 
 // OFF sometimes sends numbers as strings ("30"), so numeric fields accept both

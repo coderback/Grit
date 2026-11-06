@@ -1,6 +1,8 @@
 import { BadGatewayException, NotFoundException } from '@nestjs/common';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { FoodService } from './food.service';
+import type { FoodDbService } from './food-db.service';
+import type { NormalizedFood } from './food.types';
 import type { PrismaService } from '../prisma/prisma.service';
 
 // Each axios.create() call in food.service gets a client routed by host, so a
@@ -55,19 +57,112 @@ const nutella = {
   image_small_url: 'https://images.openfoodfacts.org/nutella.200.jpg',
 };
 
+// GRIT's own food database, faked: these tests are about what happens
+// around it (the database itself is tested in food-db.db-spec.ts)
+const db = {
+  search: jest.fn<Promise<NormalizedFood[]>, unknown[]>(),
+  byBarcode: jest.fn<Promise<NormalizedFood | null>, unknown[]>(),
+  saveRecord: jest.fn<Promise<NormalizedFood | null>, unknown[]>(),
+};
+
+const dbFood = (
+  name: string,
+  barcode: string | null = null,
+): NormalizedFood => ({
+  offId: `fdc_${name}`,
+  foodId: `fdc_${name}`,
+  name,
+  brand: null,
+  barcode,
+  calories: 100,
+  proteinG: 1,
+  carbsG: 2,
+  fatG: 3,
+  servingQty: 100,
+  servingUnit: 'g',
+  imageUrl: null,
+  verified: true,
+});
+
 describe('FoodService', () => {
   let service: FoodService;
 
   beforeEach(() => {
     jest.resetAllMocks();
-    service = new FoodService({} as PrismaService);
+    delete process.env.FOOD_LIVE_SEARCH;
+    db.search.mockResolvedValue([]);
+    db.byBarcode.mockResolvedValue(null);
+    db.saveRecord.mockResolvedValue(null);
+    service = new FoodService(
+      {} as PrismaService,
+      db as unknown as FoodDbService,
+    );
   });
 
   describe('searchFoods', () => {
-    it('skips the network for queries shorter than two characters', async () => {
-      await expect(service.searchFoods(' a ')).resolves.toEqual([]);
+    it('skips the search for queries shorter than three characters', async () => {
+      await expect(service.searchFoods(' ab ')).resolves.toEqual([]);
+      expect(db.search).not.toHaveBeenCalled();
       expect(mockSearchGet).not.toHaveBeenCalled();
       expect(mockOffGet).not.toHaveBeenCalled();
+    });
+
+    it("answers from GRIT's database without asking Open Food Facts when it finds enough", async () => {
+      const foods = ['a', 'b', 'c', 'd', 'e'].map((n) => dbFood(`apple ${n}`));
+      db.search.mockResolvedValue(foods);
+
+      await expect(
+        service.searchFoods('apple', { country: 'GB' }),
+      ).resolves.toEqual(foods);
+      expect(db.search).toHaveBeenCalledWith('apple', {
+        userId: undefined,
+        country: 'GB',
+      });
+      expect(mockSearchGet).not.toHaveBeenCalled();
+    });
+
+    it('adds live products the database lacks while it finds few', async () => {
+      const local = dbFood('Nutella', '3017620422003');
+      db.search.mockResolvedValue([local]);
+      mockSearchGet.mockResolvedValue({
+        data: {
+          hits: [
+            nutella, // already in the database
+            {
+              ...nutella,
+              code: '8000500310427',
+              product_name: 'Nutella B-ready',
+            },
+          ],
+        },
+      });
+
+      const results = await service.searchFoods('nutella');
+      expect(results.map((r) => r.name)).toEqual([
+        'Nutella',
+        'Nutella B-ready',
+      ]);
+      expect(results[0]).toBe(local);
+    });
+
+    it('keeps database results when the live search fails', async () => {
+      db.search.mockResolvedValue([dbFood('Oats')]);
+      mockSearchGet.mockRejectedValue(httpError(503));
+      mockOffGet.mockRejectedValue(httpError(503));
+      await expect(service.searchFoods('oats')).resolves.toHaveLength(1);
+    });
+
+    it('never asks live once FOOD_LIVE_SEARCH is off', async () => {
+      process.env.FOOD_LIVE_SEARCH = 'off';
+      await expect(service.searchFoods('nutella')).resolves.toEqual([]);
+      expect(mockSearchGet).not.toHaveBeenCalled();
+      expect(mockOffGet).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the live search when the database search fails', async () => {
+      db.search.mockRejectedValue(new Error('timeout'));
+      mockSearchGet.mockResolvedValue({ data: { hits: [nutella] } });
+      await expect(service.searchFoods('nutella')).resolves.toHaveLength(1);
     });
 
     it('searches search-a-licious and normalizes the hits', async () => {
@@ -249,6 +344,44 @@ describe('FoodService', () => {
   });
 
   describe('lookupBarcode', () => {
+    it("answers from GRIT's database without asking Open Food Facts", async () => {
+      const local = dbFood('Nutella', '3017620422003');
+      db.byBarcode.mockResolvedValue(local);
+      await expect(service.lookupBarcode('3017620422003')).resolves.toBe(local);
+      expect(mockOffGet).not.toHaveBeenCalled();
+    });
+
+    it('saves a product found live, so the next scan is local', async () => {
+      const saved = dbFood('Nutella', '3017620422003');
+      db.saveRecord.mockResolvedValue(saved);
+      mockOffGet.mockResolvedValue({
+        data: {
+          status: 1,
+          product: {
+            ...nutella,
+            brands: 'Ferrero',
+            countries_tags: ['en:france', 'en:united-kingdom'],
+            last_modified_t: 1780000000,
+          },
+        },
+      });
+
+      await expect(service.lookupBarcode('3017620422003')).resolves.toBe(saved);
+      expect(db.saveRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: 'off',
+          externalId: '3017620422003',
+          name: 'Nutella',
+          brand: 'Ferrero',
+          countries: ['fr', 'gb'],
+          barcodes: ['3017620422003'],
+          nutrients: { kcal: 539, protein_g: 6.3, carbs_g: 57.5, fat_g: 30.9 },
+          servings: [{ label: '1 serving', grams: 15, typical: true }],
+          fetchedAt: new Date(1780000000 * 1000),
+        }),
+      );
+    });
+
     it('returns the normalized product', async () => {
       mockOffGet.mockResolvedValue({
         data: { status: 1, product: { ...nutella, brands: 'Ferrero' } },

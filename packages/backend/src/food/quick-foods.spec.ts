@@ -16,6 +16,8 @@ const log = (
   fatG: 3,
   servingQty: 150,
   servingUnit: 'g',
+  foodId: null,
+  grams: 150,
   mealType,
   loggedAt: new Date(at),
 });
@@ -41,6 +43,9 @@ describe('recent foods', () => {
       calories: 320,
       timesLogged: 2,
       lastMealType: 'breakfast',
+      // The newest portion's database link
+      foodId: null,
+      grams: 150,
     });
   });
 });

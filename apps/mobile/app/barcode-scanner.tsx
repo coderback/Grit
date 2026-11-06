@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFoodBarcode } from '@/hooks/useFoodLog';
@@ -10,6 +10,9 @@ import { Colors } from '@/constants/colors';
 
 export default function BarcodeScannerScreen() {
   const styles = makeStyles();
+  // The day the Food tab is showing, so a scan logs to it
+  const params = useLocalSearchParams<{ date?: string }>();
+  const date = typeof params.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : undefined;
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [showSheet, setShowSheet] = useState(false);
@@ -140,6 +143,7 @@ export default function BarcodeScannerScreen() {
             servingUnit: 'serving',
             imageUrl: null,
           }}
+          date={date}
           onClose={() => {
             setShowSheet(false);
             setScannedCode(null);
@@ -153,7 +157,6 @@ export default function BarcodeScannerScreen() {
 
 const CORNER_SIZE = 24;
 const CORNER_THICKNESS = 3;
-const CORNER_COLOR = Colors.orange;
 
 // Built during render, so it follows the current theme
 const makeStyles = () => StyleSheet.create({
@@ -187,25 +190,25 @@ const makeStyles = () => StyleSheet.create({
     position: 'absolute', top: 0, left: 0,
     width: CORNER_SIZE, height: CORNER_SIZE,
     borderTopWidth: CORNER_THICKNESS, borderLeftWidth: CORNER_THICKNESS,
-    borderColor: CORNER_COLOR,
+    borderColor: Colors.orange,
   },
   cornerTR: {
     position: 'absolute', top: 0, right: 0,
     width: CORNER_SIZE, height: CORNER_SIZE,
     borderTopWidth: CORNER_THICKNESS, borderRightWidth: CORNER_THICKNESS,
-    borderColor: CORNER_COLOR,
+    borderColor: Colors.orange,
   },
   cornerBL: {
     position: 'absolute', bottom: 0, left: 0,
     width: CORNER_SIZE, height: CORNER_SIZE,
     borderBottomWidth: CORNER_THICKNESS, borderLeftWidth: CORNER_THICKNESS,
-    borderColor: CORNER_COLOR,
+    borderColor: Colors.orange,
   },
   cornerBR: {
     position: 'absolute', bottom: 0, right: 0,
     width: CORNER_SIZE, height: CORNER_SIZE,
     borderBottomWidth: CORNER_THICKNESS, borderRightWidth: CORNER_THICKNESS,
-    borderColor: CORNER_COLOR,
+    borderColor: Colors.orange,
   },
   permissionView: {
     flex: 1,

@@ -1,8 +1,9 @@
 /**
  * Turning an AI reading of a meal into loggable items. The model splits the
  * meal and estimates portions; nutrition comes from the user's own memory of
- * a food first, then the food database for branded items, and only then the
- * model's estimate, which is checked against its own macros.
+ * a food first, then GRIT's food database (measured values for plain foods,
+ * labels for branded ones), and only then the model's estimate, which is
+ * checked against its own macros.
  */
 
 export interface ModelItem {
@@ -52,6 +53,16 @@ export interface Per100 {
 
 export interface Memory extends Per100 {
   usualGrams: number;
+  /** The database food it was matched to, if any */
+  foodId?: string | null;
+}
+
+/** A food from GRIT's database matched to an item. */
+export interface DbMatch extends Per100 {
+  foodId?: string;
+  basis?: 'measured' | 'label';
+  /** From a government table or a manufacturer's own data */
+  verified?: boolean;
 }
 
 export type ItemSource = 'memory' | 'database' | 'estimate';
@@ -67,6 +78,10 @@ export interface ParsedItem {
   category: FoodCategory;
   /** Protein or fat is outside what's normal for the category */
   check: boolean;
+  // From GRIT's food database (Phase 7); optional, so older apps ignore them
+  foodId?: string;
+  basis?: 'measured' | 'label';
+  verified?: boolean;
 }
 
 export const MEAL_SCHEMA = {
@@ -184,8 +199,8 @@ const clamp = (n: number, lo: number, hi: number) =>
 
 /**
  * Keeps an estimate physically possible: macros within 100 g, and calories
- * consistent with them (4/4/9 kcal per gram). Where the stated calories and
- * the macros disagree by more than 30%, the macros win.
+ * consistent with them (4/4/9 kcal per gram, and 7 for alcohol). Where the
+ * stated calories and the macros disagree by more than 30%, the macros win.
  */
 export function saneEstimate(p: Per100): Per100 {
   let protein = clamp(p.protein, 0, 100);
@@ -197,7 +212,8 @@ export function saneEstimate(p: Per100): Per100 {
     carbs = (carbs / mass) * 100;
     fat = (fat / mass) * 100;
   }
-  const fromMacros = protein * 4 + carbs * 4 + fat * 9;
+  const alcohol = clamp(p.alcohol ?? 0, 0, 80);
+  const fromMacros = protein * 4 + carbs * 4 + fat * 9 + alcohol * 7;
   let kcal = clamp(p.kcal, 0, 900);
   if (fromMacros > 0 && Math.abs(kcal - fromMacros) / fromMacros > 0.3)
     kcal = fromMacros;
@@ -213,7 +229,7 @@ export function saneEstimate(p: Per100): Per100 {
 export function groundItem(
   item: ModelItem,
   memory: Memory | undefined,
-  database: Per100 | undefined,
+  database: DbMatch | undefined,
 ): ParsedItem {
   const grams = clamp(Math.round(item.grams), 1, 2000);
   const category = (FOOD_CATEGORIES as readonly string[]).includes(
@@ -236,7 +252,10 @@ export function groundItem(
       // "Oats" with no amount means their usual amount
       grams: item.quantityStated ? grams : Math.round(memory.usualGrams),
       per100: {
-        ...memory,
+        kcal: memory.kcal,
+        protein: memory.protein,
+        carbs: memory.carbs,
+        fat: memory.fat,
         caffeine: memory.caffeine ?? drink.caffeine,
         alcohol: memory.alcohol ?? drink.alcohol,
       },
@@ -245,19 +264,35 @@ export function groundItem(
       category,
       // Their own numbers, so not second-guessed
       check: false,
+      ...(memory.foodId ? { foodId: memory.foodId } : {}),
     };
   }
   if (database) {
+    // Within what a log accepts, whatever the source said
+    const per100: Per100 = {
+      kcal: clamp(database.kcal, 0, 900),
+      protein: clamp(database.protein, 0, 100),
+      carbs: clamp(database.carbs, 0, 100),
+      fat: clamp(database.fat, 0, 100),
+      caffeine: database.caffeine ?? drink.caffeine,
+      alcohol: database.alcohol ?? drink.alcohol,
+    };
     return {
       name: item.name,
       brand: item.brand,
       portion: item.portion,
       grams,
-      per100: { ...drink, ...database },
+      per100,
       source: 'database',
       confidence: item.confidence,
       category,
-      check: needsCheck(category, database),
+      // A government table or the maker's own label isn't second-guessed
+      check: database.verified ? false : needsCheck(category, per100),
+      ...(database.foodId ? { foodId: database.foodId } : {}),
+      ...(database.basis ? { basis: database.basis } : {}),
+      ...(database.verified !== undefined
+        ? { verified: database.verified }
+        : {}),
     };
   }
   const per100 = {
@@ -266,6 +301,7 @@ export function groundItem(
       protein: item.proteinPer100g,
       carbs: item.carbsPer100g,
       fat: item.fatPer100g,
+      alcohol: item.alcoholGPer100g,
     }),
     ...drink,
   };
@@ -315,3 +351,14 @@ For each food:
 
 If one detail other than cooking fat would change the total a lot and you can't tell (portion size of the main food, sugar in a drink), ask about it in "question" (one short question). Otherwise question is null.
 Don't give advice. Only food the person ate.`;
+
+/**
+ * Whether a database food's calories are close enough to the reading's to
+ * be the same thing as eaten: raw rice (365 kcal per 100 g) isn't cooked
+ * rice (130). Within 35%, or 15 kcal for very light foods.
+ */
+export function sameAsEaten(dbKcal: number, readKcal: number) {
+  if (!(readKcal > 0)) return false;
+  if (readKcal < 40) return Math.abs(dbKcal - readKcal) <= 15;
+  return Math.abs(dbKcal - readKcal) / readKcal <= 0.35;
+}
