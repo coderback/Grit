@@ -4,6 +4,7 @@ import { AdaptiveService } from '../progress/adaptive.service';
 import { TrendsService } from '../progress/trends.service';
 import { AIService } from './ai.service';
 import type { WorkoutsService } from '../workouts/workouts.service';
+import { addDays, dayRange, localToday } from '../common/day';
 
 // The coach's strength lines aren't what these tests are about
 const noWorkouts = {
@@ -178,6 +179,98 @@ describe('Coach memory (database)', () => {
     expect(chat.instructions).toContain('Food logged on 2 of the last 7 days');
     expect(chat.instructions).toContain(
       '1900 kcal and 110g protein on average',
+    );
+    // No nutrient data: nothing to say about vitamins and minerals
+    expect(chat.instructions).not.toContain('Often low');
+    expect(chat.instructions).not.toContain('No nutrients were often low');
+  });
+
+  it('tells the coach which nutrients were often low, in plain words', async () => {
+    const u = await db.user();
+    await db.prisma.user.update({
+      where: { id: u.id },
+      data: {
+        gender: 'female',
+        dateOfBirth: new Date('1990-05-01T00:00:00Z'),
+        calorieGoal: 2000,
+        dietType: 'vegetarian',
+      },
+    });
+    const today = localToday(0);
+    const at = (daysAgo: number, hour: number) =>
+      new Date(
+        dayRange(addDays(today, -daysAgo), 0).start.getTime() +
+          hour * 3_600_000,
+      );
+    const measured = (values: Record<string, number>) =>
+      Object.fromEntries(
+        Object.entries(values).map(([code, amount]) => [
+          code,
+          { amount, basis: 'measured' },
+        ]),
+      );
+    // Three fully logged days with iron and fibre well under target
+    for (const n of [1, 2, 3]) {
+      await db.prisma.foodLog.createMany({
+        data: [
+          ['White toast', 300, { iron_mg: 1.0, fibre_g: 2.4 }],
+          ['Cheddar', 400, { iron_mg: 0.2, calcium_mg: 720 }],
+          ['Pasta', 500, { iron_mg: 1.5, fibre_g: 3 }],
+        ].map(([name, calories, values], i) => ({
+          userId: u.id,
+          name: name as string,
+          mealType: 'lunch',
+          calories: calories as number,
+          loggedAt: at(n, 8 + i),
+          nutrients: measured(values as Record<string, number>),
+        })),
+      });
+    }
+    // Today: half the calories have vitamin or mineral data
+    await db.prisma.foodLog.createMany({
+      data: [
+        {
+          userId: u.id,
+          name: 'Oats',
+          mealType: 'breakfast',
+          calories: 300,
+          loggedAt: at(0, 0),
+          nutrients: measured({ iron_mg: 3 }),
+        },
+        {
+          userId: u.id,
+          name: 'Sandwich',
+          mealType: 'lunch',
+          calories: 300,
+          loggedAt: at(0, 0),
+        },
+      ],
+    });
+
+    const { client, calls } = fakeModel({ add: [], remove: [] });
+    const ai = new AIService(db.prisma, client, 'test', adaptive, noWorkouts);
+    await collect(ai.streamMessage(u.supabaseId, 'hi', 0));
+    const { instructions } = calls.find((c) => c.stream)!;
+
+    const line = instructions
+      .split('\n')
+      .find((l) => l.startsWith('- Often low'))!;
+    expect(line).toBe(
+      '- Often low on days with enough food data (measured values only): iron (3 of 3 days, about 15% of 18 mg), fibre (3 of 3 days, about 22% of 25 g). If it comes up, suggest everyday foods that fit their diet; say "low", never "deficient"; don\'t suggest supplements.',
+    );
+    // It sits with the week's lines, after the averages
+    expect(instructions.indexOf(line)).toBeGreaterThan(
+      instructions.indexOf('Last 7 days:'),
+    );
+    expect(instructions.indexOf(line)).toBeLessThan(
+      instructions.indexOf("Today's nutrition:"),
+    );
+    // The data itself is plain: no diagnoses, and nothing about cycles
+    const data = line.split('. If it comes up')[0];
+    expect(data).not.toMatch(/deficien|diagnos|anaemi|anemi|supplement/i);
+    expect(instructions).not.toMatch(/menstrua|period/i);
+    expect(instructions).toContain(
+      "- Vitamin and mineral data (measured values only) covers 50% of today's calories",
     );
   });
 });

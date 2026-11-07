@@ -61,9 +61,10 @@ export class CreateFoodLogDto {
   @Max(100000)
   servingQty?: number;
 
+  // "g", "serving", or a portion's label such as "medium (350 ml), whole milk"
   @IsOptional()
   @IsString()
-  @Length(1, 20)
+  @Length(1, 60)
   servingUnit?: string;
 
   // Caffeine (mg) and alcohol (g) in the amount eaten, if known
@@ -78,6 +79,19 @@ export class CreateFoodLogDto {
   @Min(0)
   @Max(1000)
   alcoholG?: number;
+
+  // The database food it came from, and the grams eaten (Phase 7). With
+  // both, the log keeps a snapshot of the amount's nutrients.
+  @IsOptional()
+  @IsString()
+  @Length(1, 60)
+  foodId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(5000)
+  grams?: number;
 
   @IsOptional()
   @IsISO8601({ strict: true })
@@ -126,9 +140,10 @@ export class UpdateFoodLogDto {
   @Max(100000)
   servingQty?: number;
 
+  // "g", "serving", or a portion's label such as "medium (350 ml), whole milk"
   @IsOptional()
   @IsString()
-  @Length(1, 20)
+  @Length(1, 60)
   servingUnit?: string;
 
   @IsOptional()
@@ -142,6 +157,22 @@ export class FoodSearchQueryDto {
   @IsString()
   @Length(0, 100)
   q?: string;
+
+  // From the phone's locale, e.g. "GB" and "en-GB": foods sold there rank higher
+  @IsOptional()
+  @Matches(/^[A-Z]{2}$/)
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(2, 20)
+  lang?: string;
+}
+
+export class BarcodeQueryDto {
+  @IsOptional()
+  @Matches(/^[A-Z]{2}$/)
+  country?: string;
 }
 
 /** A portion saved for one-tap re-logging: a food log without meal or time. */
@@ -189,10 +220,24 @@ export class SaveFavoriteDto {
   @Max(100000)
   servingQty?: number;
 
+  // "g", "serving", or a portion's label such as "medium (350 ml), whole milk"
   @IsOptional()
   @IsString()
-  @Length(1, 20)
+  @Length(1, 60)
   servingUnit?: string;
+
+  // The database food and the portion's grams (Phase 7), so logging the
+  // favourite again keeps its nutrients
+  @IsOptional()
+  @IsString()
+  @Length(1, 60)
+  foodId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(5000)
+  grams?: number;
 }
 
 /** What the user picked from a food search, or that they picked nothing. */
@@ -222,4 +267,16 @@ export class SearchEventDto {
   @IsString()
   @Length(2, 20)
   lang?: string;
+
+  // The picked result's database food, and how many results there were
+  @IsOptional()
+  @IsString()
+  @Length(1, 60)
+  pickedId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1000)
+  resultCount?: number;
 }

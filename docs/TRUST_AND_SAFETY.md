@@ -98,7 +98,8 @@ Facebook SDK, PostHog and so on).
 | **Pro-eating-disorder names:** display names and challenge names containing terms like "thinspo" or "proana" are refused, also when split up ("thin-spo") | `common/safety.ts`, `users.service.ts`, `challenges.service.ts` |
 | **Cycle data (Phase 6):** menstrual flow and period days are read only with their own consent (Settings → Health data), off by default. Turning it off deletes what was imported. Cycle data never appears in the feed or challenges, never reaches the coach's context, and notes about it are never kept in coach memory (the model is told not to, and a word filter drops any it proposes). No third-party code runs on its screen | `health.service.ts`, `users.service.ts`, `ai.service.ts`, `coach-memory.ts`, `settings/health.tsx` |
 | **Health data in other users' view:** a workout logged set by set shows in the feed as counts only (sets and PRs), never weights | `social.service.ts` |
-| **Separate data permissions**, all off by default: improving food data, training on health data, training on workout data, and sharing products with Open Food Facts. GRIT does none of these today; the settings record the user's choice for when it does | Settings → Privacy |
+| **Separate data permissions**, all off by default: improving food data, training on health data, training on workout data, and sharing products with Open Food Facts. Since Phase 7, "Improve GRIT's food data" decides whether a user's logs count toward a food's popularity, which shapes everyone's search ranking. The others record the user's choice for when GRIT uses them | Settings → Privacy, `food.service.ts` |
+| **Nutrient wording (Phase 7):** nutrients are "low" or a "good source", never "deficient" or anything diagnostic. Only finished days that were logged fully enough are judged, and only on nutrients most of the day's calories carry, so missing data is never read as low. The coach suggests everyday foods that fit the user's diet, never supplements, and the "running low" check-in isn't sent to users who answered yes to the eating-disorder question. Targets are US Dietary Reference Intakes; the Nutrients screen says they don't cover pregnancy or breastfeeding | `nutrients/`, `ai.service.ts`, `coach-checkins.ts`, `app/nutrients.tsx` |
 
 **To review with a dietitian:** the floors and the loss-rate cap are the
 clinical rules of thumb from the research, not law.
@@ -225,4 +226,23 @@ completed with a lawyer.*
 - Texas App Store Accountability Act age signals.
 - Registration with Nigeria's NDPC if GRIT has Nigerian users above the
   thresholds.
-- Whether the push text in section 1 needs changing.
+- Whether the push text in section 1 needs changing. Phase 7's "running
+  low" check-in names the nutrient ("Iron has been running low"), like the
+  existing protein check-in.
+- **Food data licences (Phase 7):**
+  - **Open Food Facts (ODbL 1.0 for the database, DbCL for contents, CC
+    BY-SA for images):** GRIT stores OFF products in the same tables as
+    USDA and the UK's CoFID, and merges the same product from two sources
+    by barcode, which likely makes a Derivative Database rather than a
+    Collective one. Does share-alike then require offering GRIT's food
+    tables (or the OFF-derived part, plus the importer code) under the
+    ODbL? Would keeping OFF rows separable, which `food_sources` already
+    allows, and publishing a periodic dump of them satisfy it? Where must
+    the attribution appear? Today it's under Profile → Food data sources.
+    The barcode lookup already saves OFF products it finds; every saved
+    row is marked `source = 'off'`, so they can be removed in one step.
+  - **UK CoFID (Open Government Licence v3.0)**, imported with the required
+    statement in the app.
+  - **USDA FoodData Central** is public domain; credited as a courtesy.
+  - **Canada's CNF (OGL – Canada), France's CIQUAL (Licence Ouverte) and
+    Finland's Fineli (CC BY 4.0):** confirm each before they're imported.

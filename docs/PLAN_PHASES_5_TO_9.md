@@ -8,7 +8,7 @@ each one sets up the data or infrastructure the next needs.
 |---|---|---|---|
 | **5** ✅ | Quick wins and safety | App and backend changes on what GRIT already has; no new infrastructure | about 3 |
 | **6** ✅ | Strength logging and health data | Large app features and native health permissions; product work, no research | about 5 |
-| **7** | GRIT's own food database | Data pipelines, bulk imports, search performance, a Supabase upgrade | about 4 |
+| **7** ✅ | GRIT's own food database | Data pipelines, bulk imports, search performance, a Supabase upgrade | about 4 |
 | **8** | Data quality and regional foods | Contributions, moderation, merging duplicates, curating regional data | about 3 |
 | **9** | ML and research | Test sets, models and statistics; research-heavy and needs real usage data | about 5 |
 
@@ -396,7 +396,61 @@ Deterministic rules, not a model, so they're testable and explainable:
 
 ---
 
-# Phase 7 — GRIT's own food database (about 4 weeks)
+# Phase 7 — GRIT's own food database (about 4 weeks) ✅ done
+
+**As built** (details in [ROADMAP.md](./ROADMAP.md)): everything below,
+with these differences:
+- **Schema:**
+  - `Food` also has `source` (whose values it shows), `searchText` (name,
+    brand and other names without accents, for search) and `imageUrl`;
+  - `FoodLog` has `foodId`, `grams` and the `nutrients` snapshot;
+    `FoodMemory` and `FavoriteFood` have `foodId` (and favourites `grams`),
+    so remembered and saved foods keep their nutrients;
+  - `SearchEvent` has `kind` (search or barcode), `resultCount` and
+    `pickedId`, for first-search success, the barcode hit rate and the
+    verified share;
+  - `Food.coreText` (see "Scale" below).
+- **Search** is trigram matching on `searchText` (every word must appear,
+  plurals included, then a typo-tolerant search when that finds few), not
+  full text plus trigram: one index serves every language and typos, and
+  Prisma can describe it, so CI's schema check still passes. Queries need
+  3 characters. Synonyms are one list of single words
+  (`src/food/synonyms.ts`: yoghurt = yogurt, courgette = zucchini, prawn
+  = shrimp…) rather than a file per language; `FoodName` holds other names,
+  and they're searched too.
+- **Scale:** a common word ("chi", "milk") matches hundreds of thousands
+  of products, too many to rank. So `Food.coreText` marks the foods always
+  searched in full (generic foods, dishes, and products GRIT users have
+  logged or scanned) and other products are sampled. With the full Open
+  Food Facts import locally (3.4 million foods), search p95 is 131 ms.
+  Typesense or Meilisearch would be next if branded results for common
+  words need to be complete.
+- **Live Open Food Facts search stays** as a fallback (`FOOD_LIVE_SEARCH`)
+  until its full import is in: the "no live calls except barcode misses"
+  exit applies once it is.
+- **Importer keys** are stable across USDA releases (`ndb:<NDB number>`,
+  `fndds:<food code>`, `branded:<GTIN-13>`), since USDA gives revised
+  foods new ids. Foundation and SR Legacy are one food per NDB number.
+- **Open Food Facts** has two data shapes now (its exports and daily
+  changes use a new one); both are read, and only label values are kept.
+  The CSV export can't tell OFF's estimates from labels, so it imports
+  energy and macros only.
+- **Size:** the full Open Food Facts and USDA branded imports would take
+  12–14 GB as stored, well over the 2–4 GB estimated here. They aren't
+  imported yet (see ROADMAP).
+- **National tables:** the UK's CoFID is imported. Canada's, France's and
+  Finland's sites couldn't be downloaded from a server, so those wait for
+  the files.
+- **Smart log** matches unbranded items to measured foods and branded
+  items to branded foods first, and only when the calories agree with the
+  reading. Branded before measured, for branded items, keeps "Fage yogurt"
+  from becoming generic yogurt.
+- **Today** is never called low on the Nutrients screen, since it's still
+  being logged; a limit already passed (sodium, saturated fat) still
+  shows.
+- **Sugars** are shown without a limit: the advice is about added sugars,
+  which tables and labels rarely give.
+
 
 **Difficulty: medium-high.** Data pipelines and infrastructure: bulk imports
 of millions of rows, search that stays fast, a daily refresh job, and a

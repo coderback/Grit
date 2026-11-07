@@ -105,7 +105,7 @@ export default function FoodScreen() {
   const status = useQueriesStatus(foodQuery);
   const { mutate: deleteLog } = useDeleteFoodLog();
   const { data: me } = useMe();
-  const { refreshing, onRefresh } = usePullToRefresh([['food-logs', date], ['me'], ['food-recent'], ['food-favorites']]);
+  const { refreshing, onRefresh } = usePullToRefresh([['food-logs', date], ['me'], ['food-recent'], ['food-favorites'], ['nutrients-day', date]]);
   const [editingLog, setEditingLog] = useState<FoodLog | null>(null);
   const [smartOpen, setSmartOpen] = useState(false);
   const ensureAiConsent = useEnsureAiConsent();
@@ -198,7 +198,7 @@ export default function FoodScreen() {
               <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 13 }}>Smart log</Text>
             </Pressable>
             <Pressable accessibilityLabel="Scan a barcode" accessibilityRole="button"
-              onPress={() => router.push('/barcode-scanner' as never)}
+              onPress={() => router.push({ pathname: '/barcode-scanner', params: { date } })}
               style={({ pressed }) => ({
                 opacity: pressed ? 0.7 : 1,
                 width: 40, height: 40, borderRadius: 12,
@@ -268,6 +268,17 @@ export default function FoodScreen() {
                   {alcoholG > 0 ? `🍷 ${alcoholG} g alcohol` : ''}
                 </Text>
               )}
+              {/* Vitamins, minerals, fibre, sodium and saturated fat for this day */}
+              <Pressable
+                onPress={() => router.push({ pathname: '/nutrients', params: { date } })}
+                accessibilityRole="button"
+                accessibilityLabel="Nutrients"
+                accessibilityHint="Vitamins, minerals and fibre for this day"
+                hitSlop={8}
+                style={({ pressed }) => ({ alignSelf: 'flex-start', marginTop: 2, opacity: pressed ? 0.6 : 1 })}
+              >
+                <Text style={{ color: Colors.orange, fontFamily: 'DMSans-Bold', fontSize: 13 }}>Nutrients ›</Text>
+              </Pressable>
             </View>
           </View>
         </View>

@@ -35,6 +35,11 @@ export class ParseMealDto {
   @IsOptional()
   @IsIn(['image/jpeg', 'image/png', 'image/webp'])
   imageType?: string;
+
+  // From the phone's locale: that country's foods are matched first
+  @IsOptional()
+  @Matches(/^[A-Z]{2}$/)
+  country?: string;
 }
 
 export class ConfirmedItemDto {
@@ -46,6 +51,13 @@ export class ConfirmedItemDto {
   @IsString()
   @Length(0, 200)
   brand?: string;
+
+  // The database food it was matched to (Phase 7): the log keeps a
+  // snapshot of the amount's nutrients
+  @IsOptional()
+  @IsString()
+  @Length(1, 60)
+  foodId?: string;
 
   @IsNumber()
   @Min(1)

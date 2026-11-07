@@ -13,6 +13,7 @@ import { showToast } from '@/stores/toastStore';
 import { loggedAtFor } from '@/lib/date';
 import { MEALS, mealForHour, type Meal } from '@/lib/meals';
 import { Colors } from '@/constants/colors';
+import { VerifiedPill } from '@/components/food/VerifiedPill';
 
 
 /** Photos are shrunk before upload: plenty for the model, a few hundred kB. */
@@ -143,6 +144,8 @@ export function SmartLogSheet({ date, initialMeal, onClose }: { date?: string; i
           fatPer100g: r.per100.fat,
           caffeinePer100g: r.per100.caffeine,
           alcoholPer100g: r.per100.alcohol,
+          // The database food it matched, so the server can save its nutrients
+          foodId: r.foodId || undefined,
         })),
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -296,7 +299,8 @@ export function SmartLogSheet({ date, initialMeal, onClose }: { date?: string; i
 
             <View style={{ gap: 10 }}>
               {rows.map((row) => {
-                const src = SOURCE_LABELS[row.source];
+                // A source this build doesn't know is shown as an estimate
+                const src = SOURCE_LABELS[row.source] ?? SOURCE_LABELS.estimate;
                 return (
                   <View key={row.key} style={{ backgroundColor: Colors.surface2, borderRadius: 16, padding: 12, gap: 8, borderWidth: 1, borderColor: Colors.border }}>
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
@@ -323,9 +327,10 @@ export function SmartLogSheet({ date, initialMeal, onClose }: { date?: string; i
                         {kcalFor(row)} kcal
                       </Text>
                     </View>
-                    <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} accessibilityLabel={`${src.label}, ${row.confidence} confidence${row.check ? ', check this' : ''}`}>
+                    <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} accessibilityLabel={`${src.label}${row.verified ? ', verified' : ''}, ${row.confidence} confidence${row.check ? ', check this' : ''}`}>
                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: src.color() }} />
                       <Text style={{ color: src.color(), fontFamily: 'DMSans-Medium', fontSize: 11 }}>{src.label}</Text>
+                      {row.verified === true && <VerifiedPill />}
                       <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Regular', fontSize: 11 }}>· {CONFIDENCE_LABELS[row.confidence]}</Text>
                       {row.check && (
                         <Text style={{ color: Colors.error, fontFamily: 'DMSans-Bold', fontSize: 11 }}>· ⚠ check this</Text>

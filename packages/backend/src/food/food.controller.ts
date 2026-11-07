@@ -18,6 +18,7 @@ import { DateQueryDto } from '../common/dto';
 import { localToday } from '../common/day';
 import { FoodService } from './food.service';
 import {
+  BarcodeQueryDto,
   CreateFoodLogDto,
   FoodSearchQueryDto,
   SearchEventDto,
@@ -32,8 +33,23 @@ export class FoodController {
   // ── Food database search ─────────────────────────────────────────────────
 
   @Get('food/search')
-  search(@Query() query: FoodSearchQueryDto) {
-    return this.food.searchFoods(query.q ?? '');
+  search(
+    @CurrentUser() user: { supabaseId: string },
+    @Query() query: FoodSearchQueryDto,
+  ) {
+    return this.food.searchFoods(query.q ?? '', {
+      supabaseId: user.supabaseId,
+      country: query.country,
+    });
+  }
+
+  /** One food from GRIT's database, with its nutrients per 100 g. */
+  @Get('food/item/:id')
+  item(@Param('id') id: string) {
+    if (!/^[\w:.-]{1,60}$/.test(id)) {
+      throw new BadRequestException('Unknown food');
+    }
+    return this.food.getFood(id);
   }
 
   /** What the user picked from a search, for first-search success and misses by country. */
@@ -47,11 +63,18 @@ export class FoodController {
   }
 
   @Get('food/barcode/:code')
-  barcode(@Param('code') code: string) {
+  barcode(
+    @CurrentUser() user: { supabaseId: string },
+    @Param('code') code: string,
+    @Query() query: BarcodeQueryDto,
+  ) {
     if (!/^\d{6,14}$/.test(code)) {
       throw new BadRequestException('Barcode must be 6–14 digits');
     }
-    return this.food.lookupBarcode(code);
+    return this.food.lookupBarcode(code, {
+      supabaseId: user.supabaseId,
+      country: query.country,
+    });
   }
 
   // ── Food log CRUD ─────────────────────────────────────────────────────────

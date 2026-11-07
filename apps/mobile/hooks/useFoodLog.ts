@@ -1,6 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { deleteFoodFromHealth, updateFoodInHealth, writeFoodsToHealth } from '@/lib/health/sync';
+import { deviceLocale } from '@/lib/searchEvents';
+import type { NutrientCode } from '@/lib/nutrients';
+
+/** Everything a logged, edited or removed food entry changes. */
+const FOOD_LOG_QUERIES = ['food-logs', 'food-recent', 'food-week', 'trends', 'adaptive', 'nutrients-day', 'nutrients-week'];
+
+export function invalidateFoodLogQueries(qc: ReturnType<typeof useQueryClient>) {
+  for (const key of FOOD_LOG_QUERIES) qc.invalidateQueries({ queryKey: [key] });
+}
 
 export interface FoodLog {
   id: string;
@@ -17,6 +26,10 @@ export interface FoodLog {
   loggedAt: string;
   caffeineMg: number | null;
   alcoholG: number | null;
+  /** The database food it came from (Phase 7) */
+  foodId?: string | null;
+  /** Grams eaten, when known */
+  grams?: number | null;
 }
 
 export interface MacroTotals {
@@ -42,6 +55,14 @@ export interface MacroTargets {
   fatG: number;
 }
 
+/** A named serving of a database food. `label` has no grams in it: "1 slice". */
+export interface FoodServing {
+  label: string;
+  grams: number;
+  /** The usual serving, which the app starts on */
+  typical: boolean;
+}
+
 export interface NormalizedFood {
   offId: string;
   name: string;
@@ -60,6 +81,21 @@ export interface NormalizedFood {
   caffeineMg?: number;
   /** Alcohol, g per 100 g (or for the whole portion) */
   alcoholG?: number;
+  /** A food from GRIT's database (absent on live Open Food Facts results) */
+  foodId?: string;
+  kind?: 'generic' | 'branded' | 'dish' | 'user';
+  /** fdc, off, cofid, cnf, ciqual, fineli or memory */
+  source?: string;
+  /** From a government table or the manufacturer's own data */
+  verified?: boolean;
+  basis?: 'measured' | 'label';
+  servings?: FoodServing[];
+  /** Per 100 g; only from a barcode or item lookup, not from search */
+  nutrients?: Partial<Record<NutrientCode, number>>;
+  /** The user has logged it, or Smart log remembers it */
+  mine?: boolean;
+  /** App only: the grams in one saved portion, when known */
+  portionGrams?: number;
 }
 
 export function useFoodLogsForDate(date: string) {
@@ -82,20 +118,27 @@ export function useFoodWeek(date?: string) {
   });
 }
 
+/** The server answers from 3 characters; shorter queries aren't sent. */
+export const MIN_SEARCH_LENGTH = 3;
+
+/** Food search, ranked for the phone's country and language. */
 export function useFoodSearch(query: string) {
+  const q = query.trim();
+  const { country, lang } = deviceLocale();
   return useQuery<NormalizedFood[]>({
-    queryKey: ['food-search', query],
-    queryFn: () =>
-      api.get(`/food/search?q=${encodeURIComponent(query)}`).then((r) => r.data),
-    enabled: query.length >= 2,
+    queryKey: ['food-search', q, country ?? '', lang ?? ''],
+    queryFn: () => api.get('/food/search', { params: { q, country, lang } }).then((r) => r.data),
+    enabled: q.length >= MIN_SEARCH_LENGTH,
     staleTime: 1000 * 60 * 5,
   });
 }
 
 export function useFoodBarcode(barcode: string | null) {
+  const { country } = deviceLocale();
   return useQuery<NormalizedFood>({
-    queryKey: ['food-barcode', barcode],
-    queryFn: () => api.get(`/food/barcode/${barcode}`).then((r) => r.data),
+    queryKey: ['food-barcode', barcode, country ?? ''],
+    queryFn: () =>
+      api.get(`/food/barcode/${encodeURIComponent(barcode ?? '')}`, { params: { country } }).then((r) => r.data),
     enabled: !!barcode,
     retry: 1,
   });
@@ -117,17 +160,17 @@ export function useLogFood() {
       servingUnit?: string;
       caffeineMg?: number;
       alcoholG?: number;
+      /** The database food it came from */
+      foodId?: string;
+      /** Grams eaten (with foodId, the server saves the amount's nutrients) */
+      grams?: number;
       /** For back-filling an earlier day; omitted for now */
       loggedAt?: string;
     }) => api.post('/food-logs', data).then((r) => r.data),
     onSuccess: (log) => {
       // To Apple Health / Health Connect, if the user turned that on
       writeFoodsToHealth([log]);
-      qc.invalidateQueries({ queryKey: ['food-recent'] });
-      qc.invalidateQueries({ queryKey: ['food-logs'] });
-      qc.invalidateQueries({ queryKey: ['food-week'] });
-      qc.invalidateQueries({ queryKey: ['trends'] });
-      qc.invalidateQueries({ queryKey: ['adaptive'] });
+      invalidateFoodLogQueries(qc);
     },
   });
 }
@@ -166,11 +209,7 @@ export function useDeleteFoodLog() {
       deleteFoodFromHealth(id);
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['food-logs'] });
-      qc.invalidateQueries({ queryKey: ['food-recent'] });
-      qc.invalidateQueries({ queryKey: ['food-week'] });
-      qc.invalidateQueries({ queryKey: ['trends'] });
-      qc.invalidateQueries({ queryKey: ['adaptive'] });
+      invalidateFoodLogQueries(qc);
     },
   });
 }
@@ -184,11 +223,7 @@ export function useUpdateFoodLog() {
       api.patch<FoodLog>(`/food-logs/${id}`, data).then((r) => r.data),
     onSuccess: (log) => {
       updateFoodInHealth(log);
-      qc.invalidateQueries({ queryKey: ['food-logs'] });
-      qc.invalidateQueries({ queryKey: ['food-recent'] });
-      qc.invalidateQueries({ queryKey: ['food-week'] });
-      qc.invalidateQueries({ queryKey: ['trends'] });
-      qc.invalidateQueries({ queryKey: ['adaptive'] });
+      invalidateFoodLogQueries(qc);
     },
   });
 }

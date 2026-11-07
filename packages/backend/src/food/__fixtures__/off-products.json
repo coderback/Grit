@@ -1,0 +1,817 @@
+[
+ {
+  "code": "3596710437771",
+  "product_name": "Miettes de thon à la tomate",
+  "lang": "fr",
+  "lc": "fr",
+  "brands": "Auchan",
+  "categories_tags": [
+   "en:seafood",
+   "en:fishes-and-their-products",
+   "en:canned-foods",
+   "en:fishes",
+   "en:fatty-fishes",
+   "en:canned-fishes",
+   "en:tunas",
+   "en:canned-tunas",
+   "en:fish-preparations",
+   "en:fish-shelf-stable",
+   "en:tuna-chunks",
+   "en:tuna-flakes-in-tomato-sauce"
+  ],
+  "countries_tags": [
+   "en:france",
+   "en:world"
+  ],
+  "serving_size": "80 g (80 g de produit)",
+  "serving_quantity": 80,
+  "serving_quantity_unit": "g",
+  "last_modified_t": 1793946175,
+  "states_tags": [
+   "en:to-be-completed",
+   "en:nutrition-facts-completed",
+   "en:ingredients-completed",
+   "en:expiration-date-to-be-completed",
+   "en:packaging-code-to-be-completed",
+   "en:characteristics-to-be-completed",
+   "en:origins-to-be-completed",
+   "en:categories-completed",
+   "en:brands-completed",
+   "en:packaging-to-be-completed",
+   "en:quantity-completed",
+   "en:product-name-completed",
+   "en:photos-to-be-validated",
+   "en:packaging-photo-to-be-selected",
+   "en:nutrition-photo-selected",
+   "en:ingredients-photo-selected",
+   "en:front-photo-selected",
+   "en:photos-uploaded"
+  ],
+  "completeness": 0.6874999999999999,
+  "unique_scans_n": 4,
+  "data_quality_errors_tags": [],
+  "product_name_fr": "Miettes de thon à la tomate",
+  "product_name_es": "Miettes de thon à la tomate",
+  "nutrition": {
+   "aggregated_set": {
+    "per": "100g",
+    "preparation": "as_sold",
+    "nutrients": {
+     "fiber": {
+      "value": 1.2,
+      "unit": "g",
+      "source": "manufacturer"
+     },
+     "sugars": {
+      "value": 3.1,
+      "unit": "g",
+      "source": "manufacturer"
+     },
+     "carbohydrates": {
+      "value": 4.2,
+      "unit": "g",
+      "source": "manufacturer"
+     },
+     "energy-kj": {
+      "value": 615,
+      "unit": "kJ",
+      "source": "manufacturer"
+     },
+     "vitamin-pp": {
+      "value": 0.00943514,
+      "modifier": "~",
+      "unit": "g",
+      "source": "estimate"
+     },
+     "sodium": {
+      "value": 0.4,
+      "unit": "g",
+      "source": "manufacturer"
+     },
+     "salt": {
+      "value": 1,
+      "unit": "g",
+      "source": "manufacturer"
+     },
+     "saturated-fat": {
+      "value": 1,
+      "unit": "g",
+      "source": "manufacturer"
+     },
+     "proteins": {
+      "value": 14,
+      "unit": "g",
+      "source": "manufacturer"
+     },
+     "calcium": {
+      "value": 0.022776218,
+      "unit": "g",
+      "modifier": "~",
+      "source": "estimate"
+     },
+     "energy-kcal": {
+      "value": 147,
+      "unit": "kcal",
+      "source": "manufacturer"
+     },
+     "iron": {
+      "value": 0.0008713226,
+      "unit": "g",
+      "modifier": "~",
+      "source": "estimate"
+     },
+     "vitamin-c": {
+      "value": 0.0008461,
+      "modifier": "~",
+      "unit": "g",
+      "source": "estimate"
+     },
+     "fat": {
+      "value": 8,
+      "unit": "g",
+      "source": "manufacturer"
+     },
+     "alcohol": {
+      "value": 0,
+      "unit": "% vol",
+      "source": "packaging"
+     }
+    }
+   }
+  },
+  "images": {
+   "selected": {
+    "front": {
+     "fr": {
+      "rev": 102
+     }
+    }
+   }
+  }
+ },
+ {
+  "code": "4000521034436",
+  "product_name": "Backfeste Puddingcreme Vanille",
+  "lang": "de",
+  "lc": "de",
+  "brands": "Dr. Oetker",
+  "countries_tags": [
+   "en:germany"
+  ],
+  "serving_size": "100 g",
+  "serving_quantity": 100.0,
+  "serving_quantity_unit": "g",
+  "last_modified_t": 1793946144,
+  "states_tags": [
+   "en:to-be-completed",
+   "en:nutrition-facts-completed",
+   "en:ingredients-completed",
+   "en:expiration-date-to-be-completed",
+   "en:packaging-code-to-be-completed",
+   "en:characteristics-to-be-completed",
+   "en:origins-to-be-completed",
+   "en:categories-to-be-completed",
+   "en:brands-completed",
+   "en:packaging-to-be-completed",
+   "en:quantity-completed",
+   "en:product-name-completed",
+   "en:photos-to-be-validated",
+   "en:packaging-photo-to-be-selected",
+   "en:nutrition-photo-to-be-selected",
+   "en:ingredients-photo-selected",
+   "en:front-photo-selected",
+   "en:photos-uploaded"
+  ],
+  "completeness": 0.575,
+  "unique_scans_n": 2,
+  "data_quality_errors_tags": [
+   "en:nutrition-packaging-as-sold-100g-salt-does-not-match-sodium"
+  ],
+  "product_name_en": "",
+  "product_name_de": "Backfeste Puddingcreme Vanille",
+  "product_name_sv": "Backfeste Puddingcreme Vanille Geschmack",
+  "nutrition": {
+   "aggregated_set": {
+    "per": "100g",
+    "preparation": "as_sold",
+    "nutrients": {
+     "salt": {
+      "value": 0.3,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "proteins": {
+      "value": 0.2,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "sugars": {
+      "value": 67,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "energy-kcal": {
+      "value": 383,
+      "unit": "kcal",
+      "source": "packaging"
+     },
+     "carbohydrates": {
+      "value": 94,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "saturated-fat": {
+      "value": 0.1,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "energy-kj": {
+      "value": 1612.5,
+      "modifier": "~",
+      "unit": "kJ",
+      "source": "packaging"
+     },
+     "fat": {
+      "value": 0.3,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "sodium": {
+      "value": 0.00012,
+      "unit": "g",
+      "source": "packaging"
+     }
+    }
+   }
+  },
+  "images": {
+   "selected": {
+    "front": {
+     "de": {
+      "rev": 12
+     }
+    }
+   }
+  }
+ },
+ {
+  "code": "0474029601099",
+  "product_name": "EHE Krakovi poolsuitsuvorst",
+  "lang": "et",
+  "lc": "et",
+  "brands": "RÄNNA ROOTSI",
+  "countries_tags": [
+   "en:estonia"
+  ],
+  "last_modified_t": 1793945908,
+  "states_tags": [
+   "en:to-be-completed",
+   "en:nutrition-facts-completed",
+   "en:ingredients-to-be-completed",
+   "en:expiration-date-to-be-completed",
+   "en:packaging-code-to-be-completed",
+   "en:characteristics-to-be-completed",
+   "en:origins-to-be-completed",
+   "en:categories-to-be-completed",
+   "en:brands-completed",
+   "en:packaging-to-be-completed",
+   "en:quantity-to-be-completed",
+   "en:product-name-completed",
+   "en:photos-to-be-uploaded"
+  ],
+  "completeness": 0.30000000000000004,
+  "data_quality_errors_tags": [],
+  "product_name_et": "EHE Krakovi poolsuitsuvorst",
+  "nutrition": {
+   "aggregated_set": {
+    "per": "100g",
+    "preparation": "as_sold",
+    "nutrients": {
+     "salt": {
+      "value": 0.006,
+      "modifier": "~",
+      "unit": "g",
+      "source": "packaging"
+     },
+     "proteins": {
+      "value": 16.9,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "sugars": {
+      "value": 0.4,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "energy-kcal": {
+      "value": 322,
+      "unit": "kcal",
+      "source": "packaging"
+     },
+     "carbohydrates": {
+      "value": 5.1,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "energy-kj": {
+      "value": 1339.7,
+      "modifier": "~",
+      "unit": "kJ",
+      "source": "packaging"
+     },
+     "fat": {
+      "value": 26.1,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "sodium": {
+      "value": 0.0024,
+      "unit": "g",
+      "source": "packaging"
+     }
+    }
+   }
+  }
+ },
+ {
+  "code": "4807770273704",
+  "product_name": "lm pc original 80g",
+  "lang": "en",
+  "lc": "en",
+  "brands": "Lucky Me",
+  "categories_tags": [
+   "en:plant-based-foods-and-beverages",
+   "en:plant-based-foods",
+   "en:dried-products",
+   "en:dried-products-to-be-rehydrated",
+   "en:pastas",
+   "en:noodles",
+   "en:instant-noodles"
+  ],
+  "countries_tags": [
+   "en:france",
+   "en:philippines"
+  ],
+  "serving_size": "80g",
+  "serving_quantity": 80.0,
+  "serving_quantity_unit": "g",
+  "last_modified_t": 1793937433,
+  "states_tags": [
+   "en:to-be-completed",
+   "en:nutrition-facts-completed",
+   "en:ingredients-completed",
+   "en:expiration-date-to-be-completed",
+   "en:packaging-code-to-be-completed",
+   "en:characteristics-to-be-completed",
+   "en:origins-to-be-completed",
+   "en:categories-completed",
+   "en:brands-completed",
+   "en:packaging-to-be-completed",
+   "en:quantity-completed",
+   "en:product-name-completed",
+   "en:photos-to-be-validated",
+   "en:packaging-photo-to-be-selected",
+   "en:nutrition-photo-to-be-selected",
+   "en:ingredients-photo-to-be-selected",
+   "en:front-photo-to-be-selected",
+   "en:photos-uploaded"
+  ],
+  "completeness": 0.6499999999999999,
+  "unique_scans_n": 2,
+  "data_quality_errors_tags": [],
+  "product_name_en": "lm pc original 80g",
+  "product_name_fr": "Lucky Me Pancit canton Original",
+  "nutrition": {
+   "aggregated_set": {
+    "per": "100g",
+    "preparation": "prepared",
+    "nutrients": {
+     "salt": {
+      "value": 3.8625,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "proteins": {
+      "value": 12.5,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "sugars": {
+      "value": 6.25,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "energy-kcal": {
+      "value": 547.5,
+      "unit": "kcal",
+      "source": "packaging"
+     },
+     "carbohydrates": {
+      "value": 76.25,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "saturated-fat": {
+      "value": 12.5,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "energy-kj": {
+      "value": 2341.25,
+      "modifier": "~",
+      "unit": "kJ",
+      "source": "packaging"
+     },
+     "fat": {
+      "value": 22.5,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "sodium": {
+      "value": 1.545,
+      "unit": "g",
+      "source": "packaging"
+     }
+    }
+   }
+  },
+  "images": {
+   "selected": {
+    "front": {
+     "fr": {
+      "rev": 20
+     }
+    }
+   }
+  }
+ },
+ {
+  "code": "5056025475861",
+  "product_name": "",
+  "lang": "nl",
+  "lc": "nl",
+  "brands": "Brewdog",
+  "categories_tags": [
+   "en:beverages-and-beverages-preparations",
+   "en:beverages",
+   "en:alcoholic-beverages",
+   "en:beers",
+   "en:ales",
+   "en:pale-ales",
+   "ca:cervesa-ipa",
+   "en:session-ipa"
+  ],
+  "countries_tags": [
+   "en:netherlands",
+   "en:spain"
+  ],
+  "serving_size": "330.0g",
+  "serving_quantity": 330,
+  "serving_quantity_unit": "g",
+  "last_modified_t": 1793914208,
+  "states_tags": [
+   "en:to-be-completed",
+   "en:nutrition-facts-completed",
+   "en:ingredients-completed",
+   "en:expiration-date-to-be-completed",
+   "en:packaging-code-to-be-completed",
+   "en:characteristics-to-be-completed",
+   "en:origins-to-be-completed",
+   "en:categories-completed",
+   "en:brands-completed",
+   "en:packaging-to-be-completed",
+   "en:quantity-to-be-completed",
+   "en:product-name-to-be-completed",
+   "en:photos-to-be-validated",
+   "en:packaging-photo-to-be-selected",
+   "en:nutrition-photo-to-be-selected",
+   "en:ingredients-photo-to-be-selected",
+   "en:front-photo-to-be-selected",
+   "en:photos-uploaded"
+  ],
+  "completeness": 0.44999999999999996,
+  "unique_scans_n": 1,
+  "data_quality_errors_tags": [],
+  "product_name_en": "BREWDOG WINGMAN SESSION IPA",
+  "product_name_nl": "",
+  "nutrition": {
+   "aggregated_set": {
+    "per": "100g",
+    "preparation": "as_sold",
+    "nutrients": {
+     "carbohydrates": {
+      "value": 10.6,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "proteins": {
+      "value": 1.21,
+      "unit": "g",
+      "source": "packaging"
+     },
+     "energy-kcal": {
+      "value": 145,
+      "unit": "kcal",
+      "source": "packaging"
+     },
+     "alcohol": {
+      "value": 4.3,
+      "unit": "% vol",
+      "source": "packaging"
+     }
+    }
+   }
+  },
+  "images": {
+   "selected": {
+    "front": {
+     "en": {
+      "rev": 18
+     }
+    }
+   }
+  }
+ },
+ {
+  "code": "3017620422003",
+  "product_name": "Nutella",
+  "lang": "en",
+  "lc": "en",
+  "brands": "Nutella, Ferrero",
+  "categories_tags": [
+   "en:breakfasts",
+   "en:snacks",
+   "en:spreads",
+   "en:sweet-spreads",
+   "en:cocoa-and-its-products",
+   "en:cocoa-and-chocolate-powders",
+   "en:cocoa-powders",
+   "en:confectionary-based-spreads",
+   "en:Hazelnutx",
+   "en:Petit-déjeuners",
+   "en:Produits à tartiner",
+   "en:Produits à tartiner sucrés",
+   "en:Pâtes à tartiner",
+   "fr:Goûter",
+   "fr:Nutella",
+   "fr:Nuttela"
+  ],
+  "countries_tags": [
+   "en:belgium",
+   "en:france",
+   "en:germany",
+   "en:luxembourg"
+  ],
+  "serving_quantity_unit": "g",
+  "last_modified_t": 1793873005,
+  "states_tags": [
+   "en:to-be-completed",
+   "en:nutrition-facts-completed",
+   "en:ingredients-completed",
+   "en:expiration-date-completed",
+   "en:packaging-code-to-be-completed",
+   "en:characteristics-to-be-completed",
+   "en:origins-to-be-completed",
+   "en:categories-completed",
+   "en:brands-completed",
+   "en:packaging-completed",
+   "en:quantity-completed",
+   "en:product-name-completed",
+   "en:photos-validated",
+   "en:packaging-photo-selected",
+   "en:nutrition-photo-selected",
+   "en:ingredients-photo-selected",
+   "en:front-photo-selected",
+   "en:photos-uploaded"
+  ],
+  "completeness": 0.9,
+  "unique_scans_n": 804,
+  "data_quality_errors_tags": [
+   "en:nutrition-data-per-serving-missing-serving-size",
+   "en:nutrition-packaging-as-sold-100g-sugars-plus-starch-greater-than-carbohydrates",
+   "en:nutrition-packaging-as-sold-100g-saturated-fat-greater-than-fat",
+   "en:nutrition-packaging-as-sold-100g-salt-does-not-match-sodium",
+   "en:nutrition-packaging-as-sold-100g-energy-value-in-kj-does-not-match-value-computed-from-other-nutrients",
+   "en:nutrition-packaging-as-sold-100g-energy-value-in-kcal-does-not-match-value-computed-from-other-nutrients"
+  ],
+  "obsolete": "",
+  "product_name_ab": "Nutella",
+  "product_name_ar": "نوتيلا",
+  "product_name_ch": "",
+  "product_name_de": "Nutella",
+  "product_name_en": "Nutella",
+  "product_name_es": "Nutella",
+  "product_name_fr": "Nutella",
+  "product_name_hi": "Nutella",
+  "product_name_id": "",
+  "product_name_it": "Nutella",
+  "product_name_nl": "Nutella",
+  "product_name_or": "Nutella",
+  "product_name_pt": "",
+  "product_name_ro": "Nutella",
+  "nutriments": {
+   "carbohydrates_100g": 57.5,
+   "energy-kcal_100g": 539,
+   "fat_100g": 30.9,
+   "fiber_100g": 0,
+   "proteins_100g": 6.3,
+   "salt_100g": 0.107,
+   "saturated-fat_100g": 10.6,
+   "sodium_100g": 0.0428,
+   "sugars_100g": 56.3
+  },
+  "_shape": "v2"
+ },
+ {
+  "code": "3017620422003",
+  "product_name": "Nutella",
+  "lang": "en",
+  "lc": "en",
+  "brands": "Nutella, Ferrero",
+  "categories_tags": [
+   "en:breakfasts",
+   "en:snacks",
+   "en:spreads",
+   "en:sweet-spreads",
+   "en:cocoa-and-its-products",
+   "en:cocoa-and-chocolate-powders",
+   "en:cocoa-powders",
+   "en:confectionary-based-spreads",
+   "en:Hazelnutx",
+   "en:Petit-déjeuners",
+   "en:Produits à tartiner",
+   "en:Produits à tartiner sucrés",
+   "en:Pâtes à tartiner",
+   "fr:Goûter",
+   "fr:Nutella",
+   "fr:Nuttela"
+  ],
+  "countries_tags": [
+   "en:belgium",
+   "en:france",
+   "en:germany",
+   "en:luxembourg"
+  ],
+  "serving_quantity_unit": "g",
+  "last_modified_t": 1793873005,
+  "states_tags": [
+   "en:to-be-completed",
+   "en:nutrition-facts-completed",
+   "en:ingredients-completed",
+   "en:expiration-date-completed",
+   "en:packaging-code-to-be-completed",
+   "en:characteristics-to-be-completed",
+   "en:origins-to-be-completed",
+   "en:categories-completed",
+   "en:brands-completed",
+   "en:packaging-completed",
+   "en:quantity-completed",
+   "en:product-name-completed",
+   "en:photos-validated",
+   "en:packaging-photo-selected",
+   "en:nutrition-photo-selected",
+   "en:ingredients-photo-selected",
+   "en:front-photo-selected",
+   "en:photos-uploaded"
+  ],
+  "completeness": 0.9,
+  "unique_scans_n": 804,
+  "data_quality_errors_tags": [
+   "en:nutrition-data-per-serving-missing-serving-size",
+   "en:nutrition-packaging-as-sold-100g-sugars-plus-starch-greater-than-carbohydrates",
+   "en:nutrition-packaging-as-sold-100g-saturated-fat-greater-than-fat",
+   "en:nutrition-packaging-as-sold-100g-salt-does-not-match-sodium",
+   "en:nutrition-packaging-as-sold-100g-energy-value-in-kj-does-not-match-value-computed-from-other-nutrients",
+   "en:nutrition-packaging-as-sold-100g-energy-value-in-kcal-does-not-match-value-computed-from-other-nutrients"
+  ],
+  "obsolete": "",
+  "product_name_ab": "Nutella",
+  "product_name_ar": "نوتيلا",
+  "product_name_ch": "",
+  "product_name_de": "Nutella",
+  "product_name_en": "Nutella",
+  "product_name_es": "Nutella",
+  "product_name_fr": "Nutella",
+  "product_name_hi": "Nutella",
+  "product_name_id": "",
+  "product_name_it": "Nutella",
+  "product_name_nl": "Nutella",
+  "product_name_or": "Nutella",
+  "product_name_pt": "",
+  "product_name_ro": "Nutella",
+  "nutrition": {
+   "aggregated_set": {
+    "per": "100g",
+    "preparation": "as_sold",
+    "nutrients": {
+     "alcohol": {
+      "modifier": "~",
+      "source": "estimate",
+      "unit": "% vol",
+      "value": 0
+     },
+     "calcium": {
+      "modifier": "~",
+      "source": "estimate",
+      "unit": "g",
+      "value": 0.002821743
+     },
+     "carbohydrates": {
+      "source": "manufacturer",
+      "unit": "g",
+      "value": 57.5
+     },
+     "energy-kcal": {
+      "source": "manufacturer",
+      "unit": "kcal",
+      "value": 539
+     },
+     "energy-kj": {
+      "source": "manufacturer",
+      "unit": "kJ",
+      "value": 2252
+     },
+     "fat": {
+      "source": "manufacturer",
+      "unit": "g",
+      "value": 30.9
+     },
+     "fiber": {
+      "source": "packaging",
+      "unit": "g",
+      "value": 0
+     },
+     "iron": {
+      "modifier": "~",
+      "source": "estimate",
+      "unit": "g",
+      "value": 6.12349e-05
+     },
+     "proteins": {
+      "source": "manufacturer",
+      "unit": "g",
+      "value": 6.3
+     },
+     "salt": {
+      "source": "manufacturer",
+      "unit": "g",
+      "value": 0.107
+     },
+     "saturated-fat": {
+      "source": "manufacturer",
+      "unit": "g",
+      "value": 10.6
+     },
+     "sodium": {
+      "modifier": "~",
+      "source": "manufacturer",
+      "unit": "g",
+      "value": 0.0428
+     },
+     "sugars": {
+      "source": "manufacturer",
+      "unit": "g",
+      "value": 56.3
+     },
+     "vitamin-c": {
+      "modifier": "~",
+      "source": "estimate",
+      "unit": "g",
+      "value": 0
+     },
+     "vitamin-pp": {
+      "modifier": "~",
+      "source": "estimate",
+      "unit": "g",
+      "value": 0
+     }
+    }
+   }
+  },
+  "images": {
+   "selected": {
+    "front": {
+     "de": {
+      "rev": "439"
+     },
+     "en": {
+      "rev": 879
+     },
+     "es": {
+      "rev": "621"
+     },
+     "fr": {
+      "rev": 1024
+     },
+     "it": {
+      "rev": "467"
+     },
+     "nl": {
+      "rev": "626"
+     }
+    }
+   }
+  },
+  "_shape": "v3.6"
+ }
+]

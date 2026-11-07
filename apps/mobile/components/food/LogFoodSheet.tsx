@@ -1,19 +1,26 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   Pressable,
   Alert,
 } from 'react-native';
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { SheetTextInput, sheetKeyboardProps } from '@/components/ui/SheetTextInput';
 import * as Haptics from 'expo-haptics';
 import { useLogFood, type NormalizedFood } from '@/hooks/useFoodLog';
 import { foodKey, useFavoriteFoods, useRemoveFavorite, useSaveFavorite } from '@/hooks/useQuickFoods';
 import { Button } from '@/components/ui/Button';
+import { VerifiedPill } from '@/components/food/VerifiedPill';
 import { useHideTabBar } from '@/stores/uiStore';
 import { Colors } from '@/constants/colors';
 import { loggedAtFor } from '@/lib/date';
+import { notify } from '@/lib/confirm';
+import { portionGrams } from '@/lib/quickFoods';
+import {
+  MAX_LOG_GRAMS, defaultOption, foodUnit, formatGrams, qtyAfterSwitch, round1, servingLog, servingOptions,
+  type ServingOption,
+} from '@/lib/servings';
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 
@@ -46,33 +53,51 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
   const [mealType, setMealType] = useState<MealType>(initialMeal ?? 'breakfast');
   const [qty, setQty] = useState('1');
 
-  // Foods from the database carry nutrition per 100 g (or ml) plus a serving
-  // size; manual entries have neither, so the user types values per serving.
-  // Saved portions (recent or favourite foods) carry amounts for the whole
-  // portion, so servings multiply them directly.
+  // Foods from the database carry nutrition per 100 g (or ml) plus servings
+  // to pick from; manual entries have neither, so the user types values per
+  // serving. Saved portions (recent or favourite foods) carry amounts for
+  // the whole portion, so servings multiply them directly. A database food
+  // can have no Open Food Facts id, so `foodId` also marks it as not manual.
   const isPortion = !!food?.portion;
-  const isManual = !food?.offId && !isPortion;
+  const isManual = !food?.offId && !food?.foodId && !isPortion;
+  const usesPicker = !!food && !isManual && !isPortion;
+  const unit = food ? foodUnit(food) : 'g';
   const [name, setName] = useState(food?.name ?? '');
   const [manual, setManual] = useState({ calories: '', proteinG: '', carbsG: '', fatG: '' });
   const num = (v: string) => Math.max(0, parseFloat(v) || 0);
 
+  // The serving picker: the food's servings, then 100 g, then grams typed directly
+  const options = useMemo(() => (food && usesPicker ? servingOptions(food) : []), [food, usesPicker]);
+  const [optionKey, setOptionKey] = useState(() => (food && options.length ? defaultOption(food, options).key : ''));
+  const option = options.find((o) => o.key === optionKey) ?? options[0];
+  const picked = food && usesPicker && option ? servingLog(food, option, qty) : null;
+
   const servings = parseFloat(qty) > 0 ? parseFloat(qty) : 1;
-  const amount = servings * (food?.servingQty ?? 100); // grams or ml eaten
+  const amount = picked ? picked.grams : servings * (food?.servingQty ?? 100); // grams or ml eaten
   // How much of the food's listed amounts this is
   const factor = isManual ? servings : isPortion ? servings : amount / 100;
 
-  const adjustedCalories = isManual ? num(manual.calories) * servings : (food?.calories ?? 0) * factor;
-  const adjustedProtein = isManual ? num(manual.proteinG) * servings : (food?.proteinG ?? 0) * factor;
-  const adjustedCarbs = isManual ? num(manual.carbsG) * servings : (food?.carbsG ?? 0) * factor;
-  const adjustedFat = isManual ? num(manual.fatG) * servings : (food?.fatG ?? 0) * factor;
+  const adjustedCalories = isManual ? num(manual.calories) * servings : picked ? picked.calories : (food?.calories ?? 0) * factor;
+  const adjustedProtein = isManual ? num(manual.proteinG) * servings : picked ? picked.proteinG : (food?.proteinG ?? 0) * factor;
+  const adjustedCarbs = isManual ? num(manual.carbsG) * servings : picked ? picked.carbsG : (food?.carbsG ?? 0) * factor;
+  const adjustedFat = isManual ? num(manual.fatG) * servings : picked ? picked.fatG : (food?.fatG ?? 0) * factor;
   const caffeineMg = food?.caffeineMg != null && !isManual ? Math.round(food.caffeineMg * factor) : undefined;
   const alcoholG = food?.alcoholG != null && !isManual ? Math.round(food.alcoholG * factor * 10) / 10 : undefined;
+
+  // What's logged: database foods as grams, so the server can save their nutrients
+  const loggedQty = isManual ? servings : picked ? round1(amount) : amount;
+  const loggedUnit = isManual ? 'serving' : picked ? unit : food?.servingUnit ?? 'g';
+  const loggedFoodId = !isManual ? food?.foodId : undefined;
+  const loggedGrams = picked
+    ? (unit === 'g' ? round1(amount) : undefined)
+    : isPortion ? portionGrams(food?.portionGrams, servings) : undefined;
 
   // The star saves exactly what would be logged now
   const { data: favorites } = useFavoriteFoods();
   const { mutate: saveFavorite, isPending: savingFavorite } = useSaveFavorite();
   const { mutate: removeFavorite, isPending: removingFavorite } = useRemoveFavorite();
-  const favName = isManual ? name.trim() : food?.name ?? '';
+  // Logs and favourites take names of up to 200 characters
+  const favName = isManual ? name.trim() : (food?.name ?? '').slice(0, 200).trim();
   const favorite = favorites?.find((f) => f.key === foodKey(favName, food?.brand));
   function toggleFavorite() {
     if (!food || !favName) return;
@@ -89,9 +114,19 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
       proteinG: Math.round(adjustedProtein * 10) / 10,
       carbsG: Math.round(adjustedCarbs * 10) / 10,
       fatG: Math.round(adjustedFat * 10) / 10,
-      servingQty: isManual ? servings : amount,
-      servingUnit: isManual ? 'serving' : food.servingUnit,
+      servingQty: loggedQty,
+      servingUnit: loggedUnit,
+      foodId: loggedFoodId ?? null,
+      grams: loggedGrams ?? null,
     });
+  }
+
+  function pickOption(o: ServingOption) {
+    if (o.key === option?.key) return;
+    Haptics.selectionAsync();
+    // Keep the amount when switching to grams; start at 1 of a serving
+    setQty(qtyAfterSwitch(o, amount));
+    setOptionKey(o.key);
   }
 
   const handleLog = useCallback(async () => {
@@ -100,9 +135,17 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
       Alert.alert('Missing details', 'Enter a name and the calories per serving.');
       return;
     }
+    if (usesPicker && !(amount > 0)) {
+      notify('How much?', `Enter the ${unit === 'ml' ? 'millilitres' : 'grams'} you had.`);
+      return;
+    }
+    if (loggedGrams != null && loggedGrams > MAX_LOG_GRAMS) {
+      notify("That's a lot", `Log up to ${MAX_LOG_GRAMS.toLocaleString()} g at a time.`);
+      return;
+    }
     try {
       await logFood({
-        name: isManual ? name.trim() : food.name,
+        name: isManual ? name.trim() : food.name.slice(0, 200).trim(),
         brand: food.brand ?? undefined,
         barcode: food.barcode ?? undefined,
         mealType,
@@ -110,8 +153,10 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
         proteinG: adjustedProtein,
         carbsG: adjustedCarbs,
         fatG: adjustedFat,
-        servingQty: isManual ? servings : amount,
-        servingUnit: isManual ? 'serving' : food.servingUnit,
+        servingQty: loggedQty,
+        servingUnit: loggedUnit,
+        foodId: loggedFoodId,
+        grams: loggedGrams,
         caffeineMg,
         alcoholG,
         loggedAt: date ? loggedAtFor(date) : undefined,
@@ -121,21 +166,30 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
     } catch {
       Alert.alert('Error', 'Could not log food. Please try again.');
     }
-  }, [food, isManual, name, manual.calories, mealType, servings, amount, adjustedCalories, adjustedProtein, adjustedCarbs, adjustedFat, caffeineMg, alcoholG, logFood, onClose, date]);
+  }, [food, isManual, name, manual.calories, usesPicker, amount, unit, mealType, loggedQty, loggedUnit, loggedFoodId, loggedGrams, adjustedCalories, adjustedProtein, adjustedCarbs, adjustedFat, caffeineMg, alcoholG, logFood, onClose, date]);
 
   if (!food) return null;
+
+  const directLabel = unit === 'ml' ? 'Millilitres' : 'Grams';
+  const qtyLabel = isPortion
+    ? `Portions (1 = ${Math.round(food.servingQty * 10) / 10} ${food.servingUnit})`
+    : isManual
+      ? 'Servings'
+      : option?.direct
+        ? directLabel
+        : `Servings · ${formatGrams(amount)} ${unit}`;
 
   return (
     <BottomSheet
       ref={sheetRef}
-      snapPoints={[isManual ? '75%' : '55%']}
+      snapPoints={[isPortion ? '55%' : '75%']}
       enablePanDownToClose
       onClose={onClose}
       {...sheetKeyboardProps}
       backgroundStyle={{ backgroundColor: Colors.surface }}
       handleIndicatorStyle={{ backgroundColor: Colors.muted }}
     >
-      <BottomSheetView style={{ padding: 24, gap: 20 }}>
+      <BottomSheetScrollView contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
         {/* Food name */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
         <View style={{ flex: 1 }}>
@@ -171,6 +225,11 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
             >
               {food.brand}
             </Text>
+          )}
+          {food.verified === true && (
+            <View style={{ flexDirection: 'row', marginTop: 6 }}>
+              <VerifiedPill size="medium" />
+            </View>
           )}
         </View>
           <Pressable
@@ -239,11 +298,44 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
           ))}
         </View>
 
+        {/* Serving picker (database foods) */}
+        {usesPicker && options.length > 0 && (
+          <View style={{ gap: 6 }}>
+            <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12 }}>Serving</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }} accessibilityRole="radiogroup" accessibilityLabel="Serving">
+              {options.map((o) => {
+                const selected = o.key === option?.key;
+                return (
+                  <Pressable
+                    key={o.key}
+                    onPress={() => pickOption(o)}
+                    accessibilityRole="radio"
+                    accessibilityLabel={o.direct ? `Type the amount in ${directLabel.toLowerCase()}` : o.label}
+                    aria-checked={selected}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 999,
+                      backgroundColor: selected ? Colors.orange : Colors.surface2,
+                      borderWidth: 1.5,
+                      borderColor: selected ? Colors.orange : Colors.border,
+                    }}
+                  >
+                    <Text style={{ color: selected ? '#fff' : Colors.muted, fontFamily: selected ? 'DMSans-Bold' : 'DMSans-Medium', fontSize: 12 }}>
+                      {o.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         {/* Qty + meal type row */}
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: Colors.muted, fontFamily: 'DMSans-Medium', fontSize: 12, marginBottom: 6 }}>
-              {isPortion ? `Portions (1 = ${Math.round(food.servingQty * 10) / 10} ${food.servingUnit})` : `Servings${!isManual ? ` (${food.servingQty} ${food.servingUnit})` : ''}`}
+              {qtyLabel}
             </Text>
             <SheetTextInput
               style={{
@@ -260,6 +352,7 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
               onChangeText={setQty}
               keyboardType="decimal-pad"
               selectTextOnFocus
+              {...(usesPicker ? { accessibilityLabel: option?.direct ? `${directLabel} eaten` : 'Number of servings' } : {})}
             />
           </View>
 
@@ -296,7 +389,7 @@ export function LogFoodSheet({ food, initialMeal, date, onClose }: LogFoodSheetP
         </View>
 
         <Button label="Log food" onPress={handleLog} loading={isPending} />
-      </BottomSheetView>
+      </BottomSheetScrollView>
     </BottomSheet>
   );
 }

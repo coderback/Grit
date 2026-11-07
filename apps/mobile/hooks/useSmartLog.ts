@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { deviceLocale } from '@/lib/searchEvents';
 import { writeFoodsToHealth } from '@/lib/health/sync';
-import type { FoodLog } from '@/hooks/useFoodLog';
+import { invalidateFoodLogQueries, type FoodLog, type FoodServing } from '@/hooks/useFoodLog';
 
 export type ItemSource = 'memory' | 'database' | 'estimate';
 
@@ -30,6 +31,13 @@ export interface ParsedItem {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  // Phase 7, all optional: a match in GRIT's food database
+  foodId?: string;
+  basis?: 'measured' | 'label';
+  /** From a government table or the manufacturer's own data */
+  verified?: boolean;
+  servings?: FoodServing[];
+  category?: string;
 }
 
 export interface ParsedMeal {
@@ -54,8 +62,11 @@ export interface FoodMemory {
 /** Reads a described or photographed meal into items. Nothing is logged yet. */
 export function useParseMeal() {
   return useMutation({
+    // The phone's country, so that country's foods are matched first
     mutationFn: (body: { text?: string; imageBase64?: string; imageType?: string }) =>
-      api.post<ParsedMeal>('/food/parse', body, { timeout: 90_000 }).then((r) => r.data),
+      api
+        .post<ParsedMeal>('/food/parse', { ...body, country: deviceLocale().country }, { timeout: 90_000 })
+        .then((r) => r.data),
   });
 }
 
@@ -76,13 +87,14 @@ export function useLogParsedMeal() {
         caffeinePer100g?: number;
         alcoholPer100g?: number;
         remember?: boolean;
+        /** The database food it matched; the server works out its nutrients */
+        foodId?: string;
       }[];
     }) => api.post<{ logged: number; logs: FoodLog[] }>('/food/parse/log', body).then((r) => r.data),
     onSuccess: (res) => {
       writeFoodsToHealth(res.logs ?? []);
-      for (const key of ['food-logs', 'food-recent', 'food-week', 'trends', 'adaptive', 'food-memories']) {
-        qc.invalidateQueries({ queryKey: [key] });
-      }
+      invalidateFoodLogQueries(qc);
+      qc.invalidateQueries({ queryKey: ['food-memories'] });
     },
   });
 }

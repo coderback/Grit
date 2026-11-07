@@ -19,6 +19,8 @@ export function notificationRoute(type: string | undefined, data: Record<string,
     case 'weekly_progress':
       return '/(tabs)/activity';
     case 'coach_checkin':
+      // A nutrient that's often low: the day's nutrients
+      if (typeof data.nutrient === 'string' && data.nutrient) return '/nutrients';
       // The screen the check-in is about
       return data.screen === 'food' ? '/(tabs)/food' : data.screen === 'activity' || data.screen === 'stats' ? '/(tabs)/activity' : '/coach';
     default:

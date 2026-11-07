@@ -151,7 +151,15 @@ describe('WorkoutsService (database)', () => {
       { title: 'Lift', type: 'workouts', goalValue: 3, durationDays: 7 },
       0,
     );
-    await save(u.supabaseId, 0, three(SQUAT, 100, 5, 5, 5));
+    // The challenge starts at midnight UTC, and at(0) is 9am, which before
+    // 9am UTC is yesterday's, so log this one a minute ago (or at midnight)
+    const midnight = new Date();
+    midnight.setUTCHours(0, 0, 0, 0);
+    const start = new Date(Math.max(midnight.getTime(), Date.now() - 60_000));
+    await save(u.supabaseId, 0, three(SQUAT, 100, 5, 5, 5), {
+      startedAt: start.toISOString(),
+      endedAt: new Date(start.getTime() + 50 * 60_000).toISOString(),
+    });
     const board = await challenges.getChallenge(u.supabaseId, c.id);
     expect(board.totalProgress).toBe(1);
   });

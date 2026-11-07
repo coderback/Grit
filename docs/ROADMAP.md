@@ -215,16 +215,99 @@ writing is on.
 - Weights are stored in kg; for lb users, suggested weights convert from
   kg steps rather than 5 lb plates.
 
-## Phases 7–9 (planned)
+## Phase 7 — GRIT's own food database ✅
+
+- **The food database** (separate from users' data, values per 100 g):
+  foods with their barcodes, servings ("1 slice", 28 g), the 28 tracked
+  nutrients, other names and the source of each row, so any source can be
+  refreshed or removed on its own.
+- **Importers** (`packages/food-data`), each idempotent (a re-run changes
+  nothing):
+  - USDA FoodData Central: Foundation and SR Legacy as one food per NDB
+    number, and FNDDS survey foods and dishes (13,401 foods together), and
+    the branded products (about 1.6 million; not imported yet, see below);
+  - Open Food Facts: the full export, or a filtered one, and a daily job
+    for its changes. Only label values are kept; OFF's own estimates from
+    ingredients are left out;
+  - the UK's CoFID (2,854 foods);
+  - the same product from two sources is one food, showing the better
+    source (government tables, then manufacturers, then Open Food Facts).
+- **Search** runs on GRIT's own data:
+  - every word must appear (plurals and synonyms included: "yoghurt"
+    finds "yogurt", "courgette" finds "zucchini"), with a typo-tolerant
+    search when that finds few, on trigram indexes;
+  - generic foods, dishes and every product a GRIT user has logged or
+    scanned (the "core") are always searched in full; the millions of
+    other products are sampled, so common words stay fast;
+  - ranked by the user's own foods (logged, favourite, remembered), then
+    their country's, how closely the name matches, quality and popularity;
+  - results show the typical serving and a "Verified" label for
+    government and manufacturer data;
+  - p95 of 131 ms on 3.4 million foods, locally with the full Open Food
+    Facts import (target 300 ms); 41 ms on 48,000.
+- **Barcodes** are looked up locally first (UPC-A, EAN-13, EAN-8 and
+  UPC-E all match), then on Open Food Facts; a product found there is
+  saved, so the next scan is local. Every scan is recorded, for the
+  barcode hit rate by country.
+- **Logging:** a serving picker ("1 slice (28 g)", 100 g or grams) for
+  database foods; recent and favourite foods keep their database food.
+- **Smart log** matches plain foods to measured foods and branded ones to
+  products, only when the calories agree with the reading (so cooked rice
+  isn't logged as dry rice), and remembered foods keep their link. Its
+  estimates now count alcohol's calories.
+- **Micronutrients, measured and label values only:**
+  - each log keeps a snapshot of its amount's nutrients, so later fixes to
+    the data don't change past days;
+  - a Nutrients screen from the Food tab: vitamins, minerals, fibre,
+    sodium and saturated fat against US Dietary Reference Intakes for the
+    user's age and sex, with how much of the day's calories have data;
+  - a nutrient is only called low on a finished, fully enough logged day,
+    when most of its calories carry that nutrient; today never is;
+  - an "Often low this week" card on Stats, a line in the coach's context,
+    and a check-in when the same nutrient is low on 5 of the last 7 days;
+  - wording is "low" and "good source", never "deficient".
+- **Credits:** Profile → Food data sources names each source and its
+  licence.
+- A log only counts toward a food's shared popularity when the user has
+  turned on "Improve GRIT's food data".
+
+**After deploying Phase 7:** apply the migration to Supabase. Add the
+`DIRECT_URL` repository secret (Supabase's session pooler, port 5432), then
+run the Food data workflow for `fdc` and `cofid`. Together they take about
+90 MB, within the Free plan. Until then search falls back to Open Food
+Facts live, and only scanned products carry micronutrients. The daily job
+then keeps saved Open Food Facts products up to date. Deploy the backend
+before the app: the app sends new fields that older backends reject.
+
+**Not done in Phase 7:**
+- The full Open Food Facts and USDA branded imports: together about
+  12–14 GB as stored now, above Supabase Pro's included 8 GB. Before
+  them, decide on the plan and on filters (scans, countries), or store each
+  food's nutrients in one column instead of one row per value. Until then
+  `FOOD_LIVE_SEARCH` stays on its default, so search asks Open Food Facts
+  live when GRIT's database finds fewer than 5 results. At that size, the
+  first searches after a database restart time out (2.5 s) until its cache
+  warms up (seen locally on 3.4 million foods); they fall back to the live
+  search meanwhile.
+- Canada's CNF, France's CIQUAL and Finland's Fineli: their sites couldn't
+  be downloaded from the server (no response, maintenance, a bot check), so
+  their importers wait for the files.
+- Open Food Facts' licence (ODbL) review by a lawyer (decision 3): the
+  barcode lookup already saves the products it finds, and every saved row
+  is marked with its source, so they can all be removed in one step.
+- Carbohydrate is stored as each source gives it: UK and EU tables exclude
+  fibre, US data includes it. Niacin is preformed niacin and folate is
+  total folate where a source has no DFE.
+- Deltas never say which Open Food Facts products were deleted; a monthly
+  full reconcile from the export would.
+
+## Phases 8–9 (planned)
 
 See [`PLAN_PHASES_5_TO_9.md`](./PLAN_PHASES_5_TO_9.md), shaped by the
 research in
 [`reports/GRIT health fitness nutrition moat.md`](../reports/GRIT%20health%20fitness%20nutrition%20moat.md).
 Ordered from easiest to hardest, each phase is released on its own:
 
-- **Phase 7 — GRIT's own food database (about 4 weeks):** imports from
-  USDA, Open Food Facts and the UK, Canada, France and Finland tables; local
-  search and barcodes; micronutrient tracking from measured values.
 - **Phase 8 — Data quality and regional foods (about 3 weeks):**
   label-photo contributions with checks and verification, quality scores,
   merging duplicates, and regional dishes, names and units where users'
@@ -245,7 +328,8 @@ Ordered from easiest to hardest, each phase is released on its own:
   user to approve, as it already does for calorie targets.
 - A real-device check of push alerts, photo picking and the keyboard in
   sheets.
-- Fuzzy user search (a `pg_trgm` index) once there are many users.
+- Fuzzy user search once there are many users (`pg_trgm` is installed since
+  Phase 7).
 - Commit `package-lock.json` (it's git-ignored today) so CI and Railway
   install the same versions.
 
@@ -268,3 +352,12 @@ Ordered from easiest to hardest, each phase is released on its own:
   `railway.toml`) and optionally set `CORS_ORIGINS` to the web app's URL.
 - Password reset: add `grit://reset-password` (and the web app's
   `/reset-password` URL) to Supabase Auth's redirect URLs.
+- Food database (Phase 7):
+  - add the `DIRECT_URL` repository secret in GitHub (Supabase → Connect →
+    Session pooler, port 5432, with the database password), then run the
+    Food data workflow for `fdc` and then `cofid`;
+  - decide on Supabase Pro and filters before importing all of Open Food
+    Facts and USDA's branded products (12–14 GB as stored now);
+  - have a lawyer review the Open Food Facts licence (decision 3);
+  - download Canada's CNF, France's CIQUAL and Finland's Fineli files in a
+    browser (their sites block servers) so their importers can be built.

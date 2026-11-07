@@ -12,7 +12,14 @@ export interface QuickFood {
   fatG: number;
   servingQty: number;
   servingUnit: string;
+  /** The database food it came from (Phase 7) */
+  foodId?: string | null;
+  /** Grams in the whole portion, when known */
+  grams?: number | null;
 }
+
+/** The most grams the server takes in one log or favourite. */
+const MAX_GRAMS = 5000;
 
 /** Matches the server's: same name and brand, ignoring case and spacing. */
 export function foodKey(name: string, brand?: string | null) {
@@ -35,6 +42,35 @@ export function portionAsFood(f: QuickFood): NormalizedFood {
     servingQty: f.servingQty,
     servingUnit: f.servingUnit,
     imageUrl: null,
+    ...(f.foodId ? { foodId: f.foodId } : {}),
+    ...(f.grams != null && f.grams > 0 ? { portionGrams: f.grams } : {}),
+  };
+}
+
+/** Grams in a number of saved portions, if the portion's grams are known. */
+export function portionGrams(gramsPerPortion: number | null | undefined, portions: number): number | undefined {
+  if (gramsPerPortion == null || !(gramsPerPortion > 0) || !(portions > 0)) return undefined;
+  return Math.round(gramsPerPortion * portions * 10) / 10;
+}
+
+/**
+ * The body for POST /food/favorites: only the fields it takes (anything
+ * else is a 400), with grams left out when out of range.
+ */
+export function favoriteBody(f: QuickFood) {
+  const grams = f.grams != null && f.grams >= 0 && f.grams <= MAX_GRAMS ? f.grams : undefined;
+  return {
+    name: f.name,
+    brand: f.brand ?? undefined,
+    barcode: f.barcode ?? undefined,
+    calories: f.calories,
+    proteinG: f.proteinG,
+    carbsG: f.carbsG,
+    fatG: f.fatG,
+    servingQty: f.servingQty,
+    servingUnit: f.servingUnit,
+    foodId: f.foodId || undefined,
+    grams,
   };
 }
 
