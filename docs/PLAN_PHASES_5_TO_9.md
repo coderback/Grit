@@ -438,9 +438,14 @@ with these differences:
 - **Size:** the full Open Food Facts and USDA branded imports would take
   12–14 GB as stored, well over the 2–4 GB estimated here. They aren't
   imported yet (see ROADMAP).
-- **National tables:** the UK's CoFID is imported. Canada's, France's and
-  Finland's sites couldn't be downloaded from a server, so those wait for
-  the files.
+- **National tables:** the UK's CoFID, Canada's CNF 2015, France's
+  CIQUAL 2025 and Finland's Fineli (release 20) are imported, with their
+  other-language names. Health Canada's and Fineli's sites refuse servers,
+  so those two release files are kept in the repository and checked by
+  SHA-256; CIQUAL comes from Recherche Data Gouv, where ANSES deposits it.
+- **Search** scores a food on each of its names, so a French table's food
+  found by its French name ranks like a product named exactly that, and
+  shows one result per name and brand before its limit.
 - **Smart log** matches unbranded items to measured foods and branded
   items to branded foods first, and only when the calories agree with the
   reading. Branded before measured, for branded items, keeps "Fage yogurt"
@@ -566,7 +571,7 @@ duplicating them.
 | USDA FoodData Central: Branded | ~400k US products, label nutrients | Public domain |
 | Open Food Facts | ~3M products from about 150 countries, names in many languages | **ODbL** (decision 3) |
 | UK CoFID | UK foods | Open Government Licence |
-| Canada CNF, France CIQUAL, Finland Fineli | National foods | Open licences; confirm each |
+| Canada CNF, France CIQUAL, Finland Fineli | National foods | OGL – Canada; Licence Ouverte 2.0; CC BY 4.0 |
 
 - **Size:** filtered Open Food Facts plus everything else is roughly 2–4 GB.
   Only products with a name and calories are imported, using bulk `COPY` into
