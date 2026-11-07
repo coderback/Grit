@@ -3,12 +3,18 @@ import { parseArgs } from 'util';
 import { poolFromEnv } from './db';
 import { download, fetchText } from './download';
 import {
+  ciqualFiles,
+  ciqualJob,
+  cnfFile,
+  cnfJob,
   cofidFile,
   cofidJob,
   deltaFilesIn,
   downloadFdc,
   fdcFilesIn,
   fdcJobs,
+  fineliFile,
+  fineliJob,
   isOffCsv,
   offFileInput,
   offJob,
@@ -36,11 +42,14 @@ Sources:
   off         Open Food Facts, a full export (the JSONL by default; or --file a CSV)
   off-delta   Open Food Facts' daily changes since the last import
   cofid       UK CoFID 2021 (McCance and Widdowson's)
-  (cnf, ciqual and fineli are not written yet)
+  cnf         Canada's Canadian Nutrient File 2015 (kept in data/)
+  ciqual      France's ANSES-CIQUAL 2025 (from Recherche Data Gouv)
+  fineli      Finland's Fineli, release 20 (kept in data/)
 
 Options:
   --file <path>       a local file instead of downloading (repeatable for fdc)
-  --dir <path>        a folder of local files (USDA's names; or delta files)
+  --dir <path>        a folder of local files (USDA's names; delta files; an
+                      extracted CNF, Fineli or CIQUAL release)
   --dataset <list>    fdc: foundation,sr,fndds,branded (default foundation,sr,fndds)
   --limit <n>         stop after n records (a sample)
   --dry-run           write nothing; report what would change
@@ -269,11 +278,32 @@ async function main(argv: string[]) {
         log,
       });
       jobs = [cofidJob(path, log)];
-    } else if (['cnf', 'ciqual', 'fineli'].includes(source)) {
-      throw new Error(`The ${source} importer isn't written yet`);
+    } else if (source === 'cnf' || source === 'fineli') {
+      if (files.length > 1) throw new Error(`${source} takes one --file`);
+      const options = { file: files[0], dir: values.dir };
+      jobs = [
+        source === 'cnf'
+          ? cnfJob(await cnfFile(options), log)
+          : fineliJob(await fineliFile(options), log),
+      ];
+    } else if (source === 'ciqual') {
+      if (files.length > 1) {
+        throw new Error('ciqual takes one --file (a zip) or --dir');
+      }
+      jobs = [
+        ciqualJob(
+          await ciqualFiles({
+            file: files[0],
+            dir: values.dir,
+            refresh: values.refresh,
+            log,
+          }),
+          log,
+        ),
+      ];
     } else {
       throw new Error(
-        `Unknown source "${source}": use fdc, off, off-delta or cofid`,
+        `Unknown source "${source}": use fdc, off, off-delta, cofid, cnf, ciqual or fineli`,
       );
     }
 

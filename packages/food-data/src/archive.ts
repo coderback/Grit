@@ -50,6 +50,11 @@ async function openDirectory(dir: string): Promise<Archive> {
   return fromFiles(dir, files, () => {});
 }
 
+/** Separate files (e.g. downloaded one by one) as one archive. */
+export function openFiles(label: string, paths: readonly string[]): Archive {
+  return fromFiles(label, new Map(paths.map((p) => [key(p), p])), () => {});
+}
+
 function fromFiles(
   path: string,
   files: Map<string, string>,

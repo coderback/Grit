@@ -1,0 +1,8 @@
+FoodID,FoodCode,FoodGroupID,FoodSourceID,FoodDescription,FoodDescriptionF,FoodDateOfEntry,FoodDateOfPublication,CountryCode,ScientificName
+2,2,22,20,Cheese souffle,Soufflé au fromage,1981-01-01,,,
+55,55,1,0,"Eggnog, 7% M.F., Canadian product, 4% to 8% M.F.","Lait de poule, 7% M.G., produit canadien, 4% à 8% M.G.",1981-01-01,,01057,
+61,61,1,0,"Milk, fluid, partly skimmed, 2% M.F.","Lait, partiellement écrémé, liquide, 2% M.G.",1981-01-01,,01079,
+534,534,4,0,"Salad dressing, blue or roquefort cheese, commercial, regular","Vinaigrette, fromage bleu ou roquefort, commerciale, régulière",1981-01-01,,04539,
+2000,2000,11,0,"Bamboo shoots, boiled, drained","Bambou, pousses, bouillies, égouttées",1985-01-01,,11027,
+4000,4000,18,0,"Waffle, plain, homemade","Gaufre,  nature, faite maison",1995-01-01,,18367,
+501999,6772,22,36,Poutine,Poutine,2009-07-20,,,

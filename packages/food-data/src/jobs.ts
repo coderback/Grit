@@ -4,8 +4,8 @@ import { Readable } from 'stream';
 import type { ReadableStream as WebReadableStream } from 'stream/web';
 import { createGunzip } from 'zlib';
 import type { Pool } from 'pg';
-import { openArchive, type Archive } from './archive';
-import { download, fetchText } from './download';
+import { openArchive, openFiles, type Archive } from './archive';
+import { checkSha256, download, fetchText } from './download';
 import type { FoodRecord } from './record';
 import type { Job } from './run';
 import {
@@ -40,6 +40,9 @@ import {
   COFID_URL,
   readCofidWorkbook,
 } from './sources/cofid';
+import { ciqualRecords, CIQUAL_FILES } from './sources/ciqual';
+import { cnfRecords, CNF_FILE, CNF_SHA256 } from './sources/cnf';
+import { fineliRecords, FINELI_FILE, FINELI_SHA256 } from './sources/fineli';
 import { removeSources } from './writer';
 
 type Log = (line: string) => void;
@@ -352,6 +355,124 @@ export function cofidJob(path: string, log: Log = () => {}): Job {
     async *records() {
       const records = cofidRecords(await readCofidWorkbook(path));
       log(`CoFID: ${records.length} foods (${basename(path)})`);
+      yield* records;
+    },
+  };
+}
+
+// ── National tables kept in this package: Canada's CNF, Finland's Fineli ────
+
+/** Where the release files that can't be downloaded by a server are kept */
+export const DATA_DIR = join(__dirname, '..', 'data');
+
+/**
+ * A national table's release file: --file as given, else the copy kept in
+ * data/, checked against the SHA-256 it was added with (so a changed or
+ * corrupted file is never imported as the release it claims to be).
+ */
+async function keptFile(
+  label: string,
+  name: string,
+  sha256: string,
+  options: { file?: string; dir?: string } = {},
+): Promise<string> {
+  if (options.file) return options.file;
+  // An extracted release folder
+  if (options.dir) return options.dir;
+  const path = join(DATA_DIR, name);
+  try {
+    await checkSha256(path, sha256);
+  } catch (err) {
+    throw new Error(`${label}: ${(err as Error).message}`);
+  }
+  return path;
+}
+
+function tableJob(
+  name: 'cnf' | 'fineli',
+  label: string,
+  path: string,
+  read: (a: Archive) => Promise<FoodRecord[]>,
+  log: Log,
+): Job {
+  return {
+    name,
+    source: name,
+    prefix: '',
+    complete: true,
+    async *records() {
+      const records = await withArchive(path, read);
+      log(`${label}: ${records.length} foods (${basename(path)})`);
+      yield* records;
+    },
+  };
+}
+
+/** CNF 2015: --file (the zip or its extracted folder), else data/'s copy. */
+export function cnfFile(options: { file?: string; dir?: string } = {}) {
+  return keptFile('CNF', CNF_FILE, CNF_SHA256, options);
+}
+
+export function cnfJob(path: string, log: Log = () => {}): Job {
+  return tableJob('cnf', 'CNF', path, cnfRecords, log);
+}
+
+/** Fineli release 20: --file (the zip or its extracted folder), else data/'s copy. */
+export function fineliFile(options: { file?: string; dir?: string } = {}) {
+  return keptFile('Fineli', FINELI_FILE, FINELI_SHA256, options);
+}
+
+export function fineliJob(path: string, log: Log = () => {}): Job {
+  return tableJob('fineli', 'Fineli', path, fineliRecords, log);
+}
+
+// ── France's CIQUAL ──────────────────────────────────────────────────────────
+
+/**
+ * CIQUAL 2025: --file a zip or folder of its XML files, else downloaded
+ * from Recherche Data Gouv (and checked). Returns an archive's path or the
+ * downloaded files.
+ */
+export async function ciqualFiles(
+  options: { file?: string; dir?: string; refresh?: boolean; log?: Log } = {},
+): Promise<string | string[]> {
+  const local = options.file ?? options.dir;
+  if (local) return local;
+  const paths: string[] = [];
+  for (const f of Object.values(CIQUAL_FILES)) {
+    paths.push(
+      await download(f.url, {
+        name: f.name,
+        sha256: f.sha256,
+        refresh: options.refresh,
+        log: options.log,
+      }),
+    );
+  }
+  return paths;
+}
+
+export function ciqualJob(
+  files: string | readonly string[],
+  log: Log = () => {},
+): Job {
+  return {
+    name: 'ciqual',
+    source: 'ciqual',
+    prefix: '',
+    complete: true,
+    async *records() {
+      const archive =
+        typeof files === 'string'
+          ? await openArchive(files)
+          : openFiles('CIQUAL', files);
+      let records: FoodRecord[];
+      try {
+        records = await ciqualRecords(archive);
+      } finally {
+        archive.close();
+      }
+      log(`CIQUAL: ${records.length} foods`);
       yield* records;
     },
   };
