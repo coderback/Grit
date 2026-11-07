@@ -230,22 +230,44 @@ export class FoodDbService {
         SELECT h.id,
           h.id IN (SELECT "foodId" FROM mine) AS mine,
           extensions.word_similarity(${key}, h."searchText") AS wsim,
-          extensions.similarity(${key}, h."searchText") AS sim,
-          h."searchText" LIKE ${key + '%'} AS prefix,
+          -- The search text joins every name ("chocolate croissant … pain
+          -- au chocolat"), so a food also scores on each name of its own
+          GREATEST(
+            extensions.similarity(${key}, h."searchText"),
+            (SELECT max(extensions.similarity(${key}, lower(n.name)))
+             FROM food_names n WHERE n."foodId" = h.id)
+          ) AS sim,
+          (h."searchText" LIKE ${key + '%'} OR EXISTS (
+            SELECT 1 FROM food_names n
+            WHERE n."foodId" = h.id AND lower(n.name) LIKE ${key + '%'}
+          )) AS prefix,
           ${country} = ANY(h.countries) AS local,
-          h.kind, h.quality, h.popularity, h.verified
+          h.kind, h.quality, h.popularity, h.verified,
+          lower(h.name) AS name, lower(coalesce(h.brand, '')) AS brand
         FROM cand c JOIN foods h ON h.id = c.id
+      ),
+      ranked AS (
+        SELECT id, mine, wsim, name, brand,
+          ((CASE WHEN mine THEN 1.0 ELSE 0 END)
+           + (CASE WHEN local THEN 0.25 ELSE 0 END)
+           + 0.5 * sim + 0.2 * wsim
+           + (CASE WHEN prefix THEN 0.3 ELSE 0 END)
+           + (CASE WHEN kind = 'generic' THEN 0.05 ELSE 0 END)
+           + (CASE WHEN verified THEN 0.2 ELSE 0 END)
+           + 0.5 * quality
+           + 0.1 * least(1.0, ln(1 + popularity) / ln(101))) AS score
+        FROM scored
+      ),
+      -- One food per name and brand before the limit: dozens of products
+      -- called "Baguette" would otherwise fill it, and the national
+      -- table's baguette would never be seen
+      best AS (
+        SELECT DISTINCT ON (name, brand) id, mine, wsim, score
+        FROM ranked
+        ORDER BY name, brand, score DESC, id
       )
-      SELECT id, mine, wsim::float8 AS wsim,
-        ((CASE WHEN mine THEN 1.0 ELSE 0 END)
-         + (CASE WHEN local THEN 0.25 ELSE 0 END)
-         + 0.5 * sim + 0.2 * wsim
-         + (CASE WHEN prefix THEN 0.3 ELSE 0 END)
-         + (CASE WHEN kind = 'generic' THEN 0.05 ELSE 0 END)
-         + (CASE WHEN verified THEN 0.2 ELSE 0 END)
-         + 0.5 * quality
-         + 0.1 * least(1.0, ln(1 + popularity) / ln(101)))::float8 AS score
-      FROM scored
+      SELECT id, mine, wsim::float8 AS wsim, score::float8 AS score
+      FROM best
       ORDER BY score DESC, id
       LIMIT ${limit * 2}`;
 

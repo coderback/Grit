@@ -1,7 +1,8 @@
 # food-data
 
 Importers for GRIT's own food database (plan Phase 7.1): USDA FoodData
-Central, Open Food Facts and the UK's CoFID, written into the `foods`,
+Central, Open Food Facts and four national food tables (the UK's CoFID,
+Canada's CNF, France's CIQUAL and Finland's Fineli), written into the `foods`,
 `food_nutrients`, `food_servings`, `food_barcodes`, `food_names` and
 `food_sources` tables that the backend's migrations create. Values are per
 100 g in the 28 nutrient codes of `packages/backend/src/food/nutrients.ts`.
@@ -21,10 +22,12 @@ npm run import -w packages/food-data -- --help
 | `off`                        | the JSONL export (default, streamed: about 13 GB gzip) or `--file` the CSV export             | the OFF code, as OFF writes it                              | **ODbL** (database), DbCL (contents), CC BY-SA (images) |
 | `off-delta`                  | OFF's daily delta files (JSONL), since the last import                                        | the OFF code                                                | ODbL                                                    |
 | `cofid`                      | McCance and Widdowson's CoFID 2021 workbook (checked by SHA-256)                              | the food code (`13-669~<name>` for the one code used twice) | Open Government Licence v3.0                            |
+| `cnf`                        | the Canadian Nutrient File 2015 CSV zip, kept in `data/` (checked by SHA-256)                 | the FoodID                                                  | Open Government Licence – Canada                        |
+| `ciqual`                     | the ANSES-CIQUAL 2025 XML files from Recherche Data Gouv (checked by SHA-256)                 | the food code (`alim_code`)                                 | Licence Ouverte / Etalab 2.0                            |
+| `fineli`                     | Fineli release 20, basic package 2 zip, kept in `data/` (checked by SHA-256)                  | the FOODID                                                  | CC BY 4.0                                               |
 
-CNF (Canada), CIQUAL (France) and Fineli (Finland) aren't written yet: their
-files couldn't be downloaded here, and the importers will be built from the
-real files.
+Health Canada's and Fineli's sites refuse servers, so their releases are
+kept in [`data/`](data/README.md), as downloaded in a browser.
 
 ### USDA FoodData Central
 
@@ -111,12 +114,81 @@ real files.
   verified, quality 1, no servings (CoFID has no portions), `fetchedAt` the
   release date (2021-03-19).
 
+### Canada's CNF
+
+- The Canadian Nutrient File 2015 (the latest; Health Canada is preparing a
+  2026 edition). Relational CSV files in Latin-1: `FOOD NAME`, `NUTRIENT
+AMOUNT`, `CONVERSION FACTOR`, `MEASURE NAME` and `FOOD GROUP` are read;
+  the release's update files aren't needed.
+- Nutrients by `NutrientID` (not `NutrientCode`, which differs for newer
+  ones: RAE is ID 814, code 320): energy 208, else kJ (268) / 4.184; carbs
+  by difference (205, including fibre like USDA's; slightly negative values
+  clamped to 0); vitamin A as RAE (814); vitamin D in µg (339), else IU
+  (324) × 0.025; vitamin E α-tocopherol (323); niacin preformed (406);
+  folate as DFE (815), else total folacin (417); caffeine (262).
+- Servings are CNF's measures as multiples of 100 g: "250ml chopped or
+  diced" becomes "250 ml, chopped or diced". A weight alone ("85g", Canada's
+  serving of meat) becomes "1 serving" when CNF has none of its own, and
+  100 g is left out. Typical: CNF's own "1 serving", else the first "1
+  <unit>" (a slice, a waffle), else that weight, else the first measure other
+  than 100 ml. Measures the release has no name for are skipped.
+- 5,690 foods, all with energy. Country `ca`, the French name as another
+  name, the food group as the category, kind `dish` for Mixed Dishes and
+  Fast Foods, else `generic`; measured, verified, quality 1, `fetchedAt` the
+  newest values in the release (2015-10-30).
+
+### France's CIQUAL
+
+- The ANSES-CIQUAL table 2025 (published 19 November 2025), downloaded from
+  [Recherche Data Gouv](https://entrepot.recherche.data.gouv.fr/dataset.xhtml?persistentId=doi%3A10.57745%2FRDMHWY),
+  where ANSES deposits it (Ciqual's own site is often down for maintenance).
+  `alim`, `alim_grp` and `compo` are read: flat XML, streamed, so the 69 MB
+  `compo` file is never in memory at once. `--dir` or `--file` takes a
+  folder or zip of the XML files instead.
+- Values use a decimal comma; "traces" is 0; "-" and "< 0,5" (below what the
+  lab could measure) are missing, never zero.
+- Energy by EU Regulation 1169/2011 (328 kcal, as labels), else N × Jones'
+  factor (333), else kJ / 4.184; carbs are available carbohydrate (31000,
+  excluding fibre, like CoFID's); sodium (10110), else salt (10004) × 400;
+  vitamin A as RAE (51104), else retinol + β-carotene / 12; vitamin E
+  α-tocopherol (71010), else vitamin E (53100); vitamin K1 (54101); folate as
+  DFE (56702), else total (56700).
+- 3,484 foods, 3,341 with energy. Country `fr`, the French name as another
+  name, the subgroup as the category, kind `dish` for starters and dishes
+  (group 01), else `generic`; no servings (CIQUAL has no portions);
+  measured, verified, quality 1.
+
+### Finland's Fineli
+
+- Fineli release 20, basic package 2 (74 components; the latest release).
+  Semicolon-separated Latin-1 files with CRLF line ends and decimal commas:
+  `food`, `foodname_EN`/`FI`/`SV`, `component_value`, `foodaddunit` and
+  `fuclass_EN`.
+- Names are in capitals in the release and written in sentence case
+  ("RYE BREAD, 51% RYE" → "Rye bread, 51% rye"); the Finnish and Swedish
+  names are other names, so "ruisleipä" finds rye bread.
+- Energy is in kJ only (/ 4.184); carbs are available carbohydrate
+  (`CHOAVL`, excluding fibre); fibre `FIBC`; sodium `NA`, else salt (`NACL`,
+  in mg) × 0.4; vitamin A as RAE (`VITA`); niacin preformed (`NIA`); folate
+  total (Fineli has no DFE). No caffeine in this package.
+- Servings from Fineli's units: the product's own piece ("1 piece, as
+  sold"), small/medium/large pieces and portions, dl, tbsp and tsp (kg, l
+  and the "1000 kJ portion" aren't portions). Typical: the product's piece,
+  else a medium piece, else a medium portion.
+- Fineli's `DISH` type means "made from a recipe" (breads and porridges
+  too), so kind is `dish` only for recipes in a mixed-dish use class (meat,
+  fish, egg, pulse, potato and vegetable dishes, soups, pizza, sandwiches,
+  mixed salads), else `generic`. The one dietary supplement is left out.
+- 4,237 foods, 4,231 with energy. Country `fi`, the use class as the
+  category; measured, verified, quality 1, `fetchedAt` the release's file
+  date (2019-08-08).
+
 ## Options
 
 | Option                                                                 |                                                                                                                                                                                                                                                                                                                        |
 | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--file <path>`                                                        | a local file instead of downloading (repeatable for `fdc`; the dataset is told by USDA's file name)                                                                                                                                                                                                                    |
-| `--dir <path>`                                                         | a folder of local files: USDA's or CoFID's files by name, or OFF delta files                                                                                                                                                                                                                                           |
+| `--dir <path>`                                                         | a folder of local files: USDA's or CoFID's files by name, OFF delta files, or an extracted CNF, CIQUAL or Fineli release                                                                                                                                                                                               |
 | `--dataset <list>`                                                     | `fdc`: `foundation,sr,fndds,branded` (default `foundation,sr,fndds`)                                                                                                                                                                                                                                                   |
 | `--limit <n>`                                                          | stop after n records: a sample                                                                                                                                                                                                                                                                                         |
 | `--dry-run`                                                            | run everything in transactions that are rolled back, and report what would change                                                                                                                                                                                                                                      |
@@ -173,6 +245,9 @@ of the six food tables, indexes included; per dataset from the per-row sizes):
 | `fdc` Foundation + SR Legacy                         | 7,970  | 198,085       | ≈ 42 MB    | 10 s / 9 s                                               |
 | `fdc` FNDDS                                          | 5,431  | 152,063       | ≈ 35 MB    | 7 s / 6 s                                                |
 | `cofid`                                              | 2,854  | 69,073        | ≈ 13 MB    | 5 s / 5 s                                                |
+| `cnf`                                                | 5,690  | 148,430       | ≈ 34 MB    | 13 s / 8 s                                               |
+| `ciqual`                                             | 3,341  | 66,419        | ≈ 14 MB    | 5 s / 4 s                                                |
+| `fineli`                                             | 4,231  | 113,795       | ≈ 28 MB    | 10 s / 6 s                                               |
 | `fdc --dataset branded --limit 5000` (sample)        | 4,941  | 51,244        | ≈ 15 MB    | 76 s / 77 s (70 s of it is the pass over the whole file) |
 | `off --file products.csv.gz --min-scans 20` (sample) | 27,111 | 226,565       | ≈ 70 MB    | 2.5 min to read all 4.9M rows                            |
 | **All food tables**                                  | 48,307 | 697,030       | **167 MB** |                                                          |
@@ -180,8 +255,8 @@ of the six food tables, indexes included; per dataset from the per-row sizes):
 Per row: about 156 bytes per nutrient value, 650 per food, 275 per serving,
 260 per source and 160 per barcode. So:
 
-- **USDA generic foods + CoFID (about 16k foods, 90 MB) fit Supabase Free
-  (500 MB)** next to the app's own data.
+- **USDA generic foods and the four national tables (about 30k foods,
+  170 MB) fit Supabase Free (500 MB)** next to the app's own data.
 - **USDA Branded** in full: about 1.6M products (2.0M rows, 390k of them
   older versions) at about 3 KB each: **4–5 GB**.
 - **Open Food Facts** in full: 2.7–3.7M products with a name and calories
@@ -206,6 +281,14 @@ branded`), then the same with `--full` to remove foods USDA dropped. The
   Action can run them by hand (Actions → Food data → Run workflow).
 - **CoFID**: when gov.uk publishes a new edition (none since 2021); update
   `COFID_URL` and `COFID_SHA256` in `src/sources/cofid.ts`.
+- **CNF and Fineli**: when a new edition comes out (Health Canada is
+  preparing CNF 2026), download it in a browser and replace the file in
+  `data/` (see [its README](data/README.md)).
+- **CIQUAL**: when ANSES publishes a new table, update the file ids and
+  SHA-256 in `CIQUAL_FILES` (`src/sources/ciqual.ts`).
+
+After a national table's new edition, run it with `--full` to remove foods
+it no longer lists.
 
 The Action needs a `DIRECT_URL` repository secret (Settings → Secrets and
 variables → Actions); without it, it succeeds with a notice and imports
@@ -229,8 +312,17 @@ nothing.
 - **CoFID**: "Contains public sector information licensed under the Open
   Government Licence v3.0. Source: Public Health England (2021) McCance and
   Widdowson's The Composition of Foods Integrated Dataset."
-- National tables to come (CNF, CIQUAL, Fineli): open licences, each to be
-  confirmed.
+- **CNF**: Open Government Licence – Canada. "Contains information
+  licensed under the Open Government Licence – Canada. Source: Canadian
+  Nutrient File 2015, Health Canada."
+- **CIQUAL**: Licence Ouverte / Open Licence 2.0 (Etalab), which asks for
+  the source and the date it was last updated: "ANSES-CIQUAL French food
+  composition table, 2025 version (Anses), last updated 19 November 2025."
+- **Fineli**: CC BY 4.0. "Finnish Institute for Health and Welfare (THL),
+  Fineli, the Finnish food composition database, release 20."
+
+All three credits are on the app's Food data sources screen
+(`apps/mobile/lib/foodSources.ts`).
 
 ## Tests
 
@@ -247,7 +339,7 @@ merge with or remove real imported foods. They import every fixture twice
 (the second run must change nothing) and check the Foundation/SR merge,
 scoped `--full` removals, obsolete OFF products and `--only-existing`.
 
-`fixtures/` holds small cuts of the real files (under 400 KB in all):
+`fixtures/` holds small cuts of the real files (under 600 KB in all):
 
 - `fdc/`: 7 Foundation foods (JSON, fields the importer doesn't read
   removed), 10 SR Legacy foods (a zip laid out like USDA's), 4 FNDDS foods,
@@ -258,4 +350,17 @@ scoped `--full` removals, obsolete OFF products and `--only-existing`.
   contributors, https://world.openfoodfacts.org;
 - `cofid/`: 39 foods of three CoFID sheets as CSV (the tests build the
   workbook from them): Open Government Licence v3.0, source Public Health
-  England (2021).
+  England (2021);
+- `cnf/`: 7 foods of the CNF 2015 files, as the release writes them
+  (Latin-1; a dish, a measure the release has no name for, vitamin D in IU
+  only): Open Government Licence – Canada, source Health Canada;
+- `fineli/`: 8 foods of Fineli release 20 (semicolons, Latin-1, CRLF; a
+  mixed dish, a recipe that isn't one, a food without energy, the dietary
+  supplement): CC BY 4.0, THL;
+- `ciqual/`: 9 foods of the CIQUAL 2025 XML (traces, values below the
+  lab's limit, salt without sodium, an entity in a name, a dish, a food
+  without energy), cut to the constituents read: Licence Ouverte 2.0,
+  Anses.
+
+The CNF and Fineli tests also read the whole releases in `data/` (a few
+seconds each), so a changed file fails them.

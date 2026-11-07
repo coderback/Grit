@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<TABLE>
+      <ALIM>
+      <alim_code> 1000 </alim_code>
+      <alim_nom_fr> Pastis </alim_nom_fr>
+      <alim_nom_eng> Pastis (anise-flavoured spirit) </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 1007 </alim_code>
+      <alim_nom_fr> Apéritif à base de vin ou vermouth </alim_nom_fr>
+      <alim_nom_eng> Wine-based aperitif </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 1010 </alim_code>
+      <alim_nom_fr> Pastis, prêt à boire (1+ 5) </alim_nom_fr>
+      <alim_nom_eng> Anise spirit, diluted (1+5) </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 1018 </alim_code>
+      <alim_nom_fr> Kir (vin blanc, crème de cassis) </alim_nom_fr>
+      <alim_nom_eng> Kir (white wine with blackcurrant liqueur) </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060304 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 2023 </alim_code>
+      <alim_nom_fr> Jus de mangue, frais </alim_nom_fr>
+      <alim_nom_eng> Mango juice, fresh </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0602 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060201 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 5002 </alim_code>
+      <alim_nom_fr> Bière forte (&gt;8° alcool) </alim_nom_fr>
+      <alim_nom_eng> Beer, strong (&gt;8° alcohol) </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060302 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 7603 </alim_code>
+      <alim_nom_fr> Croissant, sans précision (aliment moyen) </alim_nom_fr>
+      <alim_nom_eng> Croissant (average) </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 07 </alim_grp_code>
+      <alim_ssgrp_code> 0705 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 000000 </alim_ssssgrp_code>
+      <facteur_Jones> 5.7 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 25601 </alim_code>
+      <alim_nom_fr> Salade de thon et légumes, appertisée </alim_nom_fr>
+      <alim_nom_eng> Tuna salad, with vegetables, canned </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 01 </alim_grp_code>
+      <alim_ssgrp_code> 0101 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 000000 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 40109 </alim_code>
+      <alim_nom_fr> Foie, volaille, cuit </alim_nom_fr>
+      <alim_nom_eng> Liver, poultry, cooked </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 04 </alim_grp_code>
+      <alim_ssgrp_code> 0401 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 040108 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+</TABLE>

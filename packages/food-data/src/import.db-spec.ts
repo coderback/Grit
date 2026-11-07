@@ -2,7 +2,15 @@ import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import type { PoolClient } from 'pg';
-import { cofidJob, fdcJobs, offFileInput, offJob } from './jobs';
+import {
+  ciqualJob,
+  cnfJob,
+  cofidJob,
+  fdcJobs,
+  fineliJob,
+  offFileInput,
+  offJob,
+} from './jobs';
 import { runJob, type Job } from './run';
 import { testSchema } from './test-db';
 import { FIXTURES, writeCofidWorkbook } from './test-fixtures';
@@ -215,5 +223,71 @@ describe('importing the fixtures', () => {
     // 10 of the 11 products are in the database; Nutella isn't any more
     expect(stats).toMatchObject({ read: 10, foodsInserted: 0 });
     expect(changedAnything(stats)).toBe(false);
+  });
+});
+
+describe('importing the national tables', () => {
+  const national = () => [
+    cnfJob(join(FIXTURES, 'cnf')),
+    fineliJob(join(FIXTURES, 'fineli')),
+    ciqualJob(join(FIXTURES, 'ciqual')),
+  ];
+
+  it('imports CNF, Fineli and CIQUAL, and a second run changes nothing', async () => {
+    const first = await runAll(national());
+    // CNF 7, Fineli 7 (6 with energy), CIQUAL 9 (8 with energy)
+    expect(first).toMatchObject({ read: 23, skipped: 2, foodsInserted: 21 });
+    const second = await runAll(national());
+    expect(second.read).toBe(23);
+    expect(changedAnything(second)).toBe(false);
+  });
+
+  it('stores each table with its country, other names and servings', async () => {
+    const { rows } = await client.query(
+      `SELECT f.id, f.name, f.kind, f.countries, f.verified,
+              (SELECT amount FROM food_nutrients n WHERE n."foodId" = f.id AND nutrient = 'kcal') AS kcal,
+              (SELECT array_agg(lang || ':' || name ORDER BY lang) FROM food_names m WHERE m."foodId" = f.id) AS names,
+              (SELECT label FROM food_servings v WHERE v."foodId" = f.id AND typical) AS typical
+       FROM foods f WHERE f.id IN ('cnf_501999', 'fineli_1036', 'ciqual_7603')
+       ORDER BY f.id`,
+    );
+    expect(rows).toEqual([
+      {
+        id: 'ciqual_7603',
+        name: 'Croissant (average)',
+        kind: 'generic',
+        countries: ['fr'],
+        verified: true,
+        kcal: 417,
+        names: ['fr:Croissant, sans précision (aliment moyen)'],
+        typical: null,
+      },
+      {
+        id: 'cnf_501999',
+        name: 'Poutine',
+        kind: 'dish',
+        countries: ['ca'],
+        verified: true,
+        kcal: 226,
+        names: ['fr:Poutine'],
+        typical: '1 serving',
+      },
+      {
+        id: 'fineli_1036',
+        name: 'Rye bread, 51% rye',
+        kind: 'generic',
+        countries: ['fi'],
+        verified: true,
+        kcal: 250.1,
+        names: ['fi:Ruisleipä, ruista 51%', 'sv:Rågbröd, råg 51 %'],
+        typical: '1 piece',
+      },
+    ]);
+    // Other names are searched too
+    expect(
+      await count(
+        `SELECT count(*)::int AS n FROM foods WHERE "searchText" LIKE '%ruisleipa%'`,
+      ),
+    ).toBe(1);
   });
 });

@@ -244,5 +244,9 @@ completed with a lawyer.*
   - **UK CoFID (Open Government Licence v3.0)**, imported with the required
     statement in the app.
   - **USDA FoodData Central** is public domain; credited as a courtesy.
-  - **Canada's CNF (OGL – Canada), France's CIQUAL (Licence Ouverte) and
-    Finland's Fineli (CC BY 4.0):** confirm each before they're imported.
+  - **Canada's CNF (Open Government Licence – Canada), France's CIQUAL
+    (Licence Ouverte / Open Licence 2.0) and Finland's Fineli (CC BY
+    4.0):** open licences that allow commercial use and redistribution
+    with attribution, given in the app with the wording each asks for
+    (CIQUAL's includes the date it was last updated). CNF's and Fineli's
+    release files are kept unchanged in the repository.

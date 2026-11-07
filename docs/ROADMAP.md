@@ -229,7 +229,12 @@ writing is on.
   - Open Food Facts: the full export, or a filtered one, and a daily job
     for its changes. Only label values are kept; OFF's own estimates from
     ingredients are left out;
-  - the UK's CoFID (2,854 foods);
+  - the national tables of the UK (CoFID, 2,854 foods), Canada (CNF 2015,
+    5,690), France (CIQUAL 2025, 3,341) and Finland (Fineli, 4,231), with
+    their French, Finnish and Swedish names, so "ruisleipä" finds rye
+    bread. Health Canada's and Fineli's sites refuse servers, so their
+    release files are kept in the repository (`packages/food-data/data`);
+    CIQUAL comes from Recherche Data Gouv;
   - the same product from two sources is one food, showing the better
     source (government tables, then manufacturers, then Open Food Facts).
 - **Search** runs on GRIT's own data:
@@ -240,7 +245,9 @@ writing is on.
     scanned (the "core") are always searched in full; the millions of
     other products are sampled, so common words stay fast;
   - ranked by the user's own foods (logged, favourite, remembered), then
-    their country's, how closely the name matches, quality and popularity;
+    their country's, how closely any of a food's names matches, quality
+    and popularity, with one result per name and brand (so 60 products
+    called "Baguette" don't hide the French table's baguette);
   - results show the typical serving and a "Verified" label for
     government and manufacturer data;
   - p95 of 131 ms on 3.4 million foods, locally with the full Open Food
@@ -273,8 +280,8 @@ writing is on.
 
 **After deploying Phase 7:** apply the migration to Supabase. Add the
 `DIRECT_URL` repository secret (Supabase's session pooler, port 5432), then
-run the Food data workflow for `fdc` and `cofid`. Together they take about
-90 MB, within the Free plan. Until then search falls back to Open Food
+run the Food data workflow for `fdc`, `cofid`, `cnf`, `ciqual` and
+`fineli`. Together they take about 170 MB, within the Free plan. Until then search falls back to Open Food
 Facts live, and only scanned products carry micronutrients. The daily job
 then keeps saved Open Food Facts products up to date. Deploy the backend
 before the app: the app sends new fields that older backends reject.
@@ -289,9 +296,6 @@ before the app: the app sends new fields that older backends reject.
   first searches after a database restart time out (2.5 s) until its cache
   warms up (seen locally on 3.4 million foods); they fall back to the live
   search meanwhile.
-- Canada's CNF, France's CIQUAL and Finland's Fineli: their sites couldn't
-  be downloaded from the server (no response, maintenance, a bot check), so
-  their importers wait for the files.
 - Open Food Facts' licence (ODbL) review by a lawyer (decision 3): the
   barcode lookup already saves the products it finds, and every saved row
   is marked with its source, so they can all be removed in one step.
@@ -355,9 +359,11 @@ Ordered from easiest to hardest, each phase is released on its own:
 - Food database (Phase 7):
   - add the `DIRECT_URL` repository secret in GitHub (Supabase → Connect →
     Session pooler, port 5432, with the database password), then run the
-    Food data workflow for `fdc` and then `cofid`;
+    Food data workflow for `fdc`, then `cofid`, `cnf`, `ciqual` and
+    `fineli`;
   - decide on Supabase Pro and filters before importing all of Open Food
     Facts and USDA's branded products (12–14 GB as stored now);
   - have a lawyer review the Open Food Facts licence (decision 3);
-  - download Canada's CNF, France's CIQUAL and Finland's Fineli files in a
-    browser (their sites block servers) so their importers can be built.
+  - when Health Canada publishes CNF 2026, or Fineli a new release,
+    download it in a browser and replace the file in
+    `packages/food-data/data` (their sites block servers).

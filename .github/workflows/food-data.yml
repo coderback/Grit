@@ -2,8 +2,8 @@ name: Food data
 
 # Imports into GRIT's food database (packages/food-data). Runs by hand for
 # full imports (USDA after each release, twice a year; Open Food Facts;
-# CoFID), and daily for Open Food Facts' changes to products already in the
-# database. Needs the DIRECT_URL repository secret: a session-mode
+# the national tables: CoFID, CNF, CIQUAL, Fineli), and daily for Open Food
+# Facts' changes to products already in the database. Needs the DIRECT_URL repository secret: a session-mode
 # connection, not Supabase's transaction pooler on port 6543 (see the
 # package README). Without it, the workflow does nothing.
 
@@ -13,7 +13,7 @@ on:
       source:
         description: What to import
         type: choice
-        options: [off-delta, fdc, off, cofid]
+        options: [off-delta, fdc, off, cofid, cnf, ciqual, fineli]
         default: off-delta
       options:
         description: 'Options, e.g. "--dataset foundation,sr,fndds --full", "--min-scans 5 --countries gb,us", "--only-existing", "--dry-run"'

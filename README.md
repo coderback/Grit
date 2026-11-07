@@ -12,7 +12,7 @@ grit/
 │   └── mobile/          # Expo (React Native) app
 └── packages/
     ├── backend/         # NestJS REST API
-    └── food-data/       # Importers for GRIT's food database (USDA, Open Food Facts, UK CoFID)
+    └── food-data/       # Importers for GRIT's food database (USDA, Open Food Facts, national tables)
 ```
 
 ---
@@ -245,7 +245,7 @@ A cloud instance can't run a simulator. Use it for type-checking and linting, or
 
 ### Food data
 
-GRIT's food database is filled by the importers in [`packages/food-data`](./packages/food-data/README.md): USDA FoodData Central (public domain), Open Food Facts (ODbL) and the UK's CoFID (Open Government Licence). Each is idempotent, so a re-run changes nothing. The [Food data workflow](./.github/workflows/food-data.yml) runs them against the database in the `DIRECT_URL` repository secret: by hand for full imports, and daily for Open Food Facts' changes. Sources are credited in the app under Profile → Food data sources.
+GRIT's food database is filled by the importers in [`packages/food-data`](./packages/food-data/README.md): USDA FoodData Central (public domain), Open Food Facts (ODbL) and the national tables of the UK (CoFID, Open Government Licence), Canada (CNF, OGL – Canada), France (CIQUAL, Licence Ouverte) and Finland (Fineli, CC BY 4.0). Each is idempotent, so a re-run changes nothing. The [Food data workflow](./.github/workflows/food-data.yml) runs them against the database in the `DIRECT_URL` repository secret: by hand for full imports, and daily for Open Food Facts' changes. Sources are credited in the app under Profile → Food data sources.
 
 ---
 

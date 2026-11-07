@@ -31,6 +31,7 @@ async function seed(
     servings?: { label: string; grams: number; typical?: boolean }[];
     extra?: Record<string, number>;
     basis?: string;
+    names?: { name: string; lang: string }[];
   } = {},
 ) {
   const nutrients = {
@@ -51,7 +52,12 @@ async function seed(
       quality: over.quality ?? 1,
       popularity: over.popularity ?? 0,
       verified: over.verified ?? true,
-      searchText: searchTextOf(name, over.brand),
+      searchText: searchTextOf(
+        name,
+        over.brand,
+        over.names?.map((n) => n.name),
+      ),
+      names: over.names ? { create: over.names } : undefined,
       barcodes: over.barcode ? { create: { code: over.barcode } } : undefined,
       servings: over.servings ? { create: over.servings } : undefined,
       nutrients: {
@@ -224,6 +230,55 @@ describe('food database search', () => {
       mine: true,
     });
     expect(results[1]).toMatchObject({ foodId: 'test_pie', mine: true });
+  });
+});
+
+describe('search across many products and languages', () => {
+  it('shows one product per name and brand, so other foods still fit', async () => {
+    // 60 products with one name would fill every place before
+    for (let i = 0; i < 60; i++) {
+      await seed(`test_quib_${i}`, 'Quibbet', {
+        kind: 'branded',
+        source: 'off',
+        countries: ['fr'],
+        quality: 0.6,
+        verified: false,
+        basis: 'label',
+      });
+    }
+    await seed('test_quib_ciqual', 'Bread, French bread, quibbet', {
+      source: 'ciqual',
+      countries: ['fr'],
+    });
+    const results = await foodDb.search('quibbet', { country: 'FR' });
+    expect(results.filter((r) => r.name === 'Quibbet')).toHaveLength(1);
+    expect(results.map((r) => r.foodId)).toContain('test_quib_ciqual');
+  });
+
+  it("ranks a food by its name in the user's language too", async () => {
+    await seed('test_zorp_ciqual', 'Chocolate zorpleck, from bakery', {
+      source: 'ciqual',
+      countries: ['fr'],
+      names: [{ name: 'Zorpleck au chocolat, artisanal', lang: 'fr' }],
+    });
+    // A product named exactly what's typed
+    await seed('test_zorp_off', 'Zorpleck au chocolat', {
+      kind: 'branded',
+      source: 'off',
+      countries: ['fr'],
+      quality: 0.6,
+      verified: false,
+      basis: 'label',
+    });
+    const results = await foodDb.search('zorpleck au chocolat', {
+      country: 'FR',
+    });
+    // The French table's food, found by its French name, leads (a near
+    // miss search adds real products after these two)
+    expect(results.slice(0, 2).map((r) => r.foodId)).toEqual([
+      'test_zorp_ciqual',
+      'test_zorp_off',
+    ]);
   });
 });
 
