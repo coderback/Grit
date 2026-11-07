@@ -285,7 +285,10 @@ before the app: the app sends new fields that older backends reject.
   them, decide on the plan and on filters (scans, countries), or store each
   food's nutrients in one column instead of one row per value. Until then
   `FOOD_LIVE_SEARCH` stays on its default, so search asks Open Food Facts
-  live when GRIT's database finds fewer than 5 results.
+  live when GRIT's database finds fewer than 5 results. At that size, the
+  first searches after a database restart time out (2.5 s) until its cache
+  warms up (seen locally on 3.4 million foods); they fall back to the live
+  search meanwhile.
 - Canada's CNF, France's CIQUAL and Finland's Fineli: their sites couldn't
   be downloaded from the server (no response, maintenance, a bot check), so
   their importers wait for the files.
