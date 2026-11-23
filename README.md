@@ -239,6 +239,18 @@ A cloud instance can't run a simulator. Use it for type-checking and linting, or
 
 [`packages/backend/railway.toml`](./packages/backend/railway.toml) builds with Nixpacks (`npm run build`) and starts `node dist/main`. Set the root directory to `packages/backend`, add the env vars above in Railway, and run `npx prisma migrate deploy` before or as part of each release. Railway's health check calls `GET /health`, which also checks the database.
 
+### Running the backend as a container
+
+[`packages/backend/Dockerfile`](./packages/backend/Dockerfile) builds the same API as an image for any host that runs containers (Railway itself still uses Nixpacks):
+
+```bash
+cd packages/backend
+docker build -t grit-backend .
+docker run --rm -p 3000:3000 --env-file .env grit-backend
+```
+
+The image runs `node dist/main` as a non-root user, includes `data/` (the exercise library is read from disk), and never contains `.env`. Migrations are not run on start; run `npx prisma migrate deploy` as a separate release step.
+
 ### CI
 
 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) runs on every pull request and push to `main`: the backend job applies the migrations to a throwaway Postgres, checks they match the schema, and runs prettier, eslint, tsc, unit tests, database tests and the build; the mobile job runs tsc, eslint and unit tests; the food-data job runs the importers' lint, typecheck, unit tests and database tests.
